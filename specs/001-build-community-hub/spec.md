@@ -39,10 +39,21 @@
 
 ---
 
+## Core Concept: Two-Phase QR Code Lifecycle
+
+### Phase 1: Setup Phase (Fresh QR)
+When a QR code is scanned for the first time, it enters setup phase where the first scanner claims ownership and establishes the community. This person automatically becomes the founding admin with full control over the community settings.
+
+### Phase 2: Join Phase (Established Community)
+After initial setup, all subsequent scans enter join phase where visitors receive an invitation to join the established community. They must prove physical presence through dual verification before gaining access.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### Primary User Story
 A person visits a local café and notices a QR code posted on the community board. They scan it with their phone, creating a new hyperlocal community for that café. As the first scanner, they become the admin. Other café visitors scan the same QR code, verify their physical presence by taking a photo showing the QR code and passing the geofence check, and join the community. Members can continue chatting and participating in the community even after leaving the café, but new members must be physically present to join.
+
+### Travel & Discovery Pattern
+A traveler visiting Oslo discovers a QR code at a popular coffee shop. They scan it, take a photo showing the QR in its physical location, and join the local community. After returning home to New York, they maintain their membership and can continue participating in discussions, sharing experiences, and connecting with other people who've visited that same Oslo café. This creates lasting connections between people who've shared the same physical spaces.
 
 ### Acceptance Scenarios
 1. **Given** a fresh QR code that has never been scanned, **When** a user scans it, **Then** a new community is created with a stable ID and the scanner becomes the admin
@@ -62,6 +73,43 @@ A person visits a local café and notices a QR code posted on the community boar
 - How does system handle photo manipulation attempts? Photo must clearly show the physical QR code at the location
 - What happens if network connection is lost during join? Join must complete on-site with live connection; no deferred completion
 - How are community name conflicts handled? Each community has a unique stable ID regardless of name
+
+## Community Administration & Governance
+
+### Admin Establishment
+The first person to scan a fresh QR code becomes the founding administrator with complete control over the community. This ownership model ensures every community has a clear leader from inception who was physically present at the location.
+
+### Admin Capabilities
+- **Community Settings**: Rename community, update description, establish community rules
+- **Member Management**: View member list, remove disruptive members, review join requests if moderation enabled
+- **Moderation Tools**: Mute members temporarily, ban users permanently (by Nostr pubkey), unban previously banned users
+- **Admin Hierarchy**: Promote trusted members to co-admin status, demote co-admins if needed, transfer primary ownership
+
+### Spam Prevention & Moderation
+Communities naturally resist spam through the physical presence requirement, but admins have additional tools to maintain quality:
+- Ban disruptive users by their Nostr pubkey (prevents rejoin attempts)
+- Mute members for temporary infractions
+- Set community rules visible to all members
+- Remove content that violates community standards
+
+## Anti-Spam & Physical Presence Verification
+
+### Dual-Factor Presence Validation
+The system prevents remote access sharing through two mandatory verification mechanisms that must both pass:
+
+1. **Photo Verification**: Users must capture a real-time photo showing the physical QR code in its actual location. This prevents screenshot sharing and ensures the person is physically present to see the QR code.
+
+2. **Geofence Validation**: Device GPS must report position within 25 meters of the QR's registered coordinates with horizontal accuracy ≤20 meters. These hardcoded thresholds account for typical smartphone GNSS error while preventing remote joins.
+
+### Technical Measures Against Fraud
+- **Photo Analysis**: System verifies the QR code is clearly visible in the submitted photo
+- **Location Spoofing Detection**: Cross-references GPS data with expected accuracy patterns
+- **Timestamp Validation**: Ensures photo and location data are captured simultaneously
+- **One-Time Verification**: Each join attempt requires fresh photo and location data
+- **No Screenshot Loophole**: System detects and rejects images taken of screens/photos
+
+### Why Physical Presence Matters
+This dual verification creates a community of people who've genuinely shared the same physical space, establishing higher trust and authenticity than purely digital communities. The effort required to join naturally filters out spam and creates meaningful local connections.
 
 ## Requirements *(mandatory)*
 
@@ -99,6 +147,61 @@ A person visits a local café and notices a QR code posted on the community boar
 - **Verification Record**: Proof of presence consisting of pass/fail result and coarse location bucket (raw data discarded)
 - **Admin Action**: Moderation events like promote, demote, remove, mute, ban, tied to admin's pubkey
 - **Ban Record**: Prohibition of specific pubkey from rejoining community, can be reversed by admin
+
+## QR Code Distribution & Placement Context
+
+### Distribution Methods
+- **Printable Stickers**: Downloadable QR designs optimized for weather-resistant sticker printing
+- **Digital Templates**: PDF/PNG files for businesses to print and laminate
+- **Physical Ordering**: Option to order pre-printed waterproof stickers for venues
+- **Event Materials**: Temporary QR codes for conferences, festivals, and gatherings
+
+### Strategic Placement Scenarios
+- **Businesses**: Coffee shops, restaurants, bars, bookstores - creating customer communities
+- **Public Spaces**: Parks, libraries, community centers - fostering local civic engagement
+- **Events**: Conferences, concerts, meetups - connecting attendees beyond the event
+- **Buildings**: Apartment complexes, offices - building neighbor/colleague networks
+- **Tourist Spots**: Landmarks, museums - linking travelers who've visited same places
+
+### Placement Considerations
+QR codes should be placed where they're easily discoverable but not intrusive, at eye level when possible, protected from weather if outdoors, and in locations where people naturally gather or pause. The physical placement becomes part of the community's identity and story.
+
+## Privacy & Trust Benefits
+
+### Higher Trust Through Physical Verification
+Physical presence requirements create an inherent trust layer absent in purely digital communities. Members know that everyone in the community has genuinely visited the same location, creating shared experience and reducing anonymous trolling behavior.
+
+### Natural Spam Resistance
+The effort required to physically visit a location and complete dual verification naturally filters out:
+- Bot accounts and automated spam
+- Mass marketing attempts
+- Drive-by trolling
+- Low-effort disruption
+
+### Privacy-First Design
+- **Data Minimization**: Raw GPS coordinates and photos are discarded immediately after verification
+- **Coarse Location Storage**: Only general area buckets stored, not precise locations
+- **Verification Artifacts**: Members can request deletion of their verification records
+- **No Tracking**: System doesn't track member movements or location history
+- **Decentralized Identity**: Nostr-based identity means no central authority controls user accounts
+
+### Community Value Proposition
+Communities formed through shared physical presence have stronger bonds than purely digital groups. The verification friction is a feature, not a bug - it ensures quality over quantity and creates communities of people with genuine shared experiences.
+
+## Scope Clarifications
+
+### Community Persistence
+Once a user successfully joins a community by proving physical presence, they maintain permanent access regardless of their current location. A member who joined an Oslo café community can participate from anywhere in the world. The physical presence requirement applies only at the moment of joining, not for ongoing participation.
+
+### Nostr Ecosystem Integration
+By using Nostr for identity, Peek communities become part of the larger decentralized social web:
+- **Portable Identity**: Users bring their existing Nostr identity or create one within Peek
+- **No Platform Lock-in**: Communities aren't controlled by a single company
+- **Interoperability**: Potential for cross-app community participation
+- **Censorship Resistance**: Decentralized architecture prevents single-point takedowns
+- **User Sovereignty**: Users own their identity and can't be deplatformed
+
+This positions Peek as a physical-first entry point into the decentralized social ecosystem, bridging real-world locations with digital communities in a trust-minimized way.
 
 ---
 
