@@ -13,7 +13,11 @@
     "build:validation": "cd packages/validation-service && cargo build --release",
     "test": "pnpm run --recursive test",
     "lint": "pnpm run --recursive lint",
-    "typecheck": "pnpm run --recursive typecheck"
+    "typecheck": "pnpm run --recursive typecheck",
+    "relay:start": "docker-compose up -d",
+    "relay:stop": "docker-compose down",
+    "relay:logs": "docker-compose logs -f groups_relay",
+    "clean": "pnpm run --recursive clean && cargo clean --manifest-path packages/validation-service/Cargo.toml"
   },
   "devDependencies": {
     "@types/node": "^20.10.0"

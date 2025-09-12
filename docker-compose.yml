@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  groups_relay:
+    image: ghcr.io/verse-pbc/groups_relay:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - RELAY_NAME=Peek Local Relay
+      - RELAY_DESCRIPTION=Local development relay for Peek communities
+      - RELAY_PUBKEY=${RELAY_ADMIN_NPUB:-npub1...}
+      - RELAY_PRIVKEY=${RELAY_ADMIN_NSEC:-nsec1...}
+      - DATABASE_URL=postgres://peek:peek@postgres:5432/peek_relay
+    depends_on:
+      - postgres
+    volumes:
+      - relay_data:/app/data
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=peek
+      - POSTGRES_PASSWORD=peek
+      - POSTGRES_DB=peek_relay
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  relay_data:
+  postgres_data:
