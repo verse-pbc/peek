@@ -23,9 +23,6 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.9.0
         version: 3.10.0(react-hook-form@7.62.0)
-      '@nostrify/nostrify':
-        specifier: ^0.46.11
-        version: 0.46.11(typescript@5.9.2)
       '@peek/shared':
         specifier: workspace:*
         version: link:../../shared
@@ -256,8 +253,8 @@ importers:
         specifier: ^6.3.5
         version: 6.3.6(@types/node@22.18.1)
       vite-plugin-pwa:
-        specifier: ^0.17.4
-        version: 0.17.5(vite@6.3.6)(workbox-build@7.3.0)(workbox-window@7.3.0)
+        specifier: ^1.0.3
+        version: 1.0.3(vite@6.3.6)(workbox-build@7.3.0)(workbox-window@7.3.0)
       vitest:
         specifier: ^3.1.4
         version: 3.2.4(@types/node@22.18.1)(jsdom@26.1.0)
@@ -1854,10 +1851,6 @@ packages:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  /@jsr/std__encoding@0.224.3:
-    resolution: {integrity: sha512-zAuX2QV1zwJ5RSmrnDGVerAtN3pBXpYYNlGzhERW9AiQ1UJd2/xruyB3i5NdTWy2OK2pjETswOj+0+prYTPlxQ==, tarball: https://npm.jsr.io/~/11/@jsr/std__encoding/0.224.3.tgz}
-    dev: false
-
   /@noble/ciphers@0.5.3:
     resolution: {integrity: sha512-B0+6IIHiqEs3BPMT0hcRmHvEj2QHOLu+uwt+tqDDeVd0oyVzh7BPrDcPjRnV1PV/5LaknXJJQvOuRGR0zQJz+w==}
     dev: false
@@ -1901,28 +1894,6 @@ packages:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
-
-  /@nostrify/nostrify@0.46.11(typescript@5.9.2):
-    resolution: {integrity: sha512-LQrmJXzj/ZOphzgmtC3SJBTM6HzjHL2dz0JSytFR3xh9aTeR8hPYqI6HTShF+SEF/NWzwrn3v7Xj+nDIZaZ1wQ==}
-    dependencies:
-      '@nostrify/types': 0.36.7
-      '@scure/base': 1.2.6
-      '@std/encoding': /@jsr/std__encoding@0.224.3
-      '@types/node': 24.3.1
-      lru-cache: 10.4.3
-      nostr-tools: 2.16.2(typescript@5.9.2)
-      websocket-ts: 2.2.1
-      ws: 8.18.3
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - bufferutil
-      - typescript
-      - utf-8-validate
-    dev: false
-
-  /@nostrify/types@0.36.7:
-    resolution: {integrity: sha512-Jdf2eWdIzonMzic/st4ltre7XIcXVNTjmcbKpw4xGEfNmoq2Y4wj8KcSB6s0TUqxcLEyiXnyGP8EDx/gEVri9A==}
-    dev: false
 
   /@pkgjs/parseargs@0.11.0:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3389,10 +3360,6 @@ packages:
     resolution: {integrity: sha512-ZxOhsSyxYwLJj3pLZCefNitxsj093tb2vq90mp2txoYeBqbcjDjqFhyM8eUjq/uFm6zJ+mUuqxlS2FkuSY1MTA==}
     dev: false
 
-  /@scure/base@1.2.6:
-    resolution: {integrity: sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg==}
-    dev: false
-
   /@scure/bip32@1.3.1:
     resolution: {integrity: sha512-osvveYtyzdEVbt3OfwwXFr4P2iVBL5u1Q3q4ONBfDY/UpOuXmOlbgwc1xECEboY8wIays8Yt6onaWMUdUbfl0A==}
     dependencies:
@@ -3710,12 +3677,6 @@ packages:
     dependencies:
       undici-types: 6.21.0
     dev: true
-
-  /@types/node@24.3.1:
-    resolution: {integrity: sha512-3vXmQDXy+woz+gnrTvuvNrPzekOi+Ds0ReMxw0LzBiK3a+1k0kQn9f2NWk+lgD4rJehFUmYy2gMhJ2ZI+7YP9g==}
-    dependencies:
-      undici-types: 7.10.0
-    dev: false
 
   /@types/prop-types@15.7.15:
     resolution: {integrity: sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw==}
@@ -7257,10 +7218,6 @@ packages:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
     dev: true
 
-  /undici-types@7.10.0:
-    resolution: {integrity: sha512-t5Fy/nfn+14LuOc2KNYg75vZqClpAiqscVvMygNnlsHBFpSXdJaYtXMcdNLpl/Qvc3P2cB3s6lOV51nqsFq4ag==}
-    dev: false
-
   /unhead@2.0.14:
     resolution: {integrity: sha512-dRP6OCqtShhMVZQe1F4wdt/WsYl2MskxKK+cvfSo0lQnrPJ4oAUQEkxRg7pPP+vJENabhlir31HwAyHUv7wfMg==}
     dependencies:
@@ -7444,17 +7401,21 @@ packages:
       - yaml
     dev: true
 
-  /vite-plugin-pwa@0.17.5(vite@6.3.6)(workbox-build@7.3.0)(workbox-window@7.3.0):
-    resolution: {integrity: sha512-UxRNPiJBzh4tqU/vc8G2TxmrUTzT6BqvSzhszLk62uKsf+npXdvLxGDz9C675f4BJi6MbD2tPnJhi5txlMzxbQ==}
+  /vite-plugin-pwa@1.0.3(vite@6.3.6)(workbox-build@7.3.0)(workbox-window@7.3.0):
+    resolution: {integrity: sha512-/OpqIpUldALGxcsEnv/ekQiQ5xHkQ53wcoN5ewX4jiIDNGs3W+eNcI1WYZeyOLmzoEjg09D7aX0O89YGjen1aw==}
     engines: {node: '>=16.0.0'}
     peerDependencies:
-      vite: ^3.1.0 || ^4.0.0 || ^5.0.0
-      workbox-build: ^7.0.0
-      workbox-window: ^7.0.0
+      '@vite-pwa/assets-generator': ^1.0.0
+      vite: ^3.1.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
+      workbox-build: ^7.3.0
+      workbox-window: ^7.3.0
+    peerDependenciesMeta:
+      '@vite-pwa/assets-generator':
+        optional: true
     dependencies:
       debug: 4.4.1
-      fast-glob: 3.3.3
       pretty-bytes: 6.1.1
+      tinyglobby: 0.2.15
       vite: 6.3.6(@types/node@22.18.1)
       workbox-build: 7.3.0
       workbox-window: 7.3.0
@@ -7605,10 +7566,6 @@ packages:
 
   /webpack-virtual-modules@0.6.2:
     resolution: {integrity: sha512-66/V2i5hQanC51vBQKPH4aI8NMAcBW59FVBs+rC7eGHupMyfn34q7rZIE+ETlJ+XTevqfUhVVBgSUNSW2flEUQ==}
-    dev: false
-
-  /websocket-ts@2.2.1:
-    resolution: {integrity: sha512-YKPDfxlK5qOheLZ2bTIiktZO1bpfGdNCPJmTEaPW7G9UXI1GKjDdeacOrsULUS000OPNxDVOyAuKLuIWPqWM0Q==}
     dev: false
 
   /whatwg-encoding@3.1.1:
@@ -7903,6 +7860,7 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+    dev: true
 
   /xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
