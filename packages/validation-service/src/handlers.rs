@@ -5,12 +5,13 @@ use axum::{
     Json,
 };
 use tracing::{debug, error};
+use uuid::Uuid;
 
 use crate::{
     config::Config,
     models::{
         CommunityPreviewRequest, CommunityPreviewResponse, ValidateLocationRequest,
-        ValidateLocationResponse,
+        ValidateLocationResponse, LocationPoint, LocationInfo,
     },
     services,
 };
@@ -29,37 +30,31 @@ pub async fn validate_location(
 ) -> Result<Json<ValidateLocationResponse>, StatusCode> {
     debug!("Validating location for community: {}", request.community_id);
 
+    // First validate the location proof itself
+    if let Err(e) = request.location_proof.validate() {
+        return Ok(Json(ValidateLocationResponse::error(e.to_string())));
+    }
+
+    // TODO: Get actual community location from relay
+    // For now, use a mock location
+    let community_location = LocationPoint {
+        latitude: 37.7749,
+        longitude: -122.4194,
+    };
+
     // Validate location is within range
     let distance = services::location::calculate_distance(
-        &request.qr_data.location,
-        &request.location.coordinates,
+        &community_location,
+        &request.location_proof.coordinates,
     );
 
     debug!("Distance from QR location: {} meters", distance);
 
     if distance > config.max_distance_meters {
-        return Ok(Json(ValidateLocationResponse {
-            success: false,
-            invite_code: None,
-            error: Some(format!(
-                "Too far from location. You are {:.1}m away, must be within {:.0}m",
-                distance, config.max_distance_meters
-            )),
-            requires_photo_proof: None,
-        }));
-    }
-
-    // Check GPS accuracy
-    if request.location.accuracy > config.max_accuracy_meters {
-        return Ok(Json(ValidateLocationResponse {
-            success: false,
-            invite_code: None,
-            error: Some(format!(
-                "GPS accuracy too low. Current: {:.1}m, required: {:.0}m or better",
-                request.location.accuracy, config.max_accuracy_meters
-            )),
-            requires_photo_proof: None,
-        }));
+        return Ok(Json(ValidateLocationResponse::error(format!(
+            "You must be at the location to join this community. Distance: {:.1}m",
+            distance
+        ))));
     }
 
     // Create NIP-29 invite
@@ -70,37 +65,42 @@ pub async fn validate_location(
     )
     .await
     {
-        Ok(invite_code) => Ok(Json(ValidateLocationResponse {
-            success: true,
-            invite_code: Some(invite_code),
-            error: None,
-            requires_photo_proof: Some(false), // Future enhancement
-        })),
+        Ok(invite_code) => {
+            let expires_at = chrono::Utc::now().timestamp() + config.invite_expiry_seconds as i64;
+            Ok(Json(ValidateLocationResponse::success(
+                invite_code,
+                config.relay_url.clone(),
+                expires_at,
+            )))
+        }
         Err(e) => {
             error!("Failed to create invite: {}", e);
-            Ok(Json(ValidateLocationResponse {
-                success: false,
-                invite_code: None,
-                error: Some("Failed to create invite".to_string()),
-                requires_photo_proof: None,
-            }))
+            Ok(Json(ValidateLocationResponse::error(
+                "Failed to create invite".to_string()
+            )))
         }
     }
 }
 
 pub async fn community_preview(
-    State(config): State<Config>,
+    State(_config): State<Config>,
     Query(request): Query<CommunityPreviewRequest>,
 ) -> Result<Json<CommunityPreviewResponse>, StatusCode> {
-    debug!("Getting preview for community: {}", request.community_id);
+    debug!("Getting preview for community: {}", request.id);
 
     // TODO: Query relay for community metadata
     // For now, return mock data
     Ok(Json(CommunityPreviewResponse {
-        name: format!("Community {}", request.community_id),
+        id: request.id,
+        name: format!("Community {}", request.id),
         description: Some("A location-based community".to_string()),
-        member_count: 0,
-        requires_location: true,
-        distance_from_venue: None,
+        member_count: 42,
+        location: LocationInfo {
+            name: "SF Coffee House".to_string(),
+            latitude: 37.7749,
+            longitude: -122.4194,
+        },
+        created_at: chrono::Utc::now().to_rfc3339(),
+        error: None,
     }))
 }
