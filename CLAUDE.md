@@ -5,9 +5,10 @@ Peek is a location-based community platform where physical QR codes create hyper
 
 ## Tech Stack
 - **Frontend**: MKStack (Vite, React, TypeScript, Tailwind CSS)
-- **Backend**: Node.js, Fastify, Redis
-- **Protocol**: Nostr (NIP-29 groups)
-- **Libraries**: nostr-tools, @zxing/library, geolib
+- **Backend**: Rust (Axum web framework), Redis
+- **Relay**: verse-pbc/groups_relay (NIP-29 implementation)
+- **Protocol**: Nostr (NIP-29 groups with invitations)
+- **Libraries**: nostr-tools, @zxing/library (JS), geo crate, jsonwebtoken (Rust)
 
 ## Project Structure
 ```
@@ -19,12 +20,14 @@ packages/
 │   │   ├── services/    # API clients, relay connection
 │   │   └── lib/         # QR scanner, utilities
 │   └── tests/
-└── validation-service/  # Location validation backend
+└── validation-service/  # Rust location validation backend
     ├── src/
-    │   ├── api/         # Fastify routes
+    │   ├── handlers/    # Axum route handlers
     │   ├── services/    # Business logic
+    │   ├── models/      # Data structures
     │   └── lib/         # location-check, token-issuer
-    └── tests/
+    ├── tests/
+    └── Cargo.toml
 ```
 
 ## Key Features
@@ -35,9 +38,15 @@ packages/
 5. **Persistent Access**: Members keep access after leaving location
 
 ## API Endpoints
-- `POST /api/validate-location` - Verify physical presence
-- `POST /api/verify-join` - Exchange token for group invite  
+- `POST /api/validate-location` - Verify physical presence, get JWT token
+- `POST /api/verify-join` - Exchange JWT for NIP-29 invite code
 - `GET /api/community/{id}/preview` - Public community info
+
+## Token Flow
+1. User proves location → receives JWT validation token
+2. JWT exchanged for NIP-29 invite code via validation service  
+3. Client sends kind:9021 with invite code to groups_relay
+4. Relay accepts invite and adds user to group
 
 ## Core Constraints
 - Location validation: 25m radius, 20m GPS accuracy (hardcoded)
@@ -54,7 +63,7 @@ npm run generate-qr     # Create test QR code
 
 # Individual packages
 cd packages/pwa-client && npm run dev
-cd packages/validation-service && npm run dev
+cd packages/validation-service && cargo run
 ```
 
 ## Testing Approach

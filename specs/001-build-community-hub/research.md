@@ -19,43 +19,51 @@
 - Native apps: Higher barrier to entry, slower iteration
 
 ### 2. NIP-29 Relay Integration
-**Decision**: Use strfry relay with NIP-29 support  
+**Decision**: Use verse-pbc/groups_relay (our existing implementation)  
 **Rationale**:
-- Built-in group management primitives
-- Access control at relay level
-- Proven implementation, actively maintained
-- Supports moderation actions natively
+- Already deployed and maintained by our team
+- Full NIP-29 support with invitation system
+- Customizable for our specific needs
+- Direct control over relay behavior
 
 **Alternatives considered**:
-- Custom relay: Unnecessary complexity for MVP
-- NIP-28 channels: Less mature, fewer implementations
+- strfry: Would require additional setup when we have our own
+- Custom relay from scratch: Unnecessary when groups_relay exists
 - Traditional backend: Defeats decentralization purpose
 
 ### 3. Location Validation Approach
-**Decision**: Server-side validation with geolib  
+**Decision**: Rust validation service with geo crate  
 **Rationale**:
+- Rust preferred for server-side tooling
 - Prevents client-side tampering
-- Consistent distance calculations
-- Well-tested haversine implementation
+- geo crate provides accurate haversine calculations
 - Simple 25m radius check
+- High performance for concurrent validations
 
 **Alternatives considered**:
+- Node.js service: Less performant, not our server preference
 - Client-only: Too easy to spoof
 - Third-party APIs: Unnecessary dependency, privacy concerns
-- Complex geofencing: Over-engineered for MVP
 
-### 4. Token Strategy
-**Decision**: JWT with 5-minute expiry  
+### 4. Token & Invitation Strategy
+**Decision**: Two-phase system - JWT validation token + NIP-29 invite code  
 **Rationale**:
-- Simpler than Paseto for this use case
-- Built-in expiry handling
-- Widely supported in libraries
-- Sufficient security for short-lived tokens
+- JWT proves location validation passed (5-min expiry)
+- Exchange JWT for actual NIP-29 invite code
+- Validation service controls invite code generation
+- Relay accepts standard NIP-29 join requests with codes
+- Clean separation of concerns
+
+**Flow**:
+1. Location validation → JWT token
+2. JWT exchange → NIP-29 invite code
+3. Client sends kind:9021 with invite code to relay
+4. Relay accepts and adds member to group
 
 **Alternatives considered**:
-- Paseto: More complex, minimal benefit for 5-min tokens
+- Direct relay integration: Would couple relay to validation logic
+- Custom auth events: Breaks NIP-29 compatibility
 - Session cookies: Doesn't work well with PWA
-- Magic links: Poor UX for immediate verification
 
 ### 5. Photo Verification (Deferred)
 **Decision**: Defer to post-MVP  
@@ -83,14 +91,16 @@ pwa-client/
 │   └── services/     # API clients, relay connection
 ```
 
-### Validation Service Architecture
+### Validation Service Architecture (Rust)
 ```
 validation-service/
 ├── src/
-│   ├── lib/          # location-check, token-issuer
-│   ├── api/          # Fastify routes
+│   ├── handlers/     # Axum/Actix route handlers
 │   ├── services/     # Business logic
-│   └── models/       # Data structures
+│   ├── models/       # Data structures
+│   ├── geo/          # Location validation with geo crate
+│   └── auth/         # JWT generation, invite codes
+├── Cargo.toml        # Dependencies: axum, geo, jsonwebtoken, redis
 ```
 
 ### NIP-29 Group Structure

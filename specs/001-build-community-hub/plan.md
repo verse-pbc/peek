@@ -27,12 +27,12 @@
 Build a location-based community platform where physical QR codes at venues create hyperlocal groups. Users must prove physical presence through GPS validation and photo verification to join. Implementation uses MKStack for PWA client, NIP-29 relays for decentralized messaging, and a validation service for location verification.
 
 ## Technical Context
-**Language/Version**: TypeScript 5.0+, Node.js 20+  
-**Primary Dependencies**: MKStack (Vite, React, Tailwind), Fastify, nostr-tools, @zxing/library, geolib  
-**Storage**: Redis for short-lived tokens, NIP-29 relay for community data  
-**Testing**: Vitest for frontend, Jest for backend, Playwright for E2E  
+**Language/Version**: TypeScript 5.0+ (PWA), Rust 1.75+ (validation service)  
+**Primary Dependencies**: MKStack (Vite, React, Tailwind), Axum, nostr-tools, @zxing/library, geo crate  
+**Storage**: Redis for short-lived tokens, verse-pbc/groups_relay for community data  
+**Testing**: Vitest for frontend, cargo test for Rust, Playwright for E2E  
 **Target Platform**: Progressive Web App (iOS/Android/Desktop browsers)
-**Project Type**: web - PWA client + validation service  
+**Project Type**: web - PWA client + Rust validation service  
 **Performance Goals**: <500ms join verification, 60fps UI, offline message reading  
 **Constraints**: 25m geofence radius, 20m GPS accuracy threshold, live connection required for join  
 **Scale/Scope**: MVP for 100 communities, 10k users, single relay initially
@@ -49,11 +49,11 @@ Build a location-based community platform where physical QR codes at venues crea
 **Architecture**:
 - EVERY feature as library? Yes (location-check, token-issuer, qr-scanner)
 - Libraries listed:
-  - location-check: Validates GPS coordinates within radius
-  - token-issuer: Creates/validates signed join tokens
-  - qr-scanner: Decodes QR codes and extracts community data
-  - nostr-client: Wraps nostr-tools for NIP-29 operations
-- CLI per library: Each exposes --verify, --generate, --decode commands
+  - location-check: Validates GPS coordinates within radius (Rust)
+  - token-issuer: Creates/validates JWT and NIP-29 invites (Rust)
+  - qr-scanner: Decodes QR codes and extracts community data (TS)
+  - nostr-client: Wraps nostr-tools for NIP-29 operations (TS)
+- CLI per library: Rust crates expose CLI bins, TS libs have CLI wrappers
 - Library docs: llms.txt format planned for each library
 
 **Testing (NON-NEGOTIABLE)**:
@@ -98,13 +98,14 @@ packages/
 │   │   ├── services/
 │   │   └── lib/
 │   └── tests/
-└── validation-service/
+└── validation-service/  # Rust service
     ├── src/
-    │   ├── models/
+    │   ├── handlers/
     │   ├── services/
-    │   ├── api/
+    │   ├── models/
     │   └── lib/
-    └── tests/
+    ├── tests/
+    └── Cargo.toml
 
 shared/
 ├── contracts/
@@ -124,10 +125,10 @@ shared/
 2. **Generate and dispatch research agents**:
    ```
    Task: "Research MKStack PWA setup with Vite and React"
-   Task: "Find best practices for NIP-29 group management"
-   Task: "Research geolocation accuracy thresholds for mobile browsers"
-   Task: "Compare JWT vs Paseto for short-lived tokens"
-   Task: "Research Redis TTL patterns for single-use tokens"
+   Task: "Research verse-pbc/groups_relay NIP-29 implementation"
+   Task: "Research Rust Axum patterns for API services"
+   Task: "Research geo crate for haversine calculations"
+   Task: "Research Redis integration with Rust"
    ```
 
 3. **Consolidate findings** in `research.md`

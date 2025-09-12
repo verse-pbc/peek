@@ -42,7 +42,7 @@ interface Community {
 - `active` → `archived` (admin action)
 
 ### JoinToken
-Short-lived token for authenticated community joining.
+Short-lived JWT proving location validation passed. This is NOT a NIP-29 invite - it's exchanged for one.
 
 ```typescript
 interface JoinToken {
@@ -64,8 +64,28 @@ interface JoinToken {
 
 **State Transitions**:
 - `non-existent` → `valid` (successful location check)
-- `valid` → `used` (redeemed for group invite)
+- `valid` → `used` (exchanged for NIP-29 invite code)
 - `valid` → `expired` (after 5 minutes)
+
+### NIP29InviteCode
+Actual invitation code accepted by the groups_relay.
+
+```typescript
+interface NIP29InviteCode {
+  code: string;            // Unique invite code for relay
+  communityId: string;     // Target community/group ID
+  createdFor: string;      // Nostr pubkey this code is for
+  createdAt: number;       // Unix timestamp
+  expiresAt: number;       // Unix timestamp
+  groupId: string;         // NIP-29 group identifier on relay
+}
+```
+
+**Flow**:
+1. User proves location → receives JoinToken
+2. User exchanges JoinToken → receives NIP29InviteCode
+3. User sends kind:9021 event with code to relay
+4. Relay validates code and adds user to group
 
 ### LocationProof
 Evidence of physical presence at community location.
@@ -149,14 +169,14 @@ interface Member {
 }
 ```
 
-### Join Request Event
+### Join Request Event (NIP-29)
 ```json
 {
-  "kind": 9001,
-  "content": "Join request with token",
+  "kind": 9021,
+  "content": "",
   "tags": [
-    ["g", "community-uuid"],
-    ["token", "jwt-token-here"]
+    ["h", "group-id"],
+    ["code", "invite-code-from-validation-service"]
   ]
 }
 ```
