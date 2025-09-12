@@ -5,7 +5,7 @@
 **Total Tasks**: 35
 
 ## Overview
-Build a PWA client with MKStack and a Rust validation service that creates NIP-29 invites on the groups_relay for location-based communities.
+Build a PWA client using MKStack scaffolding (React, TypeScript, Tailwind, shadcn/ui, Nostrify) and a Rust validation service that creates NIP-29 invites on the groups_relay for location-based communities.
 
 ## Task Execution Strategy
 
@@ -14,7 +14,7 @@ Tasks marked with [P] can be executed in parallel using the Task agent:
 ```bash
 # Example: Execute T001, T002, T003 in parallel
 Task: "Complete T001: Initialize monorepo structure"
-Task: "Complete T002: Setup PWA client with MKStack"  
+Task: "Complete T002: Scaffold PWA with MKStack CLI"  
 Task: "Complete T003: Setup Rust validation service"
 ```
 
@@ -36,12 +36,12 @@ Task: "Complete T003: Setup Rust validation service"
 - Setup shared/ for common types
 - Add root scripts for running all services
 
-### T002: Setup PWA client with MKStack [P]
+### T002: Scaffold PWA with MKStack CLI [P]
 **File**: `/packages/pwa-client/`
-- Initialize Vite + React + TypeScript project
-- Configure MKStack (Tailwind, PWA manifest)
-- Setup routing with React Router
-- Add service worker for offline support
+- Install @getstacks/stacks CLI globally
+- Run: stacks naddr1qvzqqqrhl5pzqprpljlvcnpnw3pejvkkhrc3y6wvmd7vjuad0fg2ud3dky66gaxaqqrk66mnw3skx6c4g6ltw
+- Move generated project to packages/pwa-client
+- Verify Nostrify, shadcn/ui, and Tailwind setup
 
 ### T003: Setup Rust validation service [P]
 **File**: `/packages/validation-service/Cargo.toml`
@@ -133,12 +133,12 @@ pub struct LocationProof {
 - Validate QR data structure
 - Handle camera permissions
 
-### T013: Implement Nostr client wrapper (TypeScript) [P]
-**File**: `/packages/pwa-client/src/lib/nostr-client.ts`
-- Wrap nostr-tools for NIP-29
-- Handle relay connections
-- Send kind:9021 join requests
+### T013: Extend Nostrify for Peek-specific operations [P]
+**File**: `/packages/pwa-client/src/lib/peek-nostr.ts`
+- Extend Nostrify's relay handling for NIP-29
+- Add methods for kind:9021 join requests
 - Subscribe to group messages
+- Handle Peek-specific event types
 
 ---
 
@@ -165,6 +165,7 @@ pub struct LocationProof {
 
 ### T016: Create QR Scanner component [P]
 **File**: `/packages/pwa-client/src/components/QRScanner.tsx`
+- Use shadcn/ui Card and Button components
 - Full-screen camera view
 - QR detection overlay
 - Parse and validate QR data
@@ -172,6 +173,7 @@ pub struct LocationProof {
 
 ### T017: Create Location Permission component [P]
 **File**: `/packages/pwa-client/src/components/LocationPermission.tsx`
+- Use shadcn/ui Alert and Button components
 - Request precise location
 - Show accuracy indicator
 - Handle permission denial
@@ -179,38 +181,43 @@ pub struct LocationProof {
 
 ### T018: Create Community Preview component [P]
 **File**: `/packages/pwa-client/src/components/CommunityPreview.tsx`
+- Use shadcn/ui Card and Skeleton components
 - Fetch and display preview data
 - Show member count
 - Display location name
-- Join button
+- Join button with loading state
 
 ### T019: Create Join Flow page
 **File**: `/packages/pwa-client/src/pages/JoinFlow.tsx`
+- Use shadcn/ui Stepper or custom flow
 - Orchestrate location validation
 - Call validation API
 - Handle invite code response
-- Send NIP-29 join request
+- Use Nostrify to send NIP-29 join request
 
 ### T020: Create Community Feed component [P]
 **File**: `/packages/pwa-client/src/components/CommunityFeed.tsx`
-- Display NIP-29 messages
+- Use shadcn/ui ScrollArea and Input components
+- Display NIP-29 messages via Nostrify subscriptions
 - Real-time updates via relay
-- Message input/send
+- Message input/send using Nostrify
 - Show member list
 
 ### T021: Create Admin Panel component [P]
 **File**: `/packages/pwa-client/src/components/AdminPanel.tsx`
+- Use shadcn/ui Table and Dialog components
 - Member management UI
-- Promote/demote/ban actions
+- Promote/demote/ban actions via Nostrify
 - Community settings
 - QR code management
 
-### T022: Create Home page with communities list
+### T022: Customize MKStack Home page
 **File**: `/packages/pwa-client/src/pages/Home.tsx`
-- List joined communities
-- QR scan button
+- Adapt MKStack's default home for Peek
+- List joined communities from Nostrify
+- QR scan button using shadcn/ui
 - Navigation to feeds
-- Profile management
+- Use existing MKStack profile components
 
 ---
 
@@ -257,19 +264,19 @@ pub struct LocationProof {
 - Error handling
 - Request/response logging
 
-### T029: Implement relay connection service
-**File**: `/packages/pwa-client/src/services/relay.ts`
-- WebSocket management
-- Auto-reconnection
-- Subscription handling
-- Event filtering
+### T029: Enhance Nostrify relay connections for Peek
+**File**: `/packages/pwa-client/src/services/peek-relay.ts`
+- Extend Nostrify's relay management
+- Add Peek-specific subscriptions
+- Handle NIP-29 group events
+- Event filtering for communities
 
-### T030: Implement state management
+### T030: Extend MKStack state for Peek features
 **File**: `/packages/pwa-client/src/store/`
-- Zustand or Context setup
-- User profile state
-- Communities state
-- Messages cache
+- Extend MKStack's existing state management
+- Add communities state
+- Location validation state
+- QR scan history
 
 ### T031: Implement error reporting
 **File**: `/packages/pwa-client/src/services/error-reporter.ts`

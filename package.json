@@ -1,0 +1,27 @@
+{
+  "name": "peek",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Community Hub for Location-Based Groups",
+  "packageManager": "pnpm@8.15.0",
+  "scripts": {
+    "dev": "pnpm run --parallel dev",
+    "dev:pwa": "pnpm --filter pwa-client dev",
+    "dev:validation": "cd packages/validation-service && cargo run",
+    "build": "pnpm run --recursive build",
+    "build:pwa": "pnpm --filter pwa-client build",
+    "build:validation": "cd packages/validation-service && cargo build --release",
+    "test": "pnpm run --recursive test",
+    "lint": "pnpm run --recursive lint",
+    "typecheck": "pnpm run --recursive typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/verse-pbc/peek.git"
+  },
+  "author": "verse-pbc",
+  "license": "MIT"
+}

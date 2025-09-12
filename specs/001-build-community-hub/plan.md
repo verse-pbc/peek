@@ -28,11 +28,11 @@ Build a location-based community platform where physical QR codes at venues crea
 
 ## Technical Context
 **Language/Version**: TypeScript 5.0+ (PWA), Rust 1.75+ (validation service)  
-**Primary Dependencies**: MKStack (Vite, React, Tailwind), Axum, nostr-tools, @zxing/library, geo crate, nostr-sdk  
+**Primary Dependencies**: MKStack (React 18, TypeScript, Tailwind, shadcn/ui, Nostrify, Vite), Axum, @zxing/library, geo crate, nostr-sdk  
 **Storage**: verse-pbc/groups_relay for all data (communities, invites, messages)  
 **Testing**: Vitest for frontend, cargo test for Rust, Playwright for E2E  
 **Target Platform**: Progressive Web App (iOS/Android/Desktop browsers)
-**Project Type**: web - PWA client + Rust validation service  
+**Project Type**: web - PWA client (MKStack-scaffolded) + Rust validation service  
 **Performance Goals**: <500ms join verification, 60fps UI, offline message reading  
 **Constraints**: 25m geofence radius, 20m GPS accuracy threshold, live connection required for join  
 **Scale/Scope**: MVP for 100 communities, 10k users, single relay initially
@@ -42,9 +42,9 @@ Build a location-based community platform where physical QR codes at venues crea
 
 **Simplicity**:
 - Projects: 2 (pwa-client, validation-service)
-- Using framework directly? Yes (MKStack, Fastify without wrappers)
-- Single data model? Yes (NIP-29 events + join tokens)
-- Avoiding patterns? Yes (no Repository/UoW, direct relay access)
+- Using framework directly? Yes (MKStack scaffolding, Nostrify for Nostr ops, Axum without wrappers)
+- Single data model? Yes (NIP-29 events + location proofs)
+- Avoiding patterns? Yes (no Repository/UoW, direct relay access via Nostrify)
 
 **Architecture**:
 - EVERY feature as library? Yes (location-check, invite-creator, qr-scanner)
@@ -52,7 +52,7 @@ Build a location-based community platform where physical QR codes at venues crea
   - location-check: Validates GPS coordinates within radius (Rust)
   - invite-creator: Creates kind:9009 events on relay (Rust)
   - qr-scanner: Decodes QR codes and extracts community data (TS)
-  - nostr-client: Wraps nostr-tools for NIP-29 operations (TS)
+  - peek-nostr: Extends Nostrify for Peek-specific NIP-29 operations (TS)
 - CLI per library: Rust crates expose CLI bins, TS libs have CLI wrappers
 - Library docs: llms.txt format planned for each library
 
@@ -116,15 +116,15 @@ shared/
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context**:
-   - MKStack implementation patterns for PWA
-   - NIP-29 relay integration best practices
+   - MKStack scaffolding and Nostrify API usage
+   - NIP-29 relay integration with groups_relay
    - Photo verification approaches (MVP deferred)
    - Geolocation API accuracy handling
-   - Token signing strategies (JWT vs Paseto)
+   - Direct invite creation from Rust service
 
 2. **Generate and dispatch research agents**:
    ```
-   Task: "Research MKStack PWA setup with Vite and React"
+   Task: "Research MKStack CLI usage and Nostrify library"
    Task: "Research verse-pbc/groups_relay NIP-29 implementation"
    Task: "Research Rust Axum patterns for API services"
    Task: "Research geo crate for haversine calculations"
@@ -173,15 +173,15 @@ shared/
 - Generate from contracts: 2 API endpoint tests [P]
 - Generate from entities: 4 model creation tasks [P]
 - Generate from user stories: 4 integration test tasks
-- Implementation tasks: PWA setup, validation service, relay integration
-- UI component tasks: QR scanner, location prompt, community feed
+- Implementation tasks: MKStack scaffold, validation service, Peek-specific features
+- UI component tasks: QR scanner, location prompt, community feed (using shadcn/ui)
 
 **Ordering Strategy**:
-1. Environment setup (MKStack, Fastify scaffolding) [P]
+1. Environment setup (MKStack scaffold, Rust service init) [P]
 2. Contract tests (must fail first)
 3. Models and libraries [P]
 4. API implementation to pass contract tests
-5. PWA components and pages
+5. Peek-specific PWA features (QR, location)
 6. Integration tests
 7. E2E test scenarios
 
