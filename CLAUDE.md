@@ -38,19 +38,17 @@ packages/
 5. **Persistent Access**: Members keep access after leaving location
 
 ## API Endpoints
-- `POST /api/validate-location` - Verify physical presence, get JWT token
-- `POST /api/verify-join` - Exchange JWT for NIP-29 invite code
+- `POST /api/validate-location` - Verify physical presence, get NIP-29 invite code
 - `GET /api/community/{id}/preview` - Public community info
 
-## Token Flow
-1. User proves location → receives JWT validation token
-2. JWT exchanged for NIP-29 invite code via validation service  
-3. Client sends kind:9021 with invite code to groups_relay
-4. Relay accepts invite and adds user to group
+## Join Flow
+1. User proves location → receives NIP-29 invite code directly
+2. Client sends kind:9021 with invite code to groups_relay
+3. Relay accepts invite and adds user to group
 
 ## Core Constraints
 - Location validation: 25m radius, 20m GPS accuracy (hardcoded)
-- Token expiry: 5 minutes
+- Invite code expiry: 5 minutes
 - No global search/directory (physical discovery only)
 - Live connection required for joining
 

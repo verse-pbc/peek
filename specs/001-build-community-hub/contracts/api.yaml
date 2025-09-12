@@ -68,12 +68,19 @@ paths:
                   success:
                     type: boolean
                     enum: [true]
-                  token:
+                  inviteCode:
                     type: string
-                    description: JWT token for joining community
+                    description: NIP-29 invite code for relay
+                  groupId:
+                    type: string
+                    description: NIP-29 group identifier
+                  relay:
+                    type: string
+                    format: uri
+                    description: Relay WebSocket URL
                   expiresAt:
                     type: number
-                    description: Token expiration timestamp
+                    description: Invite code expiration timestamp
         '400':
           description: Validation failed
           content:
@@ -106,64 +113,6 @@ paths:
                       maxAccuracy:
                         type: number
                         enum: [20]
-
-  /verify-join:
-    post:
-      summary: Exchange validated token for relay group invite
-      operationId: verifyJoin
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - token
-              properties:
-                token:
-                  type: string
-                  description: JWT token from location validation
-      responses:
-        '200':
-          description: Join verification successful
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    enum: [true]
-                  invite:
-                    type: object
-                    properties:
-                      relay:
-                        type: string
-                        format: uri
-                        description: Relay WebSocket URL
-                      groupId:
-                        type: string
-                        description: NIP-29 group identifier
-                      inviteCode:
-                        type: string
-                        description: One-time invite code for relay
-        '401':
-          description: Token invalid or expired
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    enum: [false]
-                  error:
-                    type: string
-                    enum:
-                      - TOKEN_EXPIRED
-                      - TOKEN_INVALID
-                      - TOKEN_ALREADY_USED
-                      - TOKEN_SIGNATURE_INVALID
 
   /community/{communityId}/preview:
     get:

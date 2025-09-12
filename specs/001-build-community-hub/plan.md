@@ -140,18 +140,17 @@ shared/
 
 1. **Extract entities from feature spec** → `data-model.md`:
    - Community (NIP-29 group with location metadata)
-   - JoinToken (signed, short-lived, single-use)
+   - NIP29InviteCode (relay invite, short-lived, single-use)
    - LocationProof (coordinates, accuracy, timestamp)
    - QRPayload (community ID, relay URL, location)
 
 2. **Generate API contracts** from functional requirements:
-   - POST /api/validate-location - Submit location for verification
-   - POST /api/verify-join - Exchange token for relay invite
+   - POST /api/validate-location - Submit location, get invite code
    - GET /api/community/preview - Pre-join community info
 
 3. **Generate contract tests** from contracts:
    - Test location validation edge cases
-   - Test token expiry and single-use
+   - Test invite code expiry and single-use
    - Test preview without authentication
 
 4. **Extract test scenarios** from user stories:
@@ -171,7 +170,7 @@ shared/
 *This section describes what the /tasks command will do - DO NOT execute during /plan*
 
 **Task Generation Strategy**:
-- Generate from contracts: 3 API endpoint tests [P]
+- Generate from contracts: 2 API endpoint tests [P]
 - Generate from entities: 4 model creation tasks [P]
 - Generate from user stories: 4 integration test tasks
 - Implementation tasks: PWA setup, validation service, relay integration

@@ -45,25 +45,24 @@
 - Client-only: Too easy to spoof
 - Third-party APIs: Unnecessary dependency, privacy concerns
 
-### 4. Token & Invitation Strategy
-**Decision**: Two-phase system - JWT validation token + NIP-29 invite code  
+### 4. Invitation Strategy
+**Decision**: Direct NIP-29 invite code generation upon validation  
 **Rationale**:
-- JWT proves location validation passed (5-min expiry)
-- Exchange JWT for actual NIP-29 invite code
-- Validation service controls invite code generation
+- Single API call: validate location → receive invite code
+- Validation service generates NIP-29 invite codes directly
+- No unnecessary token exchange round trip
+- Simpler client flow, less latency
 - Relay accepts standard NIP-29 join requests with codes
-- Clean separation of concerns
 
 **Flow**:
-1. Location validation → JWT token
-2. JWT exchange → NIP-29 invite code
-3. Client sends kind:9021 with invite code to relay
-4. Relay accepts and adds member to group
+1. Location validation → NIP-29 invite code (single call)
+2. Client sends kind:9021 with invite code to relay
+3. Relay accepts and adds member to group
 
 **Alternatives considered**:
+- JWT intermediate token: Unnecessary extra round trip
 - Direct relay integration: Would couple relay to validation logic
 - Custom auth events: Breaks NIP-29 compatibility
-- Session cookies: Doesn't work well with PWA
 
 ### 5. Photo Verification (Deferred)
 **Decision**: Defer to post-MVP  

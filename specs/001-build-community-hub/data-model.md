@@ -41,34 +41,8 @@ interface Community {
 - `non-existent` → `active` (first QR scan)
 - `active` → `archived` (admin action)
 
-### JoinToken
-Short-lived JWT proving location validation passed. This is NOT a NIP-29 invite - it's exchanged for one.
-
-```typescript
-interface JoinToken {
-  jti: string;             // Unique token ID
-  communityId: string;     // Target community UUID
-  userPubkey: string;      // Requesting user's Nostr pubkey
-  issuedAt: number;        // Unix timestamp
-  expiresAt: number;       // Unix timestamp (issued + 300s)
-  used: boolean;           // Single-use flag
-  signature: string;       // JWT signature
-}
-```
-
-**Validation Rules**:
-- `expiresAt` must be `issuedAt + 300` (5 minutes)
-- `userPubkey` must be valid Nostr pubkey
-- `used` prevents replay attacks
-- Token invalid if current time > `expiresAt`
-
-**State Transitions**:
-- `non-existent` → `valid` (successful location check)
-- `valid` → `used` (exchanged for NIP-29 invite code)
-- `valid` → `expired` (after 5 minutes)
-
 ### NIP29InviteCode
-Actual invitation code accepted by the groups_relay.
+Invitation code returned directly from validation service upon successful location check.
 
 ```typescript
 interface NIP29InviteCode {
@@ -76,16 +50,20 @@ interface NIP29InviteCode {
   communityId: string;     // Target community/group ID
   createdFor: string;      // Nostr pubkey this code is for
   createdAt: number;       // Unix timestamp
-  expiresAt: number;       // Unix timestamp
+  expiresAt: number;       // Unix timestamp (5 minutes)
   groupId: string;         // NIP-29 group identifier on relay
 }
 ```
 
 **Flow**:
-1. User proves location → receives JoinToken
-2. User exchanges JoinToken → receives NIP29InviteCode
-3. User sends kind:9021 event with code to relay
-4. Relay validates code and adds user to group
+1. User proves location → receives NIP29InviteCode directly
+2. User sends kind:9021 event with code to relay
+3. Relay validates code and adds user to group
+
+**Validation Rules**:
+- Code is single-use (tracked in Redis with TTL)
+- Expires after 5 minutes
+- Bound to specific user pubkey
 
 ### LocationProof
 Evidence of physical presence at community location.
