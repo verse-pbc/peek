@@ -46,23 +46,25 @@
 - Third-party APIs: Unnecessary dependency, privacy concerns
 
 ### 4. Invitation Strategy
-**Decision**: Direct NIP-29 invite code generation upon validation  
+**Decision**: Direct relay invite creation via kind:9009 events  
 **Rationale**:
-- Single API call: validate location → receive invite code
-- Validation service generates NIP-29 invite codes directly
-- No unnecessary token exchange round trip
-- Simpler client flow, less latency
-- Relay accepts standard NIP-29 join requests with codes
+- Validation service has admin keypair for relay
+- Creates kind:9009 invite events directly on relay
+- No Redis needed - relay stores all invite state
+- Invites are hidden from non-privileged users
+- Native NIP-29 flow, no custom storage
 
 **Flow**:
-1. Location validation → NIP-29 invite code (single call)
-2. Client sends kind:9021 with invite code to relay
-3. Relay accepts and adds member to group
+1. User passes location validation
+2. Validation service creates kind:9009 invite event on relay
+3. Returns invite code to user
+4. Client sends kind:9021 with invite code to relay
+5. Relay validates against stored kind:9009 event
 
 **Alternatives considered**:
-- JWT intermediate token: Unnecessary extra round trip
-- Direct relay integration: Would couple relay to validation logic
-- Custom auth events: Breaks NIP-29 compatibility
+- Redis storage: Unnecessary when relay can store invites
+- JWT tokens: Extra complexity and round trips
+- Custom database: Duplicates relay's built-in storage
 
 ### 5. Photo Verification (Deferred)
 **Decision**: Defer to post-MVP  
@@ -94,12 +96,12 @@ pwa-client/
 ```
 validation-service/
 ├── src/
-│   ├── handlers/     # Axum/Actix route handlers
+│   ├── handlers/     # Axum route handlers
 │   ├── services/     # Business logic
 │   ├── models/       # Data structures
 │   ├── geo/          # Location validation with geo crate
-│   └── auth/         # JWT generation, invite codes
-├── Cargo.toml        # Dependencies: axum, geo, jsonwebtoken, redis
+│   └── nostr/        # Relay client, invite creation
+├── Cargo.toml        # Dependencies: axum, geo, nostr-sdk
 ```
 
 ### NIP-29 Group Structure
@@ -128,11 +130,11 @@ validation-service/
 - Timeout after 10 seconds
 - Fallback to manual entry (future)
 
-### Token Lifecycle
-- Generate on successful location check
-- 5-minute TTL in Redis
-- Single-use flag on redemption
-- Automatic cleanup via Redis expiry
+### Invite Lifecycle
+- Created as kind:9009 event on relay upon location validation
+- 5-minute expiry set in event tags
+- Single-use enforced by relay
+- Automatic cleanup by relay based on expiry
 
 ### PWA Optimization
 - Code splitting by route

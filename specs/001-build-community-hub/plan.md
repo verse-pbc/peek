@@ -28,8 +28,8 @@ Build a location-based community platform where physical QR codes at venues crea
 
 ## Technical Context
 **Language/Version**: TypeScript 5.0+ (PWA), Rust 1.75+ (validation service)  
-**Primary Dependencies**: MKStack (Vite, React, Tailwind), Axum, nostr-tools, @zxing/library, geo crate  
-**Storage**: Redis for short-lived tokens, verse-pbc/groups_relay for community data  
+**Primary Dependencies**: MKStack (Vite, React, Tailwind), Axum, nostr-tools, @zxing/library, geo crate, nostr-sdk  
+**Storage**: verse-pbc/groups_relay for all data (communities, invites, messages)  
 **Testing**: Vitest for frontend, cargo test for Rust, Playwright for E2E  
 **Target Platform**: Progressive Web App (iOS/Android/Desktop browsers)
 **Project Type**: web - PWA client + Rust validation service  
@@ -47,10 +47,10 @@ Build a location-based community platform where physical QR codes at venues crea
 - Avoiding patterns? Yes (no Repository/UoW, direct relay access)
 
 **Architecture**:
-- EVERY feature as library? Yes (location-check, token-issuer, qr-scanner)
+- EVERY feature as library? Yes (location-check, invite-creator, qr-scanner)
 - Libraries listed:
   - location-check: Validates GPS coordinates within radius (Rust)
-  - token-issuer: Creates/validates JWT and NIP-29 invites (Rust)
+  - invite-creator: Creates kind:9009 events on relay (Rust)
   - qr-scanner: Decodes QR codes and extracts community data (TS)
   - nostr-client: Wraps nostr-tools for NIP-29 operations (TS)
 - CLI per library: Rust crates expose CLI bins, TS libs have CLI wrappers
@@ -60,7 +60,7 @@ Build a location-based community platform where physical QR codes at venues crea
 - RED-GREEN-Refactor cycle enforced? Yes
 - Git commits show tests before implementation? Will enforce
 - Order: Contract→Integration→E2E→Unit strictly followed? Yes
-- Real dependencies used? Yes (actual Redis, relay instances)
+- Real dependencies used? Yes (actual relay instance)
 - Integration tests for: new libraries, contract changes, shared schemas? Yes
 - FORBIDDEN: Implementation before test - understood
 
@@ -128,7 +128,7 @@ shared/
    Task: "Research verse-pbc/groups_relay NIP-29 implementation"
    Task: "Research Rust Axum patterns for API services"
    Task: "Research geo crate for haversine calculations"
-   Task: "Research Redis integration with Rust"
+   Task: "Research nostr-sdk for creating relay events from Rust"
    ```
 
 3. **Consolidate findings** in `research.md`

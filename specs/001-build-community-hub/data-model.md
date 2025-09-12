@@ -41,29 +41,36 @@ interface Community {
 - `non-existent` → `active` (first QR scan)
 - `active` → `archived` (admin action)
 
-### NIP29InviteCode
-Invitation code returned directly from validation service upon successful location check.
+### NIP-29 Invite Creation (kind:9009)
+Validation service creates invite events directly on the relay using admin privileges.
 
 ```typescript
-interface NIP29InviteCode {
-  code: string;            // Unique invite code for relay
-  communityId: string;     // Target community/group ID
-  createdFor: string;      // Nostr pubkey this code is for
-  createdAt: number;       // Unix timestamp
-  expiresAt: number;       // Unix timestamp (5 minutes)
-  groupId: string;         // NIP-29 group identifier on relay
+// Event created by validation service on relay
+interface InviteCreationEvent {
+  kind: 9009;              // NIP-29 create-invite
+  pubkey: string;          // Admin pubkey (validation service)
+  content: string;         // Invite code
+  tags: [
+    ["h", string],         // Group ID
+    ["expiration", string], // Unix timestamp (created + 300s)
+    ["uses", "1"],         // Single use
+    ["for", string]        // Target user pubkey (optional)
+  ];
 }
 ```
 
 **Flow**:
-1. User proves location → receives NIP29InviteCode directly
-2. User sends kind:9021 event with code to relay
-3. Relay validates code and adds user to group
+1. User passes location validation
+2. Validation service creates kind:9009 event on relay
+3. Service returns invite code to user
+4. User sends kind:9021 with code to relay
+5. Relay validates against stored kind:9009 event
 
-**Validation Rules**:
-- Code is single-use (tracked in Redis with TTL)
-- Expires after 5 minutes
-- Bound to specific user pubkey
+**Benefits**:
+- No external storage needed (no Redis)
+- Relay handles expiry and single-use logic
+- Invites hidden from non-admin users
+- Native NIP-29 implementation
 
 ### LocationProof
 Evidence of physical presence at community location.
@@ -186,17 +193,17 @@ interface Member {
 
 ## Storage Strategy
 
-### Redis Keys
-```
-token:{jti}              → JoinToken (TTL: 300s)
-community:{id}:preview   → Community preview (TTL: 60s)
-rate:{ip}:validate       → Rate limit counter (TTL: 60s)
-```
-
-### Relay Storage
+### Relay Storage (Primary)
 - All community data persisted in NIP-29 events
+- Invite codes stored as kind:9009 events
 - Messages stored as standard Nostr events
 - Membership tracked by relay access control
+- Expiry and single-use enforced by relay
+
+### Validation Service Storage
+- No persistent storage needed
+- Admin keypair in environment/config
+- Transient location validation only
 
 ### Client Storage (IndexedDB)
 ```

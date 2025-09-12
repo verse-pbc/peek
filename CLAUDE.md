@@ -5,10 +5,10 @@ Peek is a location-based community platform where physical QR codes create hyper
 
 ## Tech Stack
 - **Frontend**: MKStack (Vite, React, TypeScript, Tailwind CSS)
-- **Backend**: Rust (Axum web framework), Redis
-- **Relay**: verse-pbc/groups_relay (NIP-29 implementation)
-- **Protocol**: Nostr (NIP-29 groups with invitations)
-- **Libraries**: nostr-tools, @zxing/library (JS), geo crate, jsonwebtoken (Rust)
+- **Backend**: Rust (Axum web framework)
+- **Relay**: verse-pbc/groups_relay (NIP-29 implementation) - stores all data
+- **Protocol**: Nostr (NIP-29 groups with kind:9009 invitations)
+- **Libraries**: nostr-tools, @zxing/library (JS), geo crate, nostr-sdk (Rust)
 
 ## Project Structure
 ```
@@ -25,7 +25,8 @@ packages/
     │   ├── handlers/    # Axum route handlers
     │   ├── services/    # Business logic
     │   ├── models/      # Data structures
-    │   └── lib/         # location-check, token-issuer
+    │   ├── lib/         # location-check, invite-creator
+    │   └── nostr/       # Relay client for creating invites
     ├── tests/
     └── Cargo.toml
 ```
@@ -42,9 +43,16 @@ packages/
 - `GET /api/community/{id}/preview` - Public community info
 
 ## Join Flow
-1. User proves location → receives NIP-29 invite code directly
-2. Client sends kind:9021 with invite code to groups_relay
-3. Relay accepts invite and adds user to group
+1. User proves location to validation service
+2. Service creates kind:9009 invite event on relay (using admin key)
+3. Service returns invite code to user
+4. Client sends kind:9021 with invite code to groups_relay
+5. Relay validates against stored kind:9009 and adds user to group
+
+## Key Design Decisions
+- **No Redis**: All state stored in relay as NIP-29 events
+- **Direct invite creation**: Validation service has admin keypair for relay
+- **Single source of truth**: Relay handles all data persistence and expiry
 
 ## Core Constraints
 - Location validation: 25m radius, 20m GPS accuracy (hardcoded)
