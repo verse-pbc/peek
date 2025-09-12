@@ -27,6 +27,19 @@ impl Config {
     }
 }
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            port: default_port(),
+            relay_url: default_relay_url(),
+            admin_nsec: None,
+            max_distance_meters: default_max_distance(),
+            max_accuracy_meters: default_max_accuracy(),
+            invite_expiry_seconds: default_invite_expiry(),
+        }
+    }
+}
+
 fn default_port() -> u16 {
     3000
 }

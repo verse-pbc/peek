@@ -39,6 +39,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # Error handling
 thiserror = "1.0"
 
+# Utilities
+base64 = "0.22"
+rand = "0.8"
+
 [dev-dependencies]
 # Testing
 axum-test = "15.0"
