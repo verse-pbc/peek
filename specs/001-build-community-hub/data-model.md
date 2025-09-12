@@ -24,7 +24,7 @@ interface Community {
     accuracy: number;      // Required GPS accuracy (hardcoded 20m)
   };
   memberCount: number;     // Current member count
-  relay: string;           // Relay URL hosting this group
+  relay: string;           // Relay URL (wss://peek.hol.is)
   status: 'active' | 'archived';
 }
 ```
@@ -101,7 +101,7 @@ Data encoded in physical QR codes.
 interface QRPayload {
   v: 1;                    // Payload version
   id: string;              // Community UUID
-  relay: string;           // Relay URL
+  relay: string;           // Relay URL (wss://peek.hol.is)
   lat: number;             // QR location latitude
   lng: number;             // QR location longitude
   name?: string;           // Optional community name hint

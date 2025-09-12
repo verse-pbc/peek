@@ -9,6 +9,8 @@ servers:
     description: Local development
   - url: https://api.peek.app/api
     description: Production
+    
+# Note: Relay endpoint is wss://peek.hol.is
 
 paths:
   /validate-location:

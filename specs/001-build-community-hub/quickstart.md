@@ -24,7 +24,7 @@ npm install
 
 # Setup environment variables
 cp .env.example .env
-# Edit .env with your Redis connection and relay URL
+# Edit .env with relay URL: wss://peek.hol.is
 ```
 
 ### 2. Start Services
@@ -32,15 +32,13 @@ cp .env.example .env
 ```bash
 # Terminal 1: Start validation service
 cd packages/validation-service
-npm run dev
+cargo run
 
 # Terminal 2: Start PWA client
 cd packages/pwa-client
 npm run dev
 
-# Terminal 3: Start local relay (optional, for testing)
-cd packages/test-relay
-npm run start
+# Note: Relay is at wss://peek.hol.is (no local relay needed)
 ```
 
 ### 3. Generate Test QR Code
@@ -51,7 +49,7 @@ npm run generate-qr -- \
   --name "Test Coffee Shop" \
   --lat 37.7749 \
   --lng -122.4194 \
-  --relay "ws://localhost:8080"
+  --relay "wss://peek.hol.is"
 
 # This creates: ./test-qr-code.png
 # Print or display this QR code
@@ -145,7 +143,7 @@ curl http://localhost:3000/api/community/550e8400-e29b-41d4-a716-446655440000/pr
 
 ```javascript
 // In browser console
-const ws = new WebSocket('ws://localhost:8080');
+const ws = new WebSocket('wss://peek.hol.is');
 ws.onopen = () => {
   // Subscribe to community messages
   ws.send(JSON.stringify([

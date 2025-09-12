@@ -6,7 +6,7 @@ Peek is a location-based community platform where physical QR codes create hyper
 ## Tech Stack
 - **Frontend**: MKStack (Vite, React, TypeScript, Tailwind CSS)
 - **Backend**: Rust (Axum web framework)
-- **Relay**: verse-pbc/groups_relay (NIP-29 implementation) - stores all data
+- **Relay**: wss://peek.hol.is (verse-pbc/groups_relay) - stores all data
 - **Protocol**: Nostr (NIP-29 groups with kind:9009 invitations)
 - **Libraries**: nostr-tools, @zxing/library (JS), geo crate, nostr-sdk (Rust)
 
@@ -44,9 +44,9 @@ packages/
 
 ## Join Flow
 1. User proves location to validation service
-2. Service creates kind:9009 invite event on relay (using admin key)
+2. Service creates kind:9009 invite event on wss://peek.hol.is (using admin key)
 3. Service returns invite code to user
-4. Client sends kind:9021 with invite code to groups_relay
+4. Client sends kind:9021 with invite code to relay
 5. Relay validates against stored kind:9009 and adds user to group
 
 ## Key Design Decisions

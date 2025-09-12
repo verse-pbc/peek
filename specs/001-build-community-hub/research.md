@@ -19,11 +19,11 @@
 - Native apps: Higher barrier to entry, slower iteration
 
 ### 2. NIP-29 Relay Integration
-**Decision**: Use verse-pbc/groups_relay (our existing implementation)  
+**Decision**: Use wss://peek.hol.is (verse-pbc/groups_relay deployment)  
 **Rationale**:
-- Already deployed and maintained by our team
+- Production relay already deployed at peek.hol.is
 - Full NIP-29 support with invitation system
-- Customizable for our specific needs
+- Maintained by our team
 - Direct control over relay behavior
 
 **Alternatives considered**:
@@ -115,7 +115,7 @@ validation-service/
 {
   "v": 1,
   "id": "uuid-v4",
-  "relay": "wss://relay.peek.app",
+  "relay": "wss://peek.hol.is",
   "lat": 59.9139,
   "lng": 10.7522,
   "name": "Oslo Coffee House"
