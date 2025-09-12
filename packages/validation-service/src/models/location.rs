@@ -114,7 +114,7 @@ impl LocationProof {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum LocationValidationError {
     #[error("GPS accuracy too low. Please enable precise location.")]
     AccuracyTooLow,

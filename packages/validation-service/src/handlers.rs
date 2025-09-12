@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     config::Config,
+    libraries::location_check::{LocationChecker, LocationCheckConfig},
     models::{
         CommunityPreviewRequest, CommunityPreviewResponse, ValidateLocationRequest,
         ValidateLocationResponse, LocationPoint, LocationInfo,
@@ -30,10 +31,13 @@ pub async fn validate_location(
 ) -> Result<Json<ValidateLocationResponse>, StatusCode> {
     debug!("Validating location for community: {}", request.community_id);
 
-    // First validate the location proof itself
-    if let Err(e) = request.location_proof.validate() {
-        return Ok(Json(ValidateLocationResponse::error(e.to_string())));
-    }
+    // Create location checker with config from environment
+    let check_config = LocationCheckConfig {
+        max_distance_meters: config.max_distance_meters,
+        max_accuracy_meters: config.max_accuracy_meters,
+        max_timestamp_age: 30,  // 30 seconds
+    };
+    let checker = LocationChecker::with_config(check_config);
 
     // TODO: Get actual community location from relay
     // For now, use a mock location
@@ -42,19 +46,22 @@ pub async fn validate_location(
         longitude: -122.4194,
     };
 
-    // Validate location is within range
-    let distance = services::location::calculate_distance(
+    // Validate location using the location checker
+    let check_result = checker.validate_location(
+        &request.location_proof,
         &community_location,
-        &request.location_proof.coordinates,
     );
 
-    debug!("Distance from QR location: {} meters", distance);
+    debug!(
+        "Location check result - passed: {}, distance: {:.1}m, accuracy: {:.1}m",
+        check_result.passed, check_result.distance, check_result.accuracy
+    );
 
-    if distance > config.max_distance_meters {
-        return Ok(Json(ValidateLocationResponse::error(format!(
-            "You must be at the location to join this community. Distance: {:.1}m",
-            distance
-        ))));
+    if !check_result.passed {
+        let error_message = check_result.error
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| "Location validation failed".to_string());
+        return Ok(Json(ValidateLocationResponse::error(error_message)));
     }
 
     // Create NIP-29 invite
