@@ -16,5 +16,14 @@
 - Verified development server runs successfully
 - Status: COMPLETE
 
-## T003: Setup Rust validation service
-- Status: PENDING
+## T003: Setup Rust validation service ✅
+- Created Rust project with Cargo
+- Added dependencies: axum, tokio, serde, geo, nostr-sdk
+- Implemented basic Axum server structure
+- Created config module with environment variables
+- Created models for location validation
+- Created handlers for health, validate-location, and community-preview endpoints
+- Created services for location calculation (Haversine) and Nostr operations
+- Verified server runs on port 3000
+- Health endpoint working at http://localhost:3000/health
+- Status: COMPLETE
