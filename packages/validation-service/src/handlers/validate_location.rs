@@ -10,7 +10,7 @@ use crate::{
     config::Config,
     libraries::location_check::{LocationChecker, LocationCheckConfig},
     models::{
-        ValidateLocationRequest, ValidateLocationResponse, LocationPoint,
+        ValidateLocationRequest, ValidateLocationResponse, LocationPoint, CommunityPreview,
     },
     services::community::CommunityService,
 };
@@ -61,9 +61,11 @@ pub async fn validate_location(
             user_location.longitude
         );
         
-        // First scanner is automatically added as admin (already done in get_or_create)
-        return Ok(Json(ValidateLocationResponse::success_with_message(
-            "Community created! You are now the admin.".to_string()
+        // First scanner is automatically added as admin
+        return Ok(Json(ValidateLocationResponse::success_new_community(
+            community.group_id.clone(),
+            config.relay_url.clone(),
+            community.name.clone(),
         )));
     }
 
@@ -95,6 +97,18 @@ pub async fn validate_location(
         return Ok(Json(ValidateLocationResponse::error(error_message)));
     }
 
+    // Prepare community preview (only shown after passing location check)
+    let preview = CommunityPreview {
+        name: community.name.clone(),
+        description: Some(format!(
+            "Location-based community created on {}",
+            community.created_at.format("%Y-%m-%d")
+        )),
+        member_count: 1, // TODO: Get actual count from relay
+        created_at: community.created_at.to_rfc3339(),
+        is_new: false,
+    };
+
     // Add user directly to the NIP-29 group
     match community_service.add_user_to_group(
         &community.group_id,
@@ -107,9 +121,10 @@ pub async fn validate_location(
                 community.community_id
             );
             
-            Ok(Json(ValidateLocationResponse::success_with_group(
-                community.group_id,
+            Ok(Json(ValidateLocationResponse::success_join_community(
+                community.group_id.clone(),
                 config.relay_url.clone(),
+                preview,
             )))
         }
         Err(e) => {

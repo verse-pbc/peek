@@ -12,43 +12,58 @@ pub struct ValidateLocationRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidateLocationResponse {
     pub success: bool,
+    
+    // Group membership info (when validation passes)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub invite_code: Option<String>,
+    pub group_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relay_url: Option<String>,
+    
+    // Community preview info (only shown after passing location check)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i64>,
+    pub community: Option<CommunityPreview>,
+    
+    // Status messages
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommunityPreview {
+    pub name: String,
+    pub description: Option<String>,
+    pub member_count: u32,
+    pub created_at: String,
+    pub is_new: bool,  // true if this user just created it
+}
+
 impl ValidateLocationResponse {
-    pub fn success(invite_code: String, relay_url: String, expires_at: i64) -> Self {
+    pub fn success_new_community(group_id: String, relay_url: String, community_name: String) -> Self {
         Self {
             success: true,
-            invite_code: Some(invite_code),
+            group_id: Some(group_id),
             relay_url: Some(relay_url),
-            expires_at: Some(expires_at),
+            community: Some(CommunityPreview {
+                name: community_name,
+                description: Some("You created this location-based community".to_string()),
+                member_count: 1,
+                created_at: chrono::Utc::now().to_rfc3339(),
+                is_new: true,
+            }),
+            message: Some("Community created! You are now the admin.".to_string()),
             error: None,
         }
     }
     
-    pub fn success_with_message(message: String) -> Self {
+    pub fn success_join_community(group_id: String, relay_url: String, preview: CommunityPreview) -> Self {
         Self {
             success: true,
-            invite_code: None,
-            relay_url: None,
-            expires_at: None,
-            error: Some(message), // Using error field for success message
-        }
-    }
-    
-    pub fn success_with_group(group_id: String, relay_url: String) -> Self {
-        Self {
-            success: true,
-            invite_code: Some(group_id), // Using invite_code field for group_id
+            group_id: Some(group_id),
             relay_url: Some(relay_url),
-            expires_at: None,
+            community: Some(preview),
+            message: Some("Successfully joined the community".to_string()),
             error: None,
         }
     }
@@ -56,53 +71,12 @@ impl ValidateLocationResponse {
     pub fn error(message: String) -> Self {
         Self {
             success: false,
-            invite_code: None,
+            group_id: None,
             relay_url: None,
-            expires_at: None,
+            community: None,
+            message: None,
             error: Some(message),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommunityPreviewRequest {
-    pub id: Uuid,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommunityPreviewResponse {
-    pub id: Uuid,
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub member_count: u32,
-    pub location: LocationInfo,
-    pub created_at: String,  // ISO 8601 format
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LocationInfo {
-    pub name: String,
-    pub latitude: f64,
-    pub longitude: f64,
-}
-
-impl CommunityPreviewResponse {
-    pub fn error(message: String) -> Self {
-        Self {
-            id: Uuid::nil(),
-            name: String::new(),
-            description: None,
-            member_count: 0,
-            location: LocationInfo {
-                name: String::new(),
-                latitude: 0.0,
-                longitude: 0.0,
-            },
-            created_at: String::new(),
-            error: Some(message),
-        }
-    }
-}

@@ -48,7 +48,6 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(handlers::health))
         .route("/api/validate-location", post(handlers::validate_location))
-        .route("/api/community/preview", get(handlers::community_preview))
         .layer(CorsLayer::permissive())
         .with_state(app_state);
 
