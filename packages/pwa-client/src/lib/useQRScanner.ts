@@ -1,8 +1,8 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { QRScanner, QRPayload, QRScanResult, QRScannerOptions } from './qr-scanner';
+import { QRScanner, QRData, QRScanResult, QRScannerOptions } from './qr-scanner';
 
 export interface UseQRScannerOptions {
-  onSuccess?: (payload: QRPayload) => void;
+  onSuccess?: (data: QRData) => void;
   onError?: (error: string) => void;
   continuousScan?: boolean;
   scanDelay?: number;
@@ -11,7 +11,7 @@ export interface UseQRScannerOptions {
 export interface UseQRScannerReturn {
   isScanning: boolean;
   error: string | null;
-  lastResult: QRPayload | null;
+  lastResult: QRData | null;
   startScanning: () => Promise<void>;
   stopScanning: () => void;
   scanFromImage: (file: File) => Promise<QRScanResult>;
@@ -26,7 +26,7 @@ export interface UseQRScannerReturn {
 export function useQRScanner(options: UseQRScannerOptions = {}): UseQRScannerReturn {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<QRPayload | null>(null);
+  const [lastResult, setLastResult] = useState<QRData | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -36,10 +36,10 @@ export function useQRScanner(options: UseQRScannerOptions = {}): UseQRScannerRet
   useEffect(() => {
     const scannerOptions: QRScannerOptions = {
       onSuccess: (result: QRScanResult) => {
-        if (result.success && result.payload) {
-          setLastResult(result.payload);
+        if (result.success && result.data) {
+          setLastResult(result.data);
           setError(null);
-          options.onSuccess?.(result.payload);
+          options.onSuccess?.(result.data);
         } else {
           setError(result.error || 'Invalid QR code');
           options.onError?.(result.error || 'Invalid QR code');
@@ -136,10 +136,10 @@ export function useQRScanner(options: UseQRScannerOptions = {}): UseQRScannerRet
 
     const result = await scannerRef.current.scanFromImage(file);
     
-    if (result.success && result.payload) {
-      setLastResult(result.payload);
+    if (result.success && result.data) {
+      setLastResult(result.data);
       setError(null);
-      options.onSuccess?.(result.payload);
+      options.onSuccess?.(result.data);
     } else {
       setError(result.error || 'Failed to scan image');
     }

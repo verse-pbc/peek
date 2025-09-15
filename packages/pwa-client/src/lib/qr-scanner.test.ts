@@ -1,191 +1,135 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { QRScanner, generateQRPayload, validateQRPayload, QRPayload } from './qr-scanner';
+import { QRScanner, generateQRUrl, generateCommunityId, validateQRData, QRData } from './qr-scanner';
 
 describe('QRScanner', () => {
-  describe('parseQRPayload', () => {
-    it('should parse valid QR payload', () => {
-      const data = JSON.stringify({
-        v: 1,
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        relay: 'wss://peek.hol.is',
-        lat: 37.7749,
-        lng: -122.4194,
-        name: 'Test Community',
-      });
-
-      const payload = QRScanner.parseQRPayload(data);
+  describe('parseQRData', () => {
+    it('should parse valid QR URL', () => {
+      const url = 'https://peek.com/c/123e4567-e89b-12d3-a456-426614174000';
+      const data = QRScanner.parseQRData(url);
       
-      expect(payload).toBeTruthy();
-      expect(payload?.v).toBe(1);
-      expect(payload?.id).toBe('123e4567-e89b-12d3-a456-426614174000');
-      expect(payload?.relay).toBe('wss://peek.hol.is');
-      expect(payload?.lat).toBe(37.7749);
-      expect(payload?.lng).toBe(-122.4194);
-      expect(payload?.name).toBe('Test Community');
+      expect(data).toBeTruthy();
+      expect(data?.url).toBe(url);
+      expect(data?.communityId).toBe('123e4567-e89b-12d3-a456-426614174000');
     });
 
-    it('should return null for invalid JSON', () => {
-      const payload = QRScanner.parseQRPayload('not json');
-      expect(payload).toBeNull();
+    it('should parse URL with query parameters', () => {
+      const url = 'https://peek.com/c/test-community-123?ref=poster';
+      const data = QRScanner.parseQRData(url);
+      
+      expect(data).toBeTruthy();
+      expect(data?.url).toBe(url);
+      expect(data?.communityId).toBe('test-community-123');
     });
 
-    it('should return null for missing required fields', () => {
-      const data = JSON.stringify({
-        v: 1,
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        // Missing relay, lat, lng
-      });
-
-      const payload = QRScanner.parseQRPayload(data);
-      expect(payload).toBeNull();
+    it('should parse relative URL path', () => {
+      const path = '/c/abc-123-def';
+      const data = QRScanner.parseQRData(path);
+      
+      expect(data).toBeTruthy();
+      expect(data?.url).toBe(path);
+      expect(data?.communityId).toBe('abc-123-def');
     });
 
-    it('should return null for invalid version', () => {
-      const data = JSON.stringify({
-        v: 2, // Unsupported version
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        relay: 'wss://peek.hol.is',
-        lat: 37.7749,
-        lng: -122.4194,
-      });
-
-      const payload = QRScanner.parseQRPayload(data);
-      expect(payload).toBeNull();
+    it('should return null for invalid URL format', () => {
+      const data = QRScanner.parseQRData('not a url');
+      expect(data).toBeNull();
     });
 
-    it('should return null for invalid UUID', () => {
-      const data = JSON.stringify({
-        v: 1,
-        id: 'not-a-uuid',
-        relay: 'wss://peek.hol.is',
-        lat: 37.7749,
-        lng: -122.4194,
-      });
-
-      const payload = QRScanner.parseQRPayload(data);
-      expect(payload).toBeNull();
+    it('should return null for URL without community path', () => {
+      const data = QRScanner.parseQRData('https://peek.com/about');
+      expect(data).toBeNull();
     });
 
-    it('should return null for invalid relay URL', () => {
-      const data = JSON.stringify({
-        v: 1,
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        relay: 'https://invalid.com', // Should be wss:// or ws://
-        lat: 37.7749,
-        lng: -122.4194,
-      });
-
-      const payload = QRScanner.parseQRPayload(data);
-      expect(payload).toBeNull();
+    it('should return null for community ID with invalid characters', () => {
+      const data = QRScanner.parseQRData('https://peek.com/c/invalid@id!');
+      expect(data).toBeNull();
     });
 
-    it('should return null for invalid coordinates', () => {
-      const data1 = JSON.stringify({
-        v: 1,
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        relay: 'wss://peek.hol.is',
-        lat: 91, // Invalid latitude
-        lng: -122.4194,
-      });
+    it('should return null for community ID that is too short', () => {
+      const data = QRScanner.parseQRData('https://peek.com/c/short');
+      expect(data).toBeNull();
+    });
 
-      const data2 = JSON.stringify({
-        v: 1,
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        relay: 'wss://peek.hol.is',
-        lat: 37.7749,
-        lng: 181, // Invalid longitude
-      });
-
-      expect(QRScanner.parseQRPayload(data1)).toBeNull();
-      expect(QRScanner.parseQRPayload(data2)).toBeNull();
+    it('should return null for community ID that is too long', () => {
+      const longId = 'a'.repeat(65);
+      const data = QRScanner.parseQRData(`https://peek.com/c/${longId}`);
+      expect(data).toBeNull();
     });
   });
 
-  describe('generateQRPayload', () => {
-    it('should generate valid QR payload JSON', () => {
-      const id = '123e4567-e89b-12d3-a456-426614174000';
-      const lat = 37.7749;
-      const lng = -122.4194;
+  describe('generateQRUrl', () => {
+    it('should generate valid QR URL', () => {
+      const communityId = '123e4567-e89b-12d3-a456-426614174000';
+      const url = generateQRUrl(communityId);
       
-      const json = generateQRPayload(id, lat, lng);
-      const payload = JSON.parse(json);
-
-      expect(payload.v).toBe(1);
-      expect(payload.id).toBe(id);
-      expect(payload.relay).toBe('wss://peek.hol.is');
-      expect(payload.lat).toBe(lat);
-      expect(payload.lng).toBe(lng);
+      expect(url).toContain('/c/');
+      expect(url).toContain(communityId);
     });
 
-    it('should include optional name', () => {
-      const json = generateQRPayload(
-        '123e4567-e89b-12d3-a456-426614174000',
-        37.7749,
-        -122.4194,
-        'wss://peek.hol.is',
-        'Test Community'
-      );
+    it('should use custom base URL', () => {
+      const communityId = '123e4567-e89b-12d3-a456-426614174000';
+      const baseUrl = 'https://custom.peek.com';
+      const url = generateQRUrl(communityId, baseUrl);
       
-      const payload = JSON.parse(json);
-      expect(payload.name).toBe('Test Community');
+      expect(url).toBe(`${baseUrl}/c/${communityId}`);
     });
 
-    it('should use custom relay URL', () => {
-      const json = generateQRPayload(
-        '123e4567-e89b-12d3-a456-426614174000',
-        37.7749,
-        -122.4194,
-        'wss://custom.relay'
-      );
-      
-      const payload = JSON.parse(json);
-      expect(payload.relay).toBe('wss://custom.relay');
+    it('should throw error for invalid community ID', () => {
+      expect(() => generateQRUrl('short')).toThrow('Invalid community ID format');
+      expect(() => generateQRUrl('invalid@id')).toThrow('Invalid community ID format');
+      expect(() => generateQRUrl('a'.repeat(65))).toThrow('Invalid community ID format');
     });
   });
 
-  describe('validateQRPayload', () => {
-    const validPayload: QRPayload = {
-      v: 1,
-      id: '123e4567-e89b-12d3-a456-426614174000',
-      relay: 'wss://peek.hol.is',
-      lat: 37.7749,
-      lng: -122.4194,
+  describe('generateCommunityId', () => {
+    it('should generate valid UUID-like ID', () => {
+      const id = generateCommunityId();
+      
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    });
+
+    it('should generate unique IDs', () => {
+      const id1 = generateCommunityId();
+      const id2 = generateCommunityId();
+      
+      expect(id1).not.toBe(id2);
+    });
+  });
+
+  describe('validateQRData', () => {
+    const validData: QRData = {
+      url: 'https://peek.com/c/123e4567-e89b-12d3-a456-426614174000',
+      communityId: '123e4567-e89b-12d3-a456-426614174000',
     };
 
-    it('should validate correct payload', () => {
-      const result = validateQRPayload(validPayload);
+    it('should validate correct data', () => {
+      const result = validateQRData(validData);
       expect(result.valid).toBe(true);
       expect(result.error).toBeUndefined();
     });
 
-    it('should reject invalid version', () => {
-      const result = validateQRPayload({ ...validPayload, v: 2 });
+    it('should reject missing URL', () => {
+      const result = validateQRData({ ...validData, url: '' });
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Unsupported QR version');
+      expect(result.error).toBe('Missing URL');
     });
 
-    it('should reject invalid UUID', () => {
-      const result = validateQRPayload({ ...validPayload, id: 'not-a-uuid' });
+    it('should reject invalid community ID format', () => {
+      const result = validateQRData({ ...validData, communityId: 'short' });
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Invalid community ID format');
     });
 
-    it('should reject invalid relay URL', () => {
-      const result = validateQRPayload({ ...validPayload, relay: 'https://invalid' });
+    it('should reject community ID with invalid characters', () => {
+      const result = validateQRData({ ...validData, communityId: 'invalid@id!' });
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Invalid relay URL');
+      expect(result.error).toBe('Invalid community ID format');
     });
 
-    it('should reject invalid latitude', () => {
-      const result = validateQRPayload({ ...validPayload, lat: 91 });
+    it('should reject community ID that is too long', () => {
+      const result = validateQRData({ ...validData, communityId: 'a'.repeat(65) });
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Invalid latitude');
-    });
-
-    it('should reject invalid longitude', () => {
-      const result = validateQRPayload({ ...validPayload, lng: 181 });
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('Invalid longitude');
+      expect(result.error).toBe('Invalid community ID format');
     });
   });
 

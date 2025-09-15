@@ -1,15 +1,12 @@
 import { BrowserMultiFormatReader, NotFoundException, Result } from '@zxing/library';
 
 /**
- * QR Payload structure for Peek communities
+ * QR Data structure for Peek communities
+ * QR codes contain only a URL with a unique identifier
  */
-export interface QRPayload {
-  v: number;           // Payload version
-  id: string;          // Community UUID
-  relay: string;       // Relay URL (wss://peek.hol.is)
-  lat: number;         // QR location latitude
-  lng: number;         // QR location longitude
-  name?: string;       // Optional community name hint
+export interface QRData {
+  url: string;         // Full URL from QR code
+  communityId: string; // Extracted UUID or identifier from URL
 }
 
 /**
@@ -17,7 +14,7 @@ export interface QRPayload {
  */
 export interface QRScanResult {
   success: boolean;
-  payload?: QRPayload;
+  data?: QRData;
   error?: string;
   rawData?: string;
 }
@@ -147,47 +144,53 @@ export class QRScanner {
   }
 
   /**
-   * Parse QR payload from raw data
+   * Parse QR data from raw URL string
    */
-  static parseQRPayload(data: string): QRPayload | null {
+  static parseQRData(data: string): QRData | null {
     try {
-      // Try to parse as JSON
-      const payload = JSON.parse(data);
-
-      // Validate required fields
-      if (
-        typeof payload.v !== 'number' ||
-        typeof payload.id !== 'string' ||
-        typeof payload.relay !== 'string' ||
-        typeof payload.lat !== 'number' ||
-        typeof payload.lng !== 'number'
-      ) {
+      // Remove any whitespace
+      const trimmedData = data.trim();
+      
+      // Check if it's a valid URL
+      let url: URL;
+      try {
+        url = new URL(trimmedData);
+      } catch {
+        // If not a full URL, it might be a relative path
+        // Try to construct with a default base
+        if (trimmedData.startsWith('/c/')) {
+          // This would be handled by the app when deployed
+          return {
+            url: trimmedData,
+            communityId: trimmedData.replace('/c/', '').split('/')[0].split('?')[0],
+          };
+        }
         return null;
       }
 
-      // Validate version
-      if (payload.v !== 1) {
-        console.warn(`Unsupported QR payload version: ${payload.v}`);
+      // Extract community ID from path
+      // Expected format: https://peek.com/c/{uuid}
+      const pathMatch = url.pathname.match(/^\/c\/([a-zA-Z0-9-_]+)/);
+      if (!pathMatch || !pathMatch[1]) {
         return null;
       }
 
-      // Validate UUID format (basic check)
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(payload.id)) {
+      const communityId = pathMatch[1];
+      
+      // Validate the community ID format (UUID or other identifier)
+      // Allow UUIDs and also simpler alphanumeric identifiers
+      const isValidId = /^[a-zA-Z0-9-_]+$/.test(communityId) && 
+                       communityId.length >= 8 && 
+                       communityId.length <= 64;
+      
+      if (!isValidId) {
         return null;
       }
 
-      // Validate relay URL
-      if (!payload.relay.startsWith('wss://') && !payload.relay.startsWith('ws://')) {
-        return null;
-      }
-
-      // Validate coordinates
-      if (payload.lat < -90 || payload.lat > 90 || payload.lng < -180 || payload.lng > 180) {
-        return null;
-      }
-
-      return payload as QRPayload;
+      return {
+        url: trimmedData,
+        communityId,
+      };
     } catch {
       return null;
     }
@@ -278,12 +281,12 @@ export class QRScanner {
    */
   private processResult(result: Result): QRScanResult {
     const rawData = result.getText();
-    const payload = QRScanner.parseQRPayload(rawData);
+    const qrData = QRScanner.parseQRData(rawData);
 
-    if (payload) {
+    if (qrData) {
       return {
         success: true,
-        payload,
+        data: qrData,
         rawData,
       };
     }
@@ -297,54 +300,60 @@ export class QRScanner {
 }
 
 /**
- * Utility function to generate QR code data
+ * Utility function to generate QR code URL
  */
-export function generateQRPayload(
-  id: string,
-  lat: number,
-  lng: number,
-  relay: string = 'wss://peek.hol.is',
-  name?: string,
+export function generateQRUrl(
+  communityId: string,
+  baseUrl: string = window.location.origin,
 ): string {
-  const payload: QRPayload = {
-    v: 1,
-    id,
-    relay,
-    lat,
-    lng,
-    ...(name && { name }),
-  };
-
-  return JSON.stringify(payload);
+  // Ensure the community ID is valid
+  if (!/^[a-zA-Z0-9-_]+$/.test(communityId) || 
+      communityId.length < 8 || 
+      communityId.length > 64) {
+    throw new Error('Invalid community ID format');
+  }
+  
+  return `${baseUrl}/c/${communityId}`;
 }
 
 /**
- * Validate QR payload
+ * Generate a random community ID
  */
-export function validateQRPayload(payload: QRPayload): { valid: boolean; error?: string } {
-  // Check version
-  if (payload.v !== 1) {
-    return { valid: false, error: 'Unsupported QR version' };
+export function generateCommunityId(): string {
+  // Generate a UUID v4-like identifier
+  const segments = [
+    randomHex(8),
+    randomHex(4),
+    '4' + randomHex(3), // Version 4
+    randomHex(4),
+    randomHex(12),
+  ];
+  return segments.join('-');
+}
+
+function randomHex(length: number): string {
+  const chars = '0123456789abcdef';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars[Math.floor(Math.random() * 16)];
+  }
+  return result;
+}
+
+/**
+ * Validate QR data
+ */
+export function validateQRData(data: QRData): { valid: boolean; error?: string } {
+  // Check if URL is present
+  if (!data.url) {
+    return { valid: false, error: 'Missing URL' };
   }
 
-  // Check UUID format
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(payload.id)) {
+  // Check community ID format
+  if (!/^[a-zA-Z0-9-_]+$/.test(data.communityId) || 
+      data.communityId.length < 8 || 
+      data.communityId.length > 64) {
     return { valid: false, error: 'Invalid community ID format' };
-  }
-
-  // Check relay URL
-  if (!payload.relay.startsWith('wss://') && !payload.relay.startsWith('ws://')) {
-    return { valid: false, error: 'Invalid relay URL' };
-  }
-
-  // Check coordinates
-  if (payload.lat < -90 || payload.lat > 90) {
-    return { valid: false, error: 'Invalid latitude' };
-  }
-
-  if (payload.lng < -180 || payload.lng > 180) {
-    return { valid: false, error: 'Invalid longitude' };
   }
 
   return { valid: true };

@@ -8,7 +8,10 @@ pub struct Config {
     #[serde(default = "default_relay_url")]
     pub relay_url: String,
     
-    // Admin private key for creating NIP-29 invites
+    // Relay's secret key for managing groups and accessing all events
+    pub relay_secret_key: String,
+    
+    // Admin private key for creating NIP-29 invites (deprecated, using relay key instead)
     pub admin_nsec: Option<String>,
     
     #[serde(default = "default_max_distance")]
@@ -32,6 +35,7 @@ impl Default for Config {
         Self {
             port: default_port(),
             relay_url: default_relay_url(),
+            relay_secret_key: String::new(), // Must be provided via environment
             admin_nsec: None,
             max_distance_meters: default_max_distance(),
             max_accuracy_meters: default_max_accuracy(),

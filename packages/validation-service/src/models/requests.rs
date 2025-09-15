@@ -32,6 +32,26 @@ impl ValidateLocationResponse {
             error: None,
         }
     }
+    
+    pub fn success_with_message(message: String) -> Self {
+        Self {
+            success: true,
+            invite_code: None,
+            relay_url: None,
+            expires_at: None,
+            error: Some(message), // Using error field for success message
+        }
+    }
+    
+    pub fn success_with_group(group_id: String, relay_url: String) -> Self {
+        Self {
+            success: true,
+            invite_code: Some(group_id), // Using invite_code field for group_id
+            relay_url: Some(relay_url),
+            expires_at: None,
+            error: None,
+        }
+    }
 
     pub fn error(message: String) -> Self {
         Self {

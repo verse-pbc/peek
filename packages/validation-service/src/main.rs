@@ -3,6 +3,7 @@ use axum::{
     Router,
 };
 use std::net::SocketAddr;
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -12,6 +13,8 @@ mod handlers;
 mod libraries;
 mod models;
 mod services;
+
+use services::community::CommunityService;
 
 #[tokio::main]
 async fn main() {
@@ -29,6 +32,17 @@ async fn main() {
     let config = config::Config::from_env().expect("Failed to load configuration");
 
     info!("Starting validation service on port {}", config.port);
+    
+    // Initialize community service with relay connection
+    let community_service = CommunityService::new(
+        &config.relay_url,
+        &config.relay_secret_key,
+    )
+    .await
+    .expect("Failed to initialize community service");
+    
+    // Create shared state
+    let app_state = (config.clone(), Arc::new(community_service));
 
     // Build our application with routes
     let app = Router::new()
@@ -36,7 +50,7 @@ async fn main() {
         .route("/api/validate-location", post(handlers::validate_location))
         .route("/api/community/preview", get(handlers::community_preview))
         .layer(CorsLayer::permissive())
-        .with_state(config.clone());
+        .with_state(app_state);
 
     // Run it
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

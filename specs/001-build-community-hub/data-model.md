@@ -94,25 +94,23 @@ interface LocationProof {
 - `timestamp` must be within 30s of server time
 - Coordinates must be valid GPS range
 
-### QRPayload
+### QRData
 Data encoded in physical QR codes.
 
 ```typescript
-interface QRPayload {
-  v: 1;                    // Payload version
-  id: string;              // Community UUID
-  relay: string;           // Relay URL (wss://peek.hol.is)
-  lat: number;             // QR location latitude
-  lng: number;             // QR location longitude
-  name?: string;           // Optional community name hint
+interface QRData {
+  url: string;             // Full URL (e.g., "https://peek.com/c/{uuid}")
+  communityId: string;     // Extracted UUID from URL path
 }
+
+// Example QR content:
+// "https://peek.com/c/123e4567-e89b-12d3-a456-426614174000"
 ```
 
 **Validation Rules**:
-- `v` must be 1 (current version)
-- `id` must be valid UUID v4
-- `relay` must be valid WSS URL
-- Coordinates must be valid GPS range
+- QR contains only a URL, no location data
+- `communityId` must be valid UUID v4 or identifier
+- Location is set by first scanner, not in QR
 
 ### Member (NIP-29 Participant)
 User who has joined a community.
