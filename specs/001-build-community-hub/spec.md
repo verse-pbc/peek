@@ -57,8 +57,8 @@ A traveler visiting Oslo discovers a QR code at a popular coffee shop. They scan
 
 ### Acceptance Scenarios
 1. **Given** a fresh QR code that has never been scanned, **When** a user scans it, **Then** a new community is created with a stable ID and the scanner becomes the admin
-2. **Given** an existing community QR code, **When** a new user scans it on-site, **Then** they see a join screen showing community preview (name, description, member count)
-3. **Given** a user attempting to join, **When** they are within 25m of the community's established location AND have horizontal accuracy ≤20m, **Then** they are automatically added to the NIP-29 group
+2. **Given** an existing community QR code, **When** a new user scans it on-site AND passes location validation, **Then** they receive community preview (name, description, member count) along with group membership
+3. **Given** a user attempting to join, **When** they are within 25m of the community's established location AND have horizontal accuracy ≤20m, **Then** they are automatically added to the NIP-29 group and shown community details
 4. **Given** a user attempting to join, **When** they are more than 25m away OR horizontal accuracy >20m, **Then** join is rejected with a clear reason
 5. **Given** someone shares a QR code image or text online, **When** a remote user tries to scan it, **Then** they fail presence verification and cannot join
 6. **Given** an existing member, **When** they access the community from anywhere, **Then** they can participate without re-verification
@@ -105,6 +105,7 @@ The system prevents remote access through GPS verification:
 - **Timestamp Validation**: GPS data must be fresh (within 30 seconds)
 - **Direct Group Addition**: Validation service uses relay's secret key to add members directly, no invite codes to share
 - **Combined Requirements**: Need both the unique QR identifier AND physical presence at the original location
+- **Single Validation Endpoint**: Community preview merged with location validation to prevent information probing
 
 ### Why Physical Presence Matters
 This GPS verification creates a community of people who've genuinely shared the same physical space, establishing higher trust and authenticity than purely digital communities. The effort required to physically visit the location naturally filters out spam and creates meaningful local connections.
@@ -123,7 +124,7 @@ This GPS verification creates a community of people who've genuinely shared the 
 - **FR-009**: System MUST provide admin capabilities: rename, set description/rules, promote/demote co-admins, remove members, mute/ban
 - **FR-010**: System MUST bind membership and admin/ban status to Nostr pubkey
 - **FR-011**: System MUST prevent banned pubkeys from rejoining via same QR unless unbanned
-- **FR-012**: System MUST show pre-join preview with community name, description, and member count
+- **FR-012**: System MUST show community preview (name, description, member count) ONLY after successful location validation
 - **FR-013**: System MUST prevent message access until user has been added to the NIP-29 group
 - **FR-014**: System MUST store community location set by first scanner in relay as encrypted metadata
 - **FR-015**: System MUST use relay's secret key to directly add validated users to NIP-29 groups
@@ -136,6 +137,8 @@ This GPS verification creates a community of people who've genuinely shared the 
 - **FR-022**: System MUST support both importing existing Nostr accounts and creating new ones
 - **FR-023**: System MUST NOT provide global search or directory of communities
 - **FR-024**: System MUST require physical QR scanning for community discovery
+- **FR-025**: System MUST NOT expose community details without successful location validation
+- **FR-026**: System MUST merge community preview into validation response to prevent information leakage
 
 ### Key Entities
 - **Community**: Represents a hyperlocal group tied to a physical location, with unique stable ID, name, description, rules, and member list
@@ -182,6 +185,7 @@ The effort required to physically visit a location and complete dual verificatio
 - **Direct Group Membership**: No invite codes or tokens that could be intercepted
 - **No Tracking**: System doesn't track member movements or location history
 - **Decentralized Identity**: Nostr-based identity means no central authority controls user accounts
+- **Protected Community Info**: Community details only revealed after location validation, preventing remote discovery
 
 ### Community Value Proposition
 Communities formed through shared physical presence have stronger bonds than purely digital groups. The verification friction is a feature, not a bug - it ensures quality over quantity and creates communities of people with genuine shared experiences.

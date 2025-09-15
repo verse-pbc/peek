@@ -47,11 +47,11 @@ Build a location-based community platform where physical QR codes at venues crea
 - Avoiding patterns? Yes (no Repository/UoW, direct relay access via Nostrify)
 
 **Architecture**:
-- EVERY feature as library? Yes (location-check, invite-creator, qr-scanner)
+- EVERY feature as library? Yes (location-check, group-manager, qr-scanner)
 - Libraries listed:
   - location-check: Validates GPS coordinates within radius (Rust)
-  - invite-creator: Creates kind:9009 events on relay (Rust)
-  - qr-scanner: Decodes QR codes and extracts community data (TS)
+  - group-manager: Directly adds users to NIP-29 groups using relay's secret key (Rust)
+  - qr-scanner: Decodes QR codes and extracts community ID from URL (TS)
   - peek-nostr: Extends Nostrify for Peek-specific NIP-29 operations (TS)
 - CLI per library: Rust crates expose CLI bins, TS libs have CLI wrappers
 - Library docs: llms.txt format planned for each library
@@ -120,7 +120,9 @@ shared/
    - NIP-29 relay integration with groups_relay
    - Photo verification approaches (MVP deferred)
    - Geolocation API accuracy handling
-   - Direct invite creation from Rust service
+   - Direct group membership from Rust service (no invite codes)
+   - Using relay's secret key for NIP-29 group management
+   - Storing community metadata as NIP-44 encrypted events
 
 2. **Generate and dispatch research agents**:
    ```
@@ -139,19 +141,21 @@ shared/
 *Prerequisites: research.md complete*
 
 1. **Extract entities from feature spec** → `data-model.md`:
-   - Community (NIP-29 group with location metadata)
-   - NIP29InviteCode (relay invite, short-lived, single-use)
+   - Community (NIP-29 group with location metadata stored as encrypted events)
    - LocationProof (coordinates, accuracy, timestamp)
-   - QRPayload (community ID, relay URL, location)
+   - QRData (URL only - e.g., https://peek.com/c/{uuid})
+   - CommunityPreview (name, description, member_count - returned after validation)
 
 2. **Generate API contracts** from functional requirements:
-   - POST /api/validate-location - Submit location, get invite code
-   - GET /api/community/preview - Pre-join community info
+   - POST /api/validate-location - Submit location and get direct group membership (no invite codes)
+     * Returns community preview info only after successful validation
+     * Validation service uses relay's secret key for direct NIP-29 group addition
 
 3. **Generate contract tests** from contracts:
    - Test location validation edge cases
-   - Test invite code expiry and single-use
-   - Test preview without authentication
+   - Test direct group membership on validation success
+   - Test preview info included in validation response
+   - Test that preview is NOT accessible without location validation
 
 4. **Extract test scenarios** from user stories:
    - Fresh QR scan creates community

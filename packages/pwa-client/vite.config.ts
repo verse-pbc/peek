@@ -9,6 +9,13 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
+    hmr: {
+      clientPort: 443,
+    },
+    allowedHosts: [
+      "localhost",
+      "humorous-tiger-above.ngrok-free.app",
+    ],
   },
   plugins: [
     react(),

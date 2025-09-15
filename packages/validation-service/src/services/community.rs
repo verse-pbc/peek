@@ -1,18 +1,11 @@
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
 use crate::models::LocationPoint;
+use crate::services::relay::{RelayService, CommunityMetadata as RelayMetadata, Location};
 
-/// Event kind for storing encrypted community metadata
-/// Using a high number to avoid conflicts
-const COMMUNITY_METADATA_KIND: u16 = 30078;
-
-/// Information about a community stored in encrypted events
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Information about a community
 pub struct CommunityMetadata {
     pub community_id: Uuid,
     pub qr_id: String,  // The QR code identifier
@@ -24,37 +17,42 @@ pub struct CommunityMetadata {
 }
 
 /// Service for managing community metadata using relay as storage
-/// For now, using in-memory storage as a placeholder
 pub struct CommunityService {
-    /// In-memory cache of communities
-    cache: Arc<RwLock<HashMap<Uuid, CommunityMetadata>>>,
-    /// Relay URL for future use
-    relay_url: String,
-    /// Relay secret key for future use
-    relay_secret_key: String,
+    relay_service: Arc<RelayService>,
 }
 
 impl CommunityService {
     pub async fn new(relay_url: &str, relay_secret_key: &str) -> Result<Self, Box<dyn std::error::Error>> {
-        // For now, just store the parameters and use in-memory storage
-        // TODO: Implement actual NIP-44 encryption and relay communication
+        let relay_service = RelayService::new(
+            relay_url.to_string(),
+            relay_secret_key.to_string(),
+        ).await?;
         
-        let service = Self {
-            cache: Arc::new(RwLock::new(HashMap::new())),
-            relay_url: relay_url.to_string(),
-            relay_secret_key: relay_secret_key.to_string(),
-        };
+        // Load existing communities from relay on startup
+        relay_service.load_all_communities().await?;
         
-        // TODO: Load existing communities from relay
-        // service.rebuild_cache_from_relay().await?;
-        
-        Ok(service)
+        Ok(Self {
+            relay_service: Arc::new(relay_service),
+        })
     }
     
     /// Get community metadata by ID
     pub async fn get(&self, id: &Uuid) -> Option<CommunityMetadata> {
-        let cache = self.cache.read().await;
-        cache.get(id).cloned()
+        self.relay_service.get_community_metadata(*id).await.ok()
+            .flatten()
+            .map(|relay_meta| CommunityMetadata {
+                community_id: relay_meta.id,
+                qr_id: relay_meta.id.to_string(), // Using ID as QR ID for now
+                location: LocationPoint {
+                    latitude: relay_meta.location.latitude,
+                    longitude: relay_meta.location.longitude,
+                },
+                name: relay_meta.name,
+                created_at: DateTime::from_timestamp(relay_meta.created_at.as_u64() as i64, 0)
+                    .unwrap_or_else(|| Utc::now()),
+                created_by: relay_meta.creator_pubkey,
+                group_id: format!("peek-{}", relay_meta.id),
+            })
     }
     
     /// Create or get community
@@ -66,36 +64,34 @@ impl CommunityService {
         location: LocationPoint,
         creator_pubkey: String,
     ) -> Result<(CommunityMetadata, bool), Box<dyn std::error::Error>> {
-        let mut cache = self.cache.write().await;
-        
-        if let Some(existing) = cache.get(&community_id) {
-            Ok((existing.clone(), false))
-        } else {
-            // Create NIP-29 group identifier
-            let group_id = format!("group-{}", community_id);
-            
-            // Create metadata
-            let metadata = CommunityMetadata {
-                community_id,
-                qr_id,
-                location,
-                name: format!("Community {}", &community_id.to_string()[..8]),
-                created_at: Utc::now(),
-                created_by: creator_pubkey.clone(),
-                group_id: group_id.clone(),
-            };
-            
-            // TODO: Store to relay using NIP-44 encryption
-            // self.store_to_relay(&metadata).await?;
-            
-            // TODO: Create actual NIP-29 group on relay
-            // self.create_nip29_group(&group_id, &metadata.name, &creator_pubkey).await?;
-            
-            // Update cache
-            cache.insert(community_id, metadata.clone());
-            
-            Ok((metadata, true))
+        // Check if community already exists
+        if let Some(existing) = self.get(&community_id).await {
+            return Ok((existing, false));
         }
+        
+        // Create new community on relay
+        let group_id = self.relay_service.create_group(
+            community_id,
+            format!("Community {}", &community_id.to_string()[..8]),
+            creator_pubkey.clone(),
+            Location {
+                latitude: location.latitude,
+                longitude: location.longitude,
+            },
+        ).await?;
+        
+        // Return the created community metadata
+        let metadata = CommunityMetadata {
+            community_id,
+            qr_id,
+            location,
+            name: format!("Community {}", &community_id.to_string()[..8]),
+            created_at: Utc::now(),
+            created_by: creator_pubkey,
+            group_id,
+        };
+        
+        Ok((metadata, true))
     }
     
     /// Add a user directly to a NIP-29 group
@@ -104,26 +100,24 @@ impl CommunityService {
         group_id: &str,
         user_pubkey: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // TODO: Implement actual NIP-29 group member addition
-        // For now, just log the action
-        tracing::info!(
-            "Would add user {} to group {} (not yet implemented)",
+        self.relay_service.add_group_member(
+            group_id,
             user_pubkey,
-            group_id
-        );
-        
-        Ok(())
+            false, // Regular member, not admin
+        ).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
     }
     
     /// Check if a community exists
     pub async fn exists(&self, id: &Uuid) -> bool {
-        let cache = self.cache.read().await;
-        cache.contains_key(id)
+        self.relay_service.community_exists(*id).await
+            .unwrap_or(false)
     }
 
     /// Get all communities (for debugging)
     pub async fn list(&self) -> Vec<CommunityMetadata> {
-        let cache = self.cache.read().await;
-        cache.values().cloned().collect()
+        // Note: This would need to be implemented in RelayService
+        // For now, return empty list
+        vec![]
     }
 }

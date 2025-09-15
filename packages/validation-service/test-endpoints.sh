@@ -4,7 +4,8 @@
 
 BASE_URL="http://localhost:3001"
 COMMUNITY_ID="123e4567-e89b-12d3-a456-426614174000"
-USER_PUBKEY="npub1234567890abcdef"
+# Valid test npub (public key)
+USER_PUBKEY="npub1xtscya34g58tk0z605fvr788k263gsu6cy9x0mhnm87echrgufzsevkk5s"
 
 echo "Testing Validation Service Endpoints"
 echo "===================================="
@@ -50,7 +51,7 @@ curl -s -X POST "$BASE_URL/api/validate-location" \
       "accuracy": 10.0,
       "timestamp": '$(date +%s)'
     },
-    "user_pubkey": "npub_different_user"
+    "user_pubkey": "npub1g53mukxnjkcmr94fhryzkqutdz2ukq4ks0gvy5af25rgmwsl4ngq43drvk"
   }' | jq .
 
 # Test validate-location (subsequent scan - too far)
@@ -67,7 +68,7 @@ curl -s -X POST "$BASE_URL/api/validate-location" \
       "accuracy": 10.0,
       "timestamp": '$(date +%s)'
     },
-    "user_pubkey": "npub_remote_user"
+    "user_pubkey": "npub10elfcs4fr0l0r8af98jlmgdh9c8tcxjvz9qkw038js35mp4dma8qzvjptg"
   }' | jq .
 
 echo -e "\n===================================="

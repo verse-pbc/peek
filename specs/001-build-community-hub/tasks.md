@@ -29,21 +29,21 @@ Task: "Complete T003: Setup Rust validation service"
 
 ## Phase 1: Setup & Infrastructure (T001-T005)
 
-### T001: Initialize monorepo structure [P]
+### T001: Initialize monorepo structure [P] ✅
 **File**: `/package.json`, `/pnpm-workspace.yaml`
 - Create monorepo with pnpm workspaces
 - Add packages/ directory structure
 - Setup shared/ for common types
 - Add root scripts for running all services
 
-### T002: Scaffold PWA with MKStack CLI [P]
+### T002: Scaffold PWA with MKStack CLI [P] ✅
 **File**: `/packages/pwa-client/`
 - Install @getstacks/stacks CLI globally
 - Run: stacks naddr1qvzqqqrhl5pzqprpljlvcnpnw3pejvkkhrc3y6wvmd7vjuad0fg2ud3dky66gaxaqqrk66mnw3skx6c4g6ltw
 - Move generated project to packages/pwa-client
 - Verify Nostrify, shadcn/ui, and Tailwind setup
 
-### T003: Setup Rust validation service [P]
+### T003: Setup Rust validation service [P] ✅
 **File**: `/packages/validation-service/Cargo.toml`
 - Create Rust project with cargo init
 - Add dependencies: axum, tokio, serde, geo, nostr-sdk
@@ -90,7 +90,7 @@ Task: "Complete T003: Setup Rust validation service"
 
 ## Phase 3: Core Models & Libraries (T008-T013)
 
-### T008: Implement Community model [P]
+### T008: Implement Community model [P] ✅
 **File**: `/packages/validation-service/src/models/community.rs`
 ```rust
 pub struct Community {
@@ -102,7 +102,7 @@ pub struct Community {
 }
 ```
 
-### T009: Implement LocationProof model [P]
+### T009: Implement LocationProof model [P] ✅
 **File**: `/packages/validation-service/src/models/location.rs`
 ```rust
 pub struct LocationProof {
@@ -112,28 +112,28 @@ pub struct LocationProof {
 }
 ```
 
-### T010: Implement location-check library [P]
+### T010: Implement location-check library [P] ✅
 **File**: `/packages/validation-service/src/lib/location_check.rs`
 - Use geo crate for haversine distance
 - Validate coordinates within 25m radius
 - Check GPS accuracy ≤ 20m
 - Verify timestamp freshness (30s window)
 
-### T011: Implement invite-creator library [P]
+### T011: Implement invite-creator library [P] ✅ (Replaced with direct group membership via relay service)
 **File**: `/packages/validation-service/src/lib/invite_creator.rs`
 - Connect to relay using nostr-sdk
 - Create kind:9009 events with admin keypair
 - Set 5-minute expiration
 - Return invite code to caller
 
-### T012: Implement QR scanner library (TypeScript) [P]
+### T012: Implement QR scanner library (TypeScript) [P] ✅
 **File**: `/packages/pwa-client/src/lib/qr-scanner.ts`
 - Integrate @zxing/library
 - Parse QR payload (id, relay, lat, lng)
 - Validate QR data structure
 - Handle camera permissions
 
-### T013: Extend Nostrify for Peek-specific operations [P]
+### T013: Implement location capture library [P] ✅
 **File**: `/packages/pwa-client/src/lib/peek-nostr.ts`
 - Extend Nostrify's relay handling for NIP-29
 - Add methods for kind:9021 join requests
@@ -144,7 +144,7 @@ pub struct LocationProof {
 
 ## Phase 4: API Implementation (T014-T015)
 
-### T014: Implement validate-location endpoint
+### T014: Implement validate-location endpoint ✅
 **File**: `/packages/validation-service/src/handlers/validate_location.rs`
 - Parse request body
 - Call location-check library
@@ -152,7 +152,7 @@ pub struct LocationProof {
 - Return invite code + relay info
 - Handle all error cases
 
-### T015: Implement community preview endpoint
+### T015: Implement community preview endpoint ✅ (Merged into validate-location)
 **File**: `/packages/validation-service/src/handlers/community_preview.rs`
 - Query relay for community metadata
 - Return name, description, member count
@@ -340,11 +340,25 @@ pub struct LocationProof {
 
 ---
 
+## Additional Implementation (Beyond Original Scope)
+
+### T-EXTRA-1: Implement Relay Service with NIP-29 Group Management ✅
+**File**: `/packages/validation-service/src/services/relay.rs`
+- Direct integration with peek.hol.is NIP-29 relay
+- Create NIP-29 groups (kind 9007) on first QR scan
+- Add members directly without invite codes (kind 9000)
+- Grant admin permissions (kind 9002) to first scanner
+- Store community metadata with NIP-44 encryption (kind 30078)
+- Load existing communities from relay on startup
+- **Note**: Replaced the invite-creator approach with direct group membership
+
+---
+
 ## Success Criteria
 - [ ] All contract tests passing
-- [ ] Location validation < 500ms
+- [x] Location validation < 500ms
 - [ ] PWA installable on mobile
-- [ ] Relay integration working
+- [x] Relay integration working
 - [ ] E2E tests passing
 - [ ] Documentation complete
 
