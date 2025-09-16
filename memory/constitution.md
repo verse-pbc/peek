@@ -6,6 +6,7 @@
 ### [PRINCIPLE_1_NAME]
 <!-- Example: I. Library-First -->
 [PRINCIPLE_1_DESCRIPTION]
+We never provide QR scanning functionality in this app, that is provided by the phone camera, not by us.
 <!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
 
 ### [PRINCIPLE_2_NAME]

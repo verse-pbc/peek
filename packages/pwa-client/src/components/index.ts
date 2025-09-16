@@ -21,3 +21,5 @@ export { EditProfileForm } from './EditProfileForm';
 // Peek-specific components
 export { LocationPermission } from './LocationPermission';
 export { CommunityPreview } from './CommunityPreview';
+export { CommunityFeed } from './CommunityFeed';
+export { AdminPanel } from './AdminPanel';
