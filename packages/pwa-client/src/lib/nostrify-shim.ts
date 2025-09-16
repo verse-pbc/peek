@@ -139,12 +139,20 @@ export interface NostrEvent {
 
 export class NPool {
   constructor(config: any) {}
+
   req(filters: any[]): AsyncIterable<any> {
     return {
       async *[Symbol.asyncIterator]() {
         // Mock implementation
       }
     };
+  }
+
+  // Add fetchEvents method to match NDK API
+  async fetchEvents(filter: any): Promise<Set<any>> {
+    // Return empty Set for now since we're mocking
+    // In production, this would connect to the relay
+    return new Set();
   }
 }
 

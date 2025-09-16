@@ -62,11 +62,31 @@ const Home = () => {
       return;
     }
 
+    let isActive = true;
+    let fetchCount = 0;
+
     const fetchCommunities = async () => {
-      setLoading(true);
+      // Skip if component unmounted
+      if (!isActive) return;
+
+      fetchCount++;
+
+      // Don't set loading on polling updates
+      if (fetchCount === 1) {
+        setLoading(true);
+      }
+
       const userCommunities: Community[] = [];
 
       try {
+        // Check if fetchEvents method exists
+        if (!ndk.fetchEvents) {
+          console.warn('NDK fetchEvents method not available');
+          setCommunities([]);
+          setLoading(false);
+          return;
+        }
+
         // Fetch groups where user is a member (kind 9000 with user's p-tag)
         const memberFilter = {
           kinds: [9000 as NDKKind],
@@ -78,10 +98,12 @@ const Home = () => {
         const groupIds = new Set<string>();
 
         // Extract unique group IDs
-        for (const event of memberEvents) {
-          const hTag = event.tags.find(tag => tag[0] === 'h');
-          if (hTag && hTag[1]) {
-            groupIds.add(hTag[1]);
+        if (memberEvents && memberEvents.size > 0) {
+          for (const event of memberEvents) {
+            const hTag = event.tags.find(tag => tag[0] === 'h');
+            if (hTag && hTag[1]) {
+              groupIds.add(hTag[1]);
+            }
           }
         }
 
@@ -161,21 +183,43 @@ const Home = () => {
 
         // Sort by last activity
         userCommunities.sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
-        setCommunities(userCommunities);
+        if (isActive) {
+          setCommunities(userCommunities);
+        }
       } catch (error) {
         console.error('Error fetching communities:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load your communities',
-          variant: 'destructive'
-        });
+        // Only show error toast on first fetch, not on polling
+        // Also don't show for missing fetchEvents method
+        if (fetchCount === 1 && error && !(error instanceof TypeError && error.message?.includes('fetchEvents'))) {
+          toast({
+            title: 'Error',
+            description: 'Failed to load your communities',
+            variant: 'destructive'
+          });
+        }
+        // Set empty communities array on error
+        if (isActive) {
+          setCommunities([]);
+        }
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
+    // Initial fetch
     fetchCommunities();
-  }, [ndk, user, toast]);
+
+    // Set up polling with 2 second interval
+    const pollInterval = setInterval(fetchCommunities, 2000);
+
+    // Cleanup
+    return () => {
+      isActive = false;
+      clearInterval(pollInterval);
+    };
+  }, [ndk, user?.pubkey]); // Only depend on user.pubkey, not the whole user object
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';
