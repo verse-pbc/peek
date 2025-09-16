@@ -1,7 +1,7 @@
 // Temporary shim for Nostrify until we properly configure JSR packages
 import React from 'react';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '../lib/hex';
 import { nip19 } from 'nostr-tools';
 
 export const NostrContext = React.createContext<any>({});

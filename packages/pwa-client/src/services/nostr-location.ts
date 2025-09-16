@@ -10,7 +10,7 @@ import {
   type EventTemplate,
   type UnsignedEvent
 } from 'nostr-tools';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
+import { bytesToHex, hexToBytes } from '../lib/hex';
 
 // Custom event kinds for Peek location validation (ephemeral range)
 const LOCATION_VALIDATION_REQUEST_KIND = 27492;

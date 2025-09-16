@@ -19,7 +19,7 @@ import {
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { IdentityModal } from '../components/IdentityModal';
 import { NostrLocationService, getPreviewData, type LocationValidationResponse } from '../services/nostr-location';
-import { hexToBytes } from '@noble/hashes/utils';
+import { hexToBytes } from '../lib/hex';
 
 // Types that were previously from API
 export interface CommunityPreviewData {
