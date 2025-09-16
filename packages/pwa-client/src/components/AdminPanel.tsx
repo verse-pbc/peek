@@ -37,10 +37,10 @@ import {
   Users,
   Settings
 } from 'lucide-react';
-import { useNostrContext } from '@nostr-dev-kit/ndk-react';
-import { NDKEvent, NDKKind } from '@nostr-dev-kit/ndk';
+import { useNostrContext } from '@/hooks/useNostrContext';
+import { NDKEvent, NDKKind } from '@/lib/ndk-shim';
 import { nip19 } from 'nostr-tools';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/useToast';
 
 interface Member {
   pubkey: string;

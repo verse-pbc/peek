@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
-import { useNostrContext } from '@nostr-dev-kit/ndk-react';
-import { NDKEvent, NDKKind } from '@nostr-dev-kit/ndk';
+import { useNostrContext } from '@/hooks/useNostrContext';
+import { NDKEvent, NDKKind } from '@/lib/ndk-shim';
 import { nip19 } from 'nostr-tools';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ import {
   Settings,
   LogOut
 } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 
 interface Community {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useNostrContext } from '@nostr-dev-kit/ndk-react';
-import { NDKEvent, NDKKind } from '@nostr-dev-kit/ndk';
+import { useNostrContext } from '@/hooks/useNostrContext';
+import { NDKEvent, NDKKind } from '@/lib/ndk-shim';
 import { CommunityFeed } from '../components/CommunityFeed';
 import { AdminPanel } from '../components/AdminPanel';
 import { Button } from '../components/ui/button';
@@ -18,7 +18,7 @@ import {
   Loader2,
   Lock
 } from 'lucide-react';
-import { useToast } from '../components/ui/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 
 interface CommunityData {
