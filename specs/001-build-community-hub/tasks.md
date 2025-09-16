@@ -2,7 +2,7 @@
 
 **Feature Branch**: `001-build-community-hub`
 **Generated**: 2025-09-10
-**Total Tasks**: 44
+**Total Tasks**: 41 (T001-T041 with completed additional T039-T041)
 
 ## Overview
 Build a PWA client using MKStack scaffolding (React, TypeScript, Tailwind, shadcn/ui, Nostrify) and a Rust validation service that creates NIP-29 invites on the groups_relay for location-based communities.
@@ -50,7 +50,7 @@ Task: "Complete T003: Setup Rust validation service"
 - Setup basic Axum server structure
 - Add environment config loading
 
-### T004: Configure development environment
+### T004: Configure development environment ✅
 **File**: `/.env.example`, `/docker-compose.yml`
 - Create .env.example with required variables
 - Add docker-compose for local relay (groups_relay)
@@ -161,9 +161,47 @@ pub struct LocationProof {
 
 ---
 
-## Phase 5: PWA Components (T016-T021)
+## Phase 5: Critical Infrastructure (T016-T019)
 
-### T016: Create Location Permission component [P]
+### T016: Setup validation service keypair
+**File**: `/packages/validation-service/.env`, `/packages/pwa-client/.env`
+- Generate validation service Nostr keypair
+- Store private key in validation service environment
+- Configure public key in PWA client (VITE_VALIDATION_SERVICE_PUBKEY)
+- Document key rotation procedure
+- Add key backup and recovery process
+
+### T017: Create relay connection service
+**File**: `/packages/pwa-client/src/services/relay-manager.ts`
+- Implement WebSocket connection to wss://peek.hol.is
+- Handle connection lifecycle (connect, disconnect, reconnect)
+- Implement subscription management for NIP-29 groups
+- Add connection status monitoring
+- Cache relay state for offline support
+
+### T018: Implement NIP-29 group management
+**File**: `/packages/pwa-client/src/services/group-manager.ts`
+- Implement group creation (kind 9007)
+- Handle member addition (kind 9000)
+- Process admin permissions (kind 9002)
+- Subscribe to group messages
+- Implement group metadata handling (kind 30078)
+- Cache group state locally
+
+### T019: Update backend for NIP-59 gift wrap handling
+**File**: `/packages/validation-service/src/handlers/nostr_validation.rs`
+- Connect to Nostr relays using nostr-sdk crate
+- Subscribe to kind 1059 gift wrap events for service pubkey
+- Implement gift wrap unwrapping with service private key
+- Unseal inner kind 13 events to extract rumor
+- Process location validation requests (kind 27492)
+- Create and send gift-wrapped responses (kind 27493)
+
+---
+
+## Phase 6: PWA Components (T020-T025)
+
+### T020: Create Location Permission component [P] ✅
 **File**: `/packages/pwa-client/src/components/LocationPermission.tsx`
 - Use shadcn/ui Alert and Button components
 - Request precise location
@@ -171,7 +209,7 @@ pub struct LocationProof {
 - Handle permission denial
 - Display GPS status
 
-### T017: Create Community Preview component [P]
+### T021: Create Community Preview component [P] ✅
 **File**: `/packages/pwa-client/src/components/CommunityPreview.tsx`
 - Use shadcn/ui Card and Skeleton components
 - Fetch and display preview data
@@ -179,7 +217,7 @@ pub struct LocationProof {
 - Display location name
 - Join button with loading state
 
-### T018: Create Join Flow page
+### T022: Create Join Flow page ✅
 **File**: `/packages/pwa-client/src/pages/JoinFlow.tsx`
 - Use shadcn/ui Stepper or custom flow
 - Orchestrate location validation
@@ -187,7 +225,7 @@ pub struct LocationProof {
 - Handle invite code response
 - Use Nostrify to send NIP-29 join request
 
-### T019: Create Community Feed component [P]
+### T023: Create Community Feed component [P]
 **File**: `/packages/pwa-client/src/components/CommunityFeed.tsx`
 - Use shadcn/ui ScrollArea and Input components
 - Display NIP-29 messages via Nostrify subscriptions
@@ -195,7 +233,7 @@ pub struct LocationProof {
 - Message input/send using Nostrify
 - Show member list
 
-### T020: Create Admin Panel component [P]
+### T024: Create Admin Panel component [P]
 **File**: `/packages/pwa-client/src/components/AdminPanel.tsx`
 - Use shadcn/ui Table and Dialog components
 - Member management UI
@@ -203,7 +241,7 @@ pub struct LocationProof {
 - Community settings
 - QR code management
 
-### T021: Customize MKStack Home page
+### T025: Customize MKStack Home page
 **File**: `/packages/pwa-client/src/pages/Home.tsx`
 - Adapt MKStack's default home for Peek
 - List joined communities from Nostrify
@@ -213,33 +251,33 @@ pub struct LocationProof {
 
 ---
 
-## Phase 6: Integration Tests (T022-T026)
+## Phase 7: Integration Tests (T026-T030)
 
-### T022: Test fresh QR creates community [P]
+### T026: Test fresh QR creates community [P]
 **File**: `/packages/pwa-client/tests/integration/create-community.test.ts`
 - Scan fresh QR
 - Verify admin assignment
 - Check community creation on relay
 
-### T023: Test on-site join flow [P]
+### T027: Test on-site join flow [P]
 **File**: `/packages/pwa-client/tests/integration/join-community.test.ts`
 - Mock GPS within 25m
 - Complete join flow
 - Verify relay membership
 
-### T024: Test remote join rejection [P]
+### T028: Test remote join rejection [P]
 **File**: `/packages/pwa-client/tests/integration/remote-rejection.test.ts`
 - Mock GPS > 25m away
 - Verify rejection message
 - Check no relay access
 
-### T025: Test admin moderation [P]
+### T029: Test admin moderation [P]
 **File**: `/packages/pwa-client/tests/integration/admin-actions.test.ts`
 - Test promote/demote
 - Test ban/unban
 - Verify relay events
 
-### T026: Test invite expiration [P]
+### T030: Test invite expiration [P]
 **File**: `/packages/validation-service/tests/integration/invite_expiry.rs`
 - Create invite
 - Wait 5+ minutes
@@ -247,30 +285,30 @@ pub struct LocationProof {
 
 ---
 
-## Phase 7: Services & Utilities (T027-T030)
+## Phase 8: Services & Utilities (T031-T034)
 
-### T027: Implement API client service
+### T031: Implement API client service
 **File**: `/packages/pwa-client/src/services/api.ts`
 - Axios/fetch wrapper
 - Type-safe requests
 - Error handling
 - Request/response logging
 
-### T028: Enhance Nostrify relay connections for Peek
+### T032: Enhance Nostrify relay connections for Peek
 **File**: `/packages/pwa-client/src/services/peek-relay.ts`
 - Extend Nostrify's relay management
 - Add Peek-specific subscriptions
 - Handle NIP-29 group events
 - Event filtering for communities
 
-### T029: Extend MKStack state for Peek features
+### T033: Extend MKStack state for Peek features
 **File**: `/packages/pwa-client/src/store/`
 - Extend MKStack's existing state management
 - Add communities state
 - Location validation state
 - QR scan history
 
-### T030: Implement error reporting
+### T034: Implement error reporting
 **File**: `/packages/pwa-client/src/services/error-reporter.ts`
 - Capture client errors
 - Send to validation service
@@ -278,30 +316,30 @@ pub struct LocationProof {
 
 ---
 
-## Phase 8: Polish & Documentation (T031-T034)
+## Phase 9: Polish & Documentation (T035-T038)
 
-### T031: Add structured logging [P]
+### T035: Add structured logging [P]
 **File**: `/packages/validation-service/src/logging.rs`
 - Setup tracing/env_logger
 - Add request IDs
 - Log all API calls
 - Performance metrics
 
-### T032: Write E2E tests [P]
+### T036: Write E2E tests [P]
 **File**: `/e2e/`
 - Playwright setup
 - Full user journey tests
 - Multi-user scenarios
 - Performance benchmarks
 
-### T033: Create developer documentation [P]
+### T037: Create developer documentation [P]
 **File**: `/docs/`, `/README.md`
 - Architecture overview
 - Setup instructions
 - API documentation
 - Deployment guide
 
-### T034: Setup production configs [P]
+### T038: Setup production configs [P]
 **File**: `/packages/*/Dockerfile`, `/k8s/`
 - Docker containers
 - Production env configs
@@ -321,33 +359,27 @@ pub struct LocationProof {
 4. **Models & Libraries**: T008-T013 [P]
 5. **API Endpoints**: T014, T015
 
-### Week 3: Frontend
-6. **Components**: T016-T017, T019, T020 [P]
-7. **Pages**: T018, T021
-8. **Services**: T027-T030
+### Week 3: Critical Infrastructure
+6. **Validation Service**: T016
+7. **Relay Services**: T017, T018 [P]
+8. **Backend NIP-59**: T019
 
-### Week 4: Testing & Polish
-9. **Integration Tests**: T022-T026 [P]
-10. **Polish**: T031-T034 [P]
+### Week 4: Frontend
+9. **Components**: T020-T021, T023, T024 [P]
+10. **Pages**: T022, T025
 
-### Week 5: NIP-59 Security Update (Critical)
-11. **Backend NIP-59**: T036
-12. **Parallel Tasks**: T037, T038, T039 [P]
-13. **Verification**: Run full test suite after implementation
+### Week 5: Testing & Services
+11. **Integration Tests**: T026-T030 [P]
+12. **Services**: T031-T034
 
-### Week 6: Infrastructure Fixes (Critical)
-14. **Nostrify Setup**: T040, T041
-15. **Parallel Services**: T042, T043, T044 [P]
-16. **Verification**: Ensure TypeScript compilation passes
+### Week 6: Polish
+13. **Polish**: T035-T038 [P]
 
 ---
 
-## Phase 9: NIP-59 Gift Wrap Implementation (Critical Security Update)
+## Completed Additional Tasks
 
-### Week 5: Privacy-Preserving Communication
-11. **Gift Wrap Protocol**: T035-T039
-
-### T035: Implement NIP-59 gift wrap client service ✅
+### T039: Implement NIP-59 gift wrap client service ✅
 **File**: `/packages/pwa-client/src/services/nostr-location.ts`
 - Create NostrLocationService class with gift wrap support
 - Implement three-layer encryption: rumor → seal → gift wrap
@@ -356,46 +388,7 @@ pub struct LocationProof {
 - Generate ephemeral keys for outer gift wrap privacy
 - Randomize timestamps to prevent correlation
 
-### T036: Update backend for NIP-59 gift wrap handling
-**File**: `/packages/validation-service/src/handlers/nostr_validation.rs`
-- Connect to Nostr relays using nostr-sdk crate
-- Subscribe to kind 1059 gift wrap events for service pubkey
-- Implement gift wrap unwrapping with service private key
-- Unseal inner kind 13 events to extract rumor
-- Process location validation requests (kind 27492)
-- Create and send gift-wrapped responses (kind 27493)
-
-### T037: Configure validation service keypair [P]
-**File**: `/packages/validation-service/.env`, `/packages/pwa-client/.env`
-- Generate validation service Nostr keypair
-- Store private key in validation service environment
-- Configure public key in PWA client (VITE_VALIDATION_SERVICE_PUBKEY)
-- Document key rotation procedure
-- Add key backup and recovery process
-
-### T038: Fix TypeScript compilation errors [P]
-**File**: `/packages/pwa-client/src/lib/location-capture.ts`
-- Resolve test file import issues
-- Fix type definitions for location utilities
-- Ensure proper module exports
-- Update test configuration for Vitest compatibility
-
-### T039: Write integration tests for NIP-59 flow [P]
-**File**: `/packages/pwa-client/tests/integration/gift-wrap-validation.test.ts`
-- Test gift wrap creation and encryption
-- Test request/response flow end-to-end
-- Verify privacy properties (no metadata leaks)
-- Test error handling for decryption failures
-- Validate timeout and retry behavior
-
----
-
-## Phase 10: Critical Infrastructure Fixes
-
-### Week 6: Nostrify Integration & NIP-29 Support
-12. **Infrastructure Tasks**: T040-T044
-
-### T040: Fix Nostrify import issues
+### T040: Fix Nostrify import issues ✅
 **File**: `/packages/pwa-client/src/lib/nostrify-shim.ts`
 - Install @nostrify/nostrify and @nostrify/react packages
 - Configure proper module resolution in tsconfig.json
@@ -403,37 +396,12 @@ pub struct LocationProof {
 - Ensure compatibility with MKStack's bundler configuration
 - Add type definitions for Nostrify modules
 
-### T041: Update NostrProvider exports
+### T041: Update NostrProvider exports ✅
 **File**: `/packages/pwa-client/src/components/NostrProvider.tsx`
 - Fix export syntax for NostrProvider component
 - Ensure proper default vs named exports
 - Update index.ts barrel exports
 - Verify all consuming components import correctly
-
-### T042: Create relay connection service
-**File**: `/packages/pwa-client/src/services/relay-manager.ts`
-- Implement WebSocket connection to wss://peek.hol.is
-- Handle connection lifecycle (connect, disconnect, reconnect)
-- Implement subscription management for NIP-29 groups
-- Add connection status monitoring
-- Cache relay state for offline support
-
-### T043: Implement NIP-29 group management
-**File**: `/packages/pwa-client/src/services/group-manager.ts`
-- Implement group creation (kind 9007)
-- Handle member addition (kind 9000)
-- Process admin permissions (kind 9002)
-- Subscribe to group messages
-- Implement group metadata handling (kind 30078)
-- Cache group state locally
-
-### T044: Setup validation service public key
-**File**: `/packages/pwa-client/.env.development`, `/packages/validation-service/.env`
-- Generate Nostr keypair for validation service
-- Store private key in validation service .env
-- Add VITE_VALIDATION_SERVICE_PUBKEY to PWA client
-- Document in .env.example files
-- Add key generation script to package.json
 
 ---
 
