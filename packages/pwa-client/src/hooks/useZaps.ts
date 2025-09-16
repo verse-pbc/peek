@@ -202,12 +202,12 @@ export function useZaps(
       const zapAmount = amount * 1000; // convert to millisats
 
       const zapRequest = nip57.makeZapRequest({
-        profile: actualTarget.pubkey,
-        event: event,
+        pubkey: actualTarget.pubkey,
+        event: event as any,
         amount: zapAmount,
         relays: [config.relayUrl],
         comment
-      });
+      } as any);
 
       // Sign the zap request (but don't publish to relays - only send to LNURL endpoint)
       if (!user.signer) {

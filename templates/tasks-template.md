@@ -36,6 +36,14 @@
 - **[P]**: Can run in parallel (different files, no dependencies)
 - Include exact file paths in descriptions
 
+## Task State Management
+- `- [ ]` = Not started (empty checkbox)
+- `- [x]` = Complete (checked checkbox)
+- **KEEP [P] marker after completion** - it documents parallelizability
+- Example: `- [x] T004 [P] Contract test` (completed parallel task)
+- Use `/task-update` command to mark tasks complete
+- TDD enforced: Test tasks must be complete before implementation tasks
+
 ## Path Conventions
 - **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
@@ -103,11 +111,11 @@ Task: "Integration test auth in tests/integration/test_auth.py"
 1. **From Contracts**:
    - Each contract file → contract test task [P]
    - Each endpoint → implementation task
-   
+
 2. **From Data Model**:
    - Each entity → model creation task [P]
    - Relationships → service layer tasks
-   
+
 3. **From User Stories**:
    - Each story → integration test [P]
    - Quickstart scenarios → validation tasks

@@ -1,0 +1,255 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { Skeleton } from './ui/skeleton';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Alert, AlertDescription } from './ui/alert';
+import { 
+  MapPin, 
+  Users, 
+  Calendar, 
+  Shield, 
+  Loader2, 
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react';
+
+interface CommunityMetadata {
+  name: string;
+  description: string;
+  member_count: number;
+  created_at: number;
+  location_name?: string;
+  admin_count?: number;
+  is_first_scan?: boolean;
+}
+
+interface CommunityPreviewProps {
+  communityId: string;
+  previewData?: CommunityMetadata;
+  onJoin?: () => void;
+  isJoining?: boolean;
+  error?: string;
+  isFirstScanner?: boolean;
+}
+
+export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
+  communityId,
+  previewData,
+  onJoin,
+  isJoining = false,
+  error,
+  isFirstScanner = false
+}) => {
+  const [isLoading, setIsLoading] = useState(!previewData);
+
+  useEffect(() => {
+    if (previewData) {
+      setIsLoading(false);
+    }
+  }, [previewData]);
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+          <Skeleton className="h-8 w-3/4 mb-2" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-4 w-1/3" />
+              <Skeleton className="h-3 w-1/4" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-20" />
+            <Skeleton className="h-20" />
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Skeleton className="h-10 w-full" />
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto border-red-200">
+        <CardHeader>
+          <CardTitle className="text-red-600 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            Error Loading Community
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </CardContent>
+        <CardFooter>
+          <Button 
+            onClick={onJoin} 
+            variant="outline"
+            className="w-full"
+          >
+            Try Again
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  // Community not found or no data
+  if (!previewData) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader>
+          <CardTitle>Community Not Found</CardTitle>
+          <CardDescription>
+            This QR code doesn't correspond to an active community.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert>
+            <AlertDescription>
+              The community may have been removed or the QR code may be invalid.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const formatMemberCount = (count: number) => {
+    if (count === 0) return 'Be the first member!';
+    if (count === 1) return '1 member';
+    return `${count} members`;
+  };
+
+  return (
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <CardTitle className="text-2xl">
+              {previewData.name}
+            </CardTitle>
+            <CardDescription className="mt-2">
+              {previewData.description}
+            </CardDescription>
+          </div>
+          {isFirstScanner && (
+            <Badge variant="default" className="ml-4">
+              <Shield className="h-3 w-3 mr-1" />
+              You'll be admin
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-6">
+        {/* Location info */}
+        {previewData.location_name && (
+          <div className="flex items-center gap-3 text-sm">
+            <MapPin className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">{previewData.location_name}</span>
+          </div>
+        )}
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-gray-600 mb-1">
+              <Users className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase">Members</span>
+            </div>
+            <p className="text-2xl font-bold">
+              {previewData.member_count}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {formatMemberCount(previewData.member_count)}
+            </p>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-gray-600 mb-1">
+              <Calendar className="h-4 w-4" />
+              <span className="text-xs font-medium uppercase">Created</span>
+            </div>
+            <p className="text-lg font-bold">
+              {formatDate(previewData.created_at)}
+            </p>
+            {previewData.admin_count && (
+              <p className="text-xs text-gray-500 mt-1">
+                {previewData.admin_count} admin{previewData.admin_count !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* First scanner notice */}
+        {isFirstScanner && (
+          <Alert className="border-purple-200 bg-purple-50">
+            <CheckCircle className="h-4 w-4 text-purple-600" />
+            <AlertDescription className="text-purple-900">
+              <strong>You're the first person to scan this QR code!</strong><br />
+              You'll automatically become the community admin and can manage members, 
+              settings, and moderation.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Regular member notice */}
+        {!isFirstScanner && previewData.member_count > 0 && (
+          <Alert>
+            <AlertDescription>
+              By joining, you'll be able to participate in discussions with other 
+              members who are physically at this location.
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+
+      <CardFooter>
+        <Button 
+          onClick={onJoin}
+          disabled={isJoining}
+          className="w-full"
+          size="lg"
+        >
+          {isJoining ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Joining Community...
+            </>
+          ) : isFirstScanner ? (
+            <>
+              <Shield className="mr-2 h-4 w-4" />
+              Create & Join as Admin
+            </>
+          ) : (
+            <>
+              <Users className="mr-2 h-4 w-4" />
+              Join Community
+            </>
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};

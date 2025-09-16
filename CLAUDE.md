@@ -72,6 +72,13 @@ cd packages/pwa-client && npm run dev
 cd packages/validation-service && cargo run
 ```
 
+## Spec-Kit Commands (Claude)
+- `/specify` - Create a new feature specification and branch
+- `/plan` - Generate implementation plan from specification
+- `/tasks` - Break down plan into executable tasks
+- `/task-update` - Mark tasks as complete (e.g., `/task-update T001` or `/task-update T001-T005`)
+- `/refresh` - Restore context by re-reading spec, plan, and tasks (use when Claude loses context)
+
 ## Testing Approach
 - TDD: Write tests first, then implementation
 - Contract tests before integration tests
@@ -90,4 +97,4 @@ cd packages/validation-service && cargo run
 - Location validation service
 
 ---
-*AI Assistant Context - Last Updated: 2025-09-10*
+*AI Assistant Context - Last Updated: 2025-09-16*
