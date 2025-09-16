@@ -5,7 +5,7 @@ use axum::{
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use tracing::info;
+use tracing::{info, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod config;
@@ -14,7 +14,8 @@ mod libraries;
 mod models;
 mod services;
 
-use services::community::CommunityService;
+use services::{community::CommunityService, relay::RelayService};
+use handlers::NostrValidationHandler;
 
 #[tokio::main]
 async fn main() {
@@ -40,9 +41,42 @@ async fn main() {
     )
     .await
     .expect("Failed to initialize community service");
-    
-    // Create shared state
-    let app_state = (config.clone(), Arc::new(community_service));
+
+    let community_service_arc = Arc::new(community_service);
+
+    // Initialize relay service
+    let relay_service = RelayService::new(
+        config.relay_url.clone(),
+        config.relay_secret_key.clone(),
+    )
+    .await
+    .expect("Failed to initialize relay service");
+
+    let relay_service_arc = Arc::new(tokio::sync::RwLock::new(relay_service));
+
+    // Start Nostr validation handler in background
+    let nostr_config = config.clone();
+    let nostr_community_service = community_service_arc.clone();
+    let nostr_relay_service = relay_service_arc.clone();
+
+    tokio::spawn(async move {
+        info!("Starting Nostr gift wrap listener");
+
+        let handler = NostrValidationHandler::new(
+            nostr_config,
+            nostr_community_service,
+            nostr_relay_service,
+        )
+        .await
+        .expect("Failed to initialize Nostr handler");
+
+        if let Err(e) = handler.start().await {
+            error!("Nostr handler failed: {}", e);
+        }
+    });
+
+    // Create shared state for REST endpoints
+    let app_state = (config.clone(), community_service_arc);
 
     // Build our application with routes
     let app = Router::new()

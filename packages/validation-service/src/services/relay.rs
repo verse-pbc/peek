@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 use nostr_sdk::prelude::*;
 use nostr_sdk::nips::nip44;
+use std::time::Duration;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -42,7 +42,7 @@ impl RelayService {
         let relay_keys = Keys::new(secret_key);
         
         // Create client with relay's keys
-        let client = Client::new(&relay_keys);
+        let client = Client::new(relay_keys.clone());
         
         // Connect to relay
         client.add_relay(&relay_url).await?;
@@ -86,19 +86,19 @@ impl RelayService {
         let group_creation = EventBuilder::new(
             Kind::from(9007),
             format!("Created group {}", name),
-            [
-                Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
-                Tag::custom(TagKind::Custom("name".into()), [name]),
-                Tag::custom(TagKind::Custom("about".into()), 
-                    [format!("Location-based community")]),
-                Tag::custom(TagKind::Custom("picture".into()), [String::new()]),
-                Tag::custom(TagKind::Custom("private".into()), ["false".to_string()]),
-                Tag::custom(TagKind::Custom("closed".into()), ["false".to_string()]),
-            ]
-        );
+        )
+        .tags([
+            Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
+            Tag::custom(TagKind::Custom("name".into()), [name]),
+            Tag::custom(TagKind::Custom("about".into()),
+                [format!("Location-based community")]),
+            Tag::custom(TagKind::Custom("picture".into()), [String::new()]),
+            Tag::custom(TagKind::Custom("private".into()), ["false".to_string()]),
+            Tag::custom(TagKind::Custom("closed".into()), ["false".to_string()]),
+        ]);
         
         let event = self.client.sign_event_builder(group_creation).await?;
-        self.client.send_event(event).await?;
+        self.client.send_event(&event).await?;
         
         // Add creator as first member and admin
         self.add_group_member(&group_id, &creator_pubkey, true).await?;
@@ -109,6 +109,16 @@ impl RelayService {
         Ok(group_id)
     }
     
+    /// Add a user to a group (wrapper for add_group_member)
+    pub async fn add_user_to_group(
+        &self,
+        group_id: &str,
+        user_pubkey: &str,
+        is_admin: bool,
+    ) -> Result<()> {
+        self.add_group_member(group_id, user_pubkey, is_admin).await
+    }
+
     /// Add a member to a NIP-29 group
     pub async fn add_group_member(
         &self,
@@ -124,30 +134,30 @@ impl RelayService {
         let add_user = EventBuilder::new(
             Kind::from(9000),
             format!("Added user to group"),
-            [
-                Tag::public_key(pubkey),
-                Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
-            ]
-        );
+        )
+        .tags([
+            Tag::public_key(pubkey),
+            Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
+        ]);
         
         let event = self.client.sign_event_builder(add_user).await?;
-        self.client.send_event(event).await?;
+        self.client.send_event(&event).await?;
         
         // If admin, also send admin permission event (kind 9002)
         if is_admin {
             let add_permission = EventBuilder::new(
                 Kind::from(9002),
                 format!("Granted admin permission"),
-                [
-                    Tag::public_key(pubkey),
-                    Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
-                    Tag::custom(TagKind::Custom("permission".into()), 
-                        ["add-user".to_string()])
-                ]
-            );
+            )
+            .tags([
+                Tag::public_key(pubkey),
+                Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
+                Tag::custom(TagKind::Custom("permission".into()),
+                    ["add-user".to_string()])
+            ]);
             
             let event = self.client.sign_event_builder(add_permission).await?;
-            self.client.send_event(event).await?;
+            self.client.send_event(&event).await?;
         }
         
         // Update member count in metadata
@@ -184,14 +194,14 @@ impl RelayService {
         let storage_event = EventBuilder::new(
             Kind::from(30078),
             encrypted,
-            [
-                Tag::custom(TagKind::Custom("d".into()), [group_id.to_string()]),
-                Tag::custom(TagKind::Custom("type".into()), ["community-metadata".to_string()]),
-            ]
-        );
+        )
+        .tags([
+            Tag::custom(TagKind::Custom("d".into()), [group_id.to_string()]),
+            Tag::custom(TagKind::Custom("type".into()), ["community-metadata".to_string()]),
+        ]);
         
         let event = self.client.sign_event_builder(storage_event).await?;
-        self.client.send_event(event).await?;
+        self.client.send_event(&event).await?;
         
         Ok(())
     }
@@ -210,14 +220,14 @@ impl RelayService {
             .kind(Kind::from(30078))
             .custom_tag(
                 SingleLetterTag::lowercase(Alphabet::D),
-                [group_id.clone()]
+                group_id.clone()
             )
             .author(self.relay_keys.public_key());
         
         // Query relay
-        let events = self.client.get_events_of(
-            vec![filter],
-            EventSource::relays(None),
+        let events = self.client.fetch_events(
+            filter,
+            Duration::from_secs(10),
         ).await?;
         
         if let Some(event) = events.first() {
@@ -253,9 +263,9 @@ impl RelayService {
             .author(self.relay_keys.public_key());
         
         // Query relay
-        let events = self.client.get_events_of(
-            vec![filter],
-            EventSource::relays(None),
+        let events = self.client.fetch_events(
+            filter,
+            Duration::from_secs(10),
         ).await?;
         
         let mut cache = self.metadata_cache.write().await;

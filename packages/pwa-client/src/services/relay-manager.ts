@@ -3,9 +3,6 @@ import {
   Relay,
   Event,
   Filter,
-  Sub,
-  SubscriptionOptions,
-  nip19,
   finalizeEvent,
   type EventTemplate
 } from 'nostr-tools';
@@ -43,7 +40,7 @@ export interface RelayConnectionOptions {
   maxReconnectAttempts?: number;
 }
 
-export interface GroupMetadata {
+interface RelayGroupMetadata {
   id: string;
   name: string;
   about?: string;
@@ -53,16 +50,16 @@ export interface GroupMetadata {
   broadcast?: boolean;
 }
 
-export interface GroupMember {
+interface RelayGroupMember {
   pubkey: string;
   roles: string[];
 }
 
 export interface GroupState {
-  metadata?: GroupMetadata;
-  members: Map<string, GroupMember>;
+  metadata?: RelayGroupMetadata;
+  members: Map<string, RelayGroupMember>;
   admins: Map<string, string[]>; // pubkey -> roles
-  myMembership?: GroupMember;
+  myMembership?: RelayGroupMember;
 }
 
 type EventHandler = (event: Event) => void;
@@ -72,7 +69,7 @@ export class RelayManager {
   private pool: SimplePool;
   private relayUrl: string;
   private relay?: Relay;
-  private subscriptions: Map<string, Sub<Event>>;
+  private subscriptions: Map<string, any>;
   private groupStates: Map<string, GroupState>;
   private eventHandlers: Map<string, Set<EventHandler>>;
   private connectionHandlers: Set<ConnectionHandler>;
@@ -130,7 +127,7 @@ export class RelayManager {
         }, 10000);
 
         const checkConnection = setInterval(() => {
-          if (this.relay && this.relay.status === 1) { // WebSocket.OPEN
+          if (this.relay && this.relay.connected) {
             clearInterval(checkConnection);
             clearTimeout(timeout);
             resolve();
@@ -183,7 +180,7 @@ export class RelayManager {
    * Check if connected to the relay
    */
   isConnected(): boolean {
-    return this.relay?.status === 1; // WebSocket.OPEN
+    return this.relay?.connected === true;
   }
 
   /**
@@ -388,9 +385,42 @@ export class RelayManager {
   }
 
   /**
+   * Send create group event (kind 9007)
+   */
+  async sendCreateGroup(
+    groupId: string,
+    secretKey: Uint8Array
+  ): Promise<Event> {
+    if (!this.isConnected()) {
+      throw new Error('Not connected to relay');
+    }
+
+    const eventTemplate: EventTemplate = {
+      kind: NIP29_KINDS.CREATE_GROUP,
+      content: '',
+      tags: [
+        ['h', groupId]
+      ],
+      created_at: Math.floor(Date.now() / 1000)
+    };
+
+    const event = finalizeEvent(eventTemplate, secretKey);
+    await this.publishEvent(event);
+
+    return event;
+  }
+
+  /**
+   * Get user's public key if set
+   */
+  getUserPubkey(): string | undefined {
+    return this.userPubkey;
+  }
+
+  /**
    * Publish an event to the relay
    */
-  private async publishEvent(event: Event): Promise<void> {
+  async publishEvent(event: Event): Promise<void> {
     if (!this.relay) {
       throw new Error('Not connected to relay');
     }
@@ -403,7 +433,7 @@ export class RelayManager {
   /**
    * Get recent event IDs from a group for timeline references
    */
-  private getRecentEventIds(groupId: string, count: number = 3): string[] {
+  getRecentEventIds(groupId: string, count: number = 3): string[] {
     // This would need to be implemented with actual event tracking
     // For now, return empty array
     return [];
@@ -490,8 +520,8 @@ export class RelayManager {
   /**
    * Parse group metadata from event
    */
-  private parseGroupMetadata(event: Event): GroupMetadata {
-    const metadata: GroupMetadata = {
+  private parseGroupMetadata(event: Event): RelayGroupMetadata {
+    const metadata: RelayGroupMetadata = {
       id: event.tags.find(t => t[0] === 'd')?.[1] || '',
       name: event.tags.find(t => t[0] === 'name')?.[1] || '',
       about: event.tags.find(t => t[0] === 'about')?.[1],
@@ -524,8 +554,8 @@ export class RelayManager {
   /**
    * Parse group members from event
    */
-  private parseGroupMembers(event: Event): Map<string, GroupMember> {
-    const members = new Map<string, GroupMember>();
+  private parseGroupMembers(event: Event): Map<string, RelayGroupMember> {
+    const members = new Map<string, RelayGroupMember>();
 
     event.tags
       .filter(t => t[0] === 'p')

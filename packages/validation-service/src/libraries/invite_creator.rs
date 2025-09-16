@@ -46,7 +46,7 @@ impl InviteCreator {
             .map_err(|e| InviteError::InvalidAdminKey(e.to_string()))?;
 
         // Create Nostr client
-        let client = Client::new(&admin_keys);
+        let client = Client::new(admin_keys.clone());
         
         // Add relay
         client.add_relay(&config.relay_url)
@@ -87,19 +87,21 @@ impl InviteCreator {
         }
 
         // Create kind:9009 event (NIP-29 create-invite)
-        let event = EventBuilder::new(Kind::Custom(9009), invite_code.clone(), tags)
-            .to_event(&self.admin_keys)
+        let event_builder = EventBuilder::new(Kind::Custom(9009), invite_code.clone())
+            .tags(tags);
+        let event = self.client.sign_event_builder(event_builder)
+            .await
             .map_err(|e| InviteError::EventCreation(e.to_string()))?;
 
         // Send to relay
-        let event_id = self.client.send_event(event.clone())
+        let output = self.client.send_event(&event)
             .await
             .map_err(|e| InviteError::RelaySend(e.to_string()))?;
 
         Ok(InviteResult {
             invite_code,
             expires_at,
-            event_id: event_id.to_hex(),
+            event_id: event.id.to_hex(),
         })
     }
 
@@ -138,9 +140,9 @@ impl InviteCreator {
             .limit(10);
 
         // Query relay - get events from connected relays
-        let events = self.client.get_events_of(
-            vec![filter],
-            EventSource::relays(Some(std::time::Duration::from_secs(5))),
+        let events = self.client.fetch_events(
+            filter,
+            std::time::Duration::from_secs(5),
         )
         .await
         .map_err(|e| InviteError::RelayQuery(e.to_string()))?;
@@ -154,7 +156,7 @@ impl InviteCreator {
             }
 
             // Look for expiration tag
-            for tag in &event.tags {
+            for tag in event.tags.iter() {
                 // Check if this is a custom tag with "expiration" kind
                 if matches!(tag.kind(), TagKind::Custom(ref k) if k == "expiration") {
                     if let Some(exp_str) = tag.content() {
@@ -173,9 +175,7 @@ impl InviteCreator {
 
     /// Disconnect from relay
     pub async fn disconnect(&self) -> Result<(), InviteError> {
-        self.client.disconnect()
-            .await
-            .map_err(|e| InviteError::RelayDisconnect(e.to_string()))?;
+        self.client.disconnect().await;
         Ok(())
     }
 }

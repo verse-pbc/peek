@@ -20,7 +20,7 @@ serde_json = "1.0"
 geo = "0.28"
 
 # Nostr
-nostr-sdk = "0.35"
+nostr-sdk = { version = "0.43", features = ["nip44", "nip59"] }
 
 # Environment and config
 dotenv = "0.15"
