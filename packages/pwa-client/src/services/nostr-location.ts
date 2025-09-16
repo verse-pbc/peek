@@ -27,9 +27,9 @@ const DEFAULT_RELAYS = [
   'wss://nos.lol'
 ];
 
-// Validation service public key (this should come from config/env)
+// Validation service public key from environment
 const VALIDATION_SERVICE_PUBKEY = import.meta.env.VITE_VALIDATION_SERVICE_PUBKEY ||
-  '0000000000000000000000000000000000000000000000000000000000000000'; // Placeholder hex pubkey
+  '9d4c4d82463f128be5f3bbed72115611ba680f3f1aa0ac219fd0d67c0680dff4'; // Default for development
 
 // Types
 type Rumor = UnsignedEvent & { id: string };
