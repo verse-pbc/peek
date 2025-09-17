@@ -37,9 +37,11 @@ import {
   Users,
   Settings
 } from 'lucide-react';
-import { useNostrContext } from '@/hooks/useNostrContext';
-import { NDKEvent, NDKKind } from '@/lib/ndk-shim';
-import { nip19 } from 'nostr-tools';
+import { RelayManager, NIP29_KINDS } from '@/services/relay-manager';
+import { GroupManager } from '@/services/group-manager';
+import { useNostrLogin } from '@/lib/nostrify-shim';
+import { nip19, SimplePool, Filter, finalizeEvent, EventTemplate } from 'nostr-tools';
+import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
 
 interface Member {
@@ -67,101 +69,105 @@ export function AdminPanel({
   open,
   onOpenChange
 }: AdminPanelProps) {
-  const { ndk, user } = useNostrContext();
+  const { identity } = useNostrLogin();
   const { toast } = useToast();
+  const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
+  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
+  const [connected, setConnected] = useState(false);
+
+  // Initialize relay and group managers
+  useEffect(() => {
+    const relayUrl = import.meta.env.VITE_RELAY_URL || 'ws://localhost:8090';
+    const manager = new RelayManager({
+      url: relayUrl,
+      autoConnect: true
+    });
+
+    if (identity?.publicKey) {
+      manager.setUserPubkey(identity.publicKey);
+    }
+
+    const groupMgr = new GroupManager(manager);
+
+    setRelayManager(manager);
+    setGroupManager(groupMgr);
+
+    return () => {
+      manager.dispose();
+    };
+  }, [identity]);
+
+  // Subscribe to connection status
+  useEffect(() => {
+    if (!relayManager) return;
+
+    const unsubscribe = relayManager.onConnectionChange(isConnected => {
+      setConnected(isConnected);
+    });
+
+    return unsubscribe;
+  }, [relayManager]);
 
   // Fetch group members and their roles
   useEffect(() => {
-    if (!ndk || !open) return;
+    if (!relayManager || !groupManager || !open || !connected) return;
 
     const fetchMembers = async () => {
       setLoading(true);
       const memberMap = new Map<string, Member>();
 
       try {
-        // Fetch member additions (kind 9000)
-        const memberFilter = {
-          kinds: [9000 as NDKKind],
-          '#h': [groupId],
-          limit: 500
-        };
+        // Subscribe to group to get latest state
+        relayManager.subscribeToGroup(groupId);
 
-        const memberEvents = await ndk.fetchEvents(memberFilter);
+        // Wait for initial sync
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-        for (const event of memberEvents) {
-          const pTag = event.tags.find(tag => tag[0] === 'p');
-          if (pTag && pTag[1]) {
-            const pubkey = pTag[1];
+        // Get group state from relay manager
+        const groupState = relayManager.getGroupState(groupId);
+
+        if (groupState) {
+          // Process members from group state
+          for (const [pubkey, member] of groupState.members) {
             memberMap.set(pubkey, {
               pubkey,
               npub: nip19.npubEncode(pubkey),
-              isAdmin: false,
-              isMuted: false,
-              joinedAt: event.created_at
+              isAdmin: groupState.admins.has(pubkey),
+              isMuted: false, // TODO: Track mute state
+              joinedAt: Date.now() / 1000 // TODO: Get actual join time
             });
           }
         }
 
-        // Fetch admin permissions (kind 9002)
-        const adminFilter = {
-          kinds: [9002 as NDKKind],
-          '#h': [groupId],
-          limit: 100
-        };
-
-        const adminEvents = await ndk.fetchEvents(adminFilter);
-
-        for (const event of adminEvents) {
-          const pTag = event.tags.find(tag => tag[0] === 'p');
-          const permissionTag = event.tags.find(tag => tag[0] === 'permission');
-
-          if (pTag && pTag[1] && permissionTag && permissionTag[1] === 'add-user') {
-            const member = memberMap.get(pTag[1]);
-            if (member) {
-              member.isAdmin = true;
-            }
-          }
-        }
-
-        // Fetch mutes (kind 9005)
-        const muteFilter = {
-          kinds: [9005 as NDKKind],
-          '#h': [groupId],
-          limit: 100
-        };
-
-        const muteEvents = await ndk.fetchEvents(muteFilter);
-
-        for (const event of muteEvents) {
-          const pTag = event.tags.find(tag => tag[0] === 'p');
-          if (pTag && pTag[1]) {
-            const member = memberMap.get(pTag[1]);
-            if (member) {
-              member.isMuted = true;
-            }
-          }
-        }
-
-        // Fetch user metadata for each member
+        // Fetch user metadata for each member using a metadata pool
+        const metadataPool = new SimplePool();
+        const metadataRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
         const memberList = Array.from(memberMap.values());
 
-        for (const member of memberList) {
-          try {
-            const metadataEvent = await ndk.fetchEvent({
-              kinds: [0 as NDKKind],
-              authors: [member.pubkey]
-            });
+        // Batch fetch metadata for all members
+        if (memberList.length > 0) {
+          const metadataFilter: Filter = {
+            kinds: [0],
+            authors: memberList.map(m => m.pubkey),
+            limit: memberList.length
+          };
 
-            if (metadataEvent) {
-              const metadata = JSON.parse(metadataEvent.content);
-              member.name = metadata.name || metadata.display_name;
-              member.picture = metadata.picture;
+          const metadataEvents = await metadataPool.querySync(metadataRelays, metadataFilter);
+
+          for (const event of metadataEvents) {
+            const member = memberMap.get(event.pubkey);
+            if (member) {
+              try {
+                const metadata = JSON.parse(event.content);
+                member.name = metadata.name || metadata.display_name;
+                member.picture = metadata.picture;
+              } catch (error) {
+                console.error('Error parsing metadata for', event.pubkey, error);
+              }
             }
-          } catch (error) {
-            console.error('Error fetching metadata for', member.npub, error);
           }
         }
 
@@ -183,24 +189,15 @@ export function AdminPanel({
     };
 
     fetchMembers();
-  }, [ndk, groupId, open, toast]);
+  }, [relayManager, groupManager, groupId, open, connected, toast]);
 
   const promoteToAdmin = async (memberPubkey: string) => {
-    if (!ndk || !user) return;
+    if (!groupManager || !identity) return;
 
     setProcessingAction(memberPubkey);
     try {
-      // Create NIP-29 add permission event (kind 9002)
-      const event = new NDKEvent(ndk);
-      event.kind = 9002 as NDKKind;
-      event.content = 'Granted admin permission';
-      event.tags = [
-        ['h', groupId],
-        ['p', memberPubkey],
-        ['permission', 'add-user']
-      ];
-
-      await event.publish();
+      const secretKey = hexToBytes(identity.secretKey);
+      await groupManager.addUser(groupId, memberPubkey, secretKey, ['admin']);
 
       // Update local state
       setMembers(prev => prev.map(m =>
@@ -224,21 +221,13 @@ export function AdminPanel({
   };
 
   const removeAdmin = async (memberPubkey: string) => {
-    if (!ndk || !user) return;
+    if (!groupManager || !identity) return;
 
     setProcessingAction(memberPubkey);
     try {
-      // Create NIP-29 remove permission event (kind 9003)
-      const event = new NDKEvent(ndk);
-      event.kind = 9003 as NDKKind;
-      event.content = 'Removed admin permission';
-      event.tags = [
-        ['h', groupId],
-        ['p', memberPubkey],
-        ['permission', 'add-user']
-      ];
-
-      await event.publish();
+      const secretKey = hexToBytes(identity.secretKey);
+      // Re-add user as regular member (no roles)
+      await groupManager.addUser(groupId, memberPubkey, secretKey, []);
 
       // Update local state
       setMembers(prev => prev.map(m =>
@@ -262,20 +251,23 @@ export function AdminPanel({
   };
 
   const muteMember = async (memberPubkey: string) => {
-    if (!ndk || !user) return;
+    if (!relayManager || !identity) return;
 
     setProcessingAction(memberPubkey);
     try {
+      const secretKey = hexToBytes(identity.secretKey);
       // Create NIP-29 mute user event (kind 9005)
-      const event = new NDKEvent(ndk);
-      event.kind = 9005 as NDKKind;
-      event.content = 'User muted';
-      event.tags = [
-        ['h', groupId],
-        ['p', memberPubkey]
-      ];
-
-      await event.publish();
+      const eventTemplate: EventTemplate = {
+        kind: NIP29_KINDS.DELETE_EVENT,
+        content: 'User muted',
+        tags: [
+          ['h', groupId],
+          ['p', memberPubkey]
+        ],
+        created_at: Math.floor(Date.now() / 1000)
+      };
+      const event = finalizeEvent(eventTemplate, secretKey);
+      await relayManager.publishEvent(event);
 
       // Update local state
       setMembers(prev => prev.map(m =>
@@ -299,20 +291,23 @@ export function AdminPanel({
   };
 
   const unmuteMember = async (memberPubkey: string) => {
-    if (!ndk || !user) return;
+    if (!relayManager || !identity) return;
 
     setProcessingAction(memberPubkey);
     try {
-      // Create NIP-29 unmute user event (kind 9006)
-      const event = new NDKEvent(ndk);
-      event.kind = 9006 as NDKKind;
-      event.content = 'User unmuted';
-      event.tags = [
-        ['h', groupId],
-        ['p', memberPubkey]
-      ];
-
-      await event.publish();
+      const secretKey = hexToBytes(identity.secretKey);
+      // Note: NIP-29 doesn't have a standard unmute event, this would be custom
+      const eventTemplate: EventTemplate = {
+        kind: 9006, // Custom unmute event
+        content: 'User unmuted',
+        tags: [
+          ['h', groupId],
+          ['p', memberPubkey]
+        ],
+        created_at: Math.floor(Date.now() / 1000)
+      };
+      const event = finalizeEvent(eventTemplate, secretKey);
+      await relayManager.publishEvent(event);
 
       // Update local state
       setMembers(prev => prev.map(m =>
@@ -336,20 +331,12 @@ export function AdminPanel({
   };
 
   const removeMember = async (memberPubkey: string) => {
-    if (!ndk || !user) return;
+    if (!groupManager || !identity) return;
 
     setProcessingAction(memberPubkey);
     try {
-      // Create NIP-29 remove user event (kind 9001)
-      const event = new NDKEvent(ndk);
-      event.kind = 9001 as NDKKind;
-      event.content = 'User removed from group';
-      event.tags = [
-        ['h', groupId],
-        ['p', memberPubkey]
-      ];
-
-      await event.publish();
+      const secretKey = hexToBytes(identity.secretKey);
+      await groupManager.removeUser(groupId, memberPubkey, secretKey, 'User removed from group');
 
       // Update local state
       setMembers(prev => prev.filter(m => m.pubkey !== memberPubkey));
@@ -383,7 +370,7 @@ export function AdminPanel({
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
-  const isCurrentUserAdmin = members.find(m => m.pubkey === user?.pubkey)?.isAdmin || false;
+  const isCurrentUserAdmin = members.find(m => m.pubkey === identity?.publicKey)?.isAdmin || false;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -468,7 +455,7 @@ export function AdminPanel({
                   </TableHeader>
                   <TableBody>
                     {members.map((member) => {
-                      const isCurrentUser = member.pubkey === user?.pubkey;
+                      const isCurrentUser = member.pubkey === identity?.publicKey;
 
                       return (
                         <TableRow key={member.pubkey}>

@@ -20,6 +20,7 @@ import { useNostrLogin } from '../lib/nostrify-shim';
 import { IdentityModal } from '../components/IdentityModal';
 import { NostrLocationService, getPreviewData, type LocationValidationResponse } from '../services/nostr-location';
 import { hexToBytes } from '../lib/hex';
+import { useToast } from '@/hooks/useToast';
 
 // Types that were previously from API
 export interface CommunityPreviewData {
@@ -59,6 +60,7 @@ export const JoinFlow: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { pubkey, npub, login, createNewIdentity, importIdentity, showIdentityModal, setShowIdentityModal, identity } = useNostrLogin();
+  const { toast } = useToast();
   
   // Flow state
   const [currentStep, setCurrentStep] = useState<JoinStep>(JoinStep.LOADING);
@@ -169,11 +171,18 @@ export const JoinFlow: React.FC = () => {
     timestamp: number;
   }) => {
     setCapturedLocation(location);
+
+    // Show location capture success
+    toast({
+      title: "Location captured",
+      description: `GPS accuracy: ${location.accuracy.toFixed(1)}m`,
+    });
+
     setCurrentStep(JoinStep.VALIDATING);
-    
+
     // Validate location with the server
     await validateLocation(location);
-  }, [communityId, pubkey]);
+  }, [communityId, pubkey, toast]);
 
   const validateLocation = async (location: {
     latitude: number;
@@ -181,83 +190,141 @@ export const JoinFlow: React.FC = () => {
     accuracy: number;
     timestamp: number;
   }) => {
-    if (!communityId || !identity?.secretKey) return;
+    if (!communityId) {
+      setError({
+        message: 'Invalid community ID',
+        code: 'INVALID_COMMUNITY',
+        canRetry: false
+      });
+      setCurrentStep(JoinStep.ERROR);
+      return;
+    }
+
+    if (!identity?.secretKey) {
+      setError({
+        message: 'Please login with your Nostr account to join communities',
+        code: 'NOT_LOGGED_IN',
+        canRetry: false
+      });
+      setCurrentStep(JoinStep.ERROR);
+      return;
+    }
 
     try {
-      // Use Nostr event-based validation
+      // Use Nostr event-based validation via gift wraps
       const secretKey = hexToBytes(identity.secretKey);
-      const nostrService = new NostrLocationService(secretKey, pubkey!);
-      
+
+      // Get relay URL from environment or use local for testing
+      const relayUrl = import.meta.env.VITE_DEV_MODE === 'true'
+        ? 'ws://localhost:8090'
+        : (import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is');
+
+      console.log('Validating location via gift wrap:', {
+        communityId,
+        relay: relayUrl,
+        accuracy: location.accuracy,
+        userPubkey: pubkey
+      });
+
+      const nostrService = new NostrLocationService(
+        secretKey,
+        pubkey!,
+        [relayUrl] // Use configured relay
+      );
+
+      // Send validation request via NIP-59 gift wrap
       const response = await nostrService.validateLocation(communityId, location);
       nostrService.close();
 
+      console.log('Validation response:', response);
       setValidationResponse(response);
 
       if (response.success) {
-        // Success! User can join or has joined
+        // Success! User has been added to the NIP-29 group
         setCurrentStep(JoinStep.SUCCESS);
-        
-        // If relay integration was complete, we would:
-        // 1. Connect to response.relay_url
-        // 2. Send NIP-29 join request with response.group_id
-        // 3. Subscribe to group messages
-        
-        // For now, we just show success
-        console.log('Join successful!', {
+
+        // Show success toast
+        toast({
+          title: "Successfully Joined! 🎉",
+          description: response.is_admin
+            ? "You're the founding admin of this community!"
+            : "You're now a member of this community.",
+        });
+
+        // Store the group information for later use
+        if (response.group_id && response.relay_url) {
+          // Save to local storage so Community page can connect
+          const groupInfo = {
+            communityId,
+            groupId: response.group_id,
+            relayUrl: response.relay_url,
+            isAdmin: response.is_admin || false,
+            joinedAt: Date.now()
+          };
+
+          // Store in localStorage for persistence
+          const existingGroups = JSON.parse(
+            localStorage.getItem('joinedGroups') || '[]'
+          );
+          existingGroups.push(groupInfo);
+          localStorage.setItem('joinedGroups', JSON.stringify(existingGroups));
+        }
+
+        console.log('Successfully joined community!', {
           group_id: response.group_id,
           relay: response.relay_url,
           is_admin: response.is_admin
         });
       } else {
-        // Validation failed
+        // Validation failed - show specific error
+        const errorMessage = response.error || 'Location validation failed';
+        const errorCode = response.error_code || 'VALIDATION_FAILED';
+
+        // Parse specific error types for better UX
+        let userMessage = errorMessage;
+        let canRetry = true;
+
+        if (errorCode === 'LOCATION_INVALID') {
+          if (errorMessage.includes('Too far from location')) {
+            userMessage = errorMessage; // Already user-friendly
+            canRetry = true;
+          } else if (errorMessage.includes('GPS accuracy too poor')) {
+            userMessage = errorMessage; // Already user-friendly
+            canRetry = true;
+          }
+        } else if (errorCode === 'INVALID_ID') {
+          userMessage = 'This QR code is invalid or expired';
+          canRetry = false;
+        } else if (errorCode === 'COMMUNITY_ERROR') {
+          userMessage = 'Failed to access community information';
+          canRetry = true;
+        }
+
         setError({
-          message: response.error || 'Location validation failed',
-          code: response.error_code,
-          canRetry: response.error_code === 'ACCURACY_TOO_LOW' || 
-                   response.error_code === 'LOCATION_TOO_FAR'
+          message: userMessage,
+          code: errorCode,
+          canRetry
         });
         setCurrentStep(JoinStep.ERROR);
       }
-    } catch (err) {
-      // MOCK MODE: If API fails, simulate success for testing
-      console.log('API failed, using mock validation for testing');
-      
-      // Simulate location validation
-      const isAccuracyGood = location.accuracy <= 20;
-      const isFirstScanner = previewData?.is_first_scan || false;
-      
-      if (!isAccuracyGood) {
+    } catch (err: any) {
+      console.error('Location validation error:', err);
+
+      // Check for timeout
+      if (err.message?.includes('timeout') || err.message?.includes('Validation timeout')) {
         setError({
-          message: `GPS accuracy too low: ${location.accuracy.toFixed(1)}m (required: ≤20m)`,
-          code: 'ACCURACY_TOO_LOW',
+          message: 'Validation timed out. The service may be unavailable.',
+          code: 'TIMEOUT',
           canRetry: true
         });
-        setCurrentStep(JoinStep.ERROR);
       } else {
-        // Mock successful validation
-        const mockResponse: ValidateLocationResponse = {
-          success: true,
-          is_member: true,
-          is_admin: isFirstScanner,
-          group_id: `group_${communityId}`,
-          relay_url: 'wss://peek.hol.is'
-        };
-        
-        setValidationResponse(mockResponse);
-        setCurrentStep(JoinStep.SUCCESS);
-        
-        console.log('Mock join successful!', mockResponse);
-      }
-      
-      // Only show network error in production
-      if (import.meta.env.PROD) {
         setError({
-          message: 'Failed to validate location. Please check your connection.',
+          message: 'Failed to validate location. Please check your connection and try again.',
           code: 'NETWORK_ERROR',
           canRetry: true
         });
-        setCurrentStep(JoinStep.ERROR);
       }
+      setCurrentStep(JoinStep.ERROR);
     }
   };
 
@@ -366,12 +433,29 @@ export const JoinFlow: React.FC = () => {
               <Loader2 className="h-16 w-16 absolute inset-0 animate-spin text-primary" />
             </div>
             <p className="text-lg font-medium">Validating your location...</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Confirming you're at the physical location
-            </p>
+            <div className="mt-4 space-y-2 text-center">
+              <p className="text-sm text-gray-600">
+                Sending encrypted location proof via Nostr
+              </p>
+              <p className="text-xs text-gray-500">
+                This may take up to 30 seconds
+              </p>
+            </div>
             {capturedLocation && (
-              <div className="mt-4 text-xs text-gray-400 font-mono">
-                Accuracy: {capturedLocation.accuracy.toFixed(1)}m
+              <div className="mt-6 space-y-1">
+                <div className="text-xs text-gray-500 font-mono">
+                  📍 Accuracy: {capturedLocation.accuracy.toFixed(1)}m
+                  {capturedLocation.accuracy <= 20 && (
+                    <span className="ml-2 text-green-600">✓ Good</span>
+                  )}
+                  {capturedLocation.accuracy > 20 && (
+                    <span className="ml-2 text-yellow-600">⚠ Low</span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-400">
+                  Lat: {capturedLocation.latitude.toFixed(6)},
+                  Lng: {capturedLocation.longitude.toFixed(6)}
+                </div>
               </div>
             )}
           </CardContent>

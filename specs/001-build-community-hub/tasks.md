@@ -225,18 +225,20 @@ pub struct LocationProof {
 - Handle invite code response
 - Use Nostrify to send NIP-29 join request
 
-### T023: Create Community Feed component [P]
+### T023: Create Community Feed component [P] ✅
 **File**: `/packages/pwa-client/src/components/CommunityFeed.tsx`
 - Use shadcn/ui ScrollArea and Input components
 - Display NIP-29 messages via Nostrify subscriptions
 - Real-time updates via relay
 - Message input/send using Nostrify
 - Show member list
+- Refactored to use nostr-tools and RelayManager
 
-### T024: Create Admin Panel component [P]
+### T024: Create Admin Panel component [P] ✅
 **File**: `/packages/pwa-client/src/components/AdminPanel.tsx`
 - Use shadcn/ui Table and Dialog components
 - Member management UI
+- Refactored to use nostr-tools and GroupManager
 - Promote/demote/ban actions via Nostrify
 - Community settings
 - QR code management

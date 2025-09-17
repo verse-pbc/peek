@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Send, Users } from 'lucide-react';
-import { useNostrContext } from '@/hooks/useNostrContext';
-import { NDKEvent, NDKKind } from '@/lib/ndk-shim';
-import { nip19 } from 'nostr-tools';
+import { RelayManager, NIP29_KINDS } from '@/services/relay-manager';
+import { useNostrLogin } from '@/lib/nostrify-shim';
+import { nip19, Event, SimplePool, Filter } from 'nostr-tools';
+import { hexToBytes } from '@/lib/hex';
 
 interface Message {
   id: string;
@@ -35,98 +36,138 @@ export function CommunityFeed({
   isAdmin = false,
   onMemberClick
 }: CommunityFeedProps) {
-  const { ndk, user } = useNostrContext();
+  const { identity } = useNostrLogin();
+  const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [members, setMembers] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [connected, setConnected] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const metadataPoolRef = useRef<SimplePool | null>(null);
 
-  // Subscribe to NIP-29 group messages (kind 9)
+  // Initialize relay manager
   useEffect(() => {
-    if (!ndk) return;
+    const relayUrl = import.meta.env.VITE_RELAY_URL || 'ws://localhost:8090';
+    const manager = new RelayManager({
+      url: relayUrl,
+      autoConnect: true
+    });
 
-    const fetchGroupMessages = async () => {
-      setLoading(true);
+    if (identity?.publicKey) {
+      manager.setUserPubkey(identity.publicKey);
+    }
 
-      // Subscribe to kind 9 messages with h-tag for this group
-      const filter = {
-        kinds: [9 as NDKKind],
-        '#h': [groupId],
-        limit: 50
+    setRelayManager(manager);
+
+    // Initialize metadata pool for fetching profiles
+    metadataPoolRef.current = new SimplePool();
+
+    return () => {
+      manager.dispose();
+      metadataPoolRef.current = null;
+    };
+  }, [identity]);
+
+  // Subscribe to connection status
+  useEffect(() => {
+    if (!relayManager) return;
+
+    const unsubscribe = relayManager.onConnectionChange(isConnected => {
+      setConnected(isConnected);
+      if (isConnected) {
+        console.log('[CommunityFeed] Connected to relay');
+      }
+    });
+
+    return unsubscribe;
+  }, [relayManager]);
+
+  // Subscribe to group messages
+  useEffect(() => {
+    if (!relayManager || !connected) return;
+
+    setLoading(true);
+    const authorMetadataCache = new Map<string, { name?: string; picture?: string; npub: string }>();
+
+    // Subscribe to this group
+    relayManager.subscribeToGroup(groupId);
+
+    // Listen for chat messages
+    const unsubscribeMessages = relayManager.onEvent(`kind-${NIP29_KINDS.CHAT_MESSAGE}`, async (event: Event) => {
+      // Check if message is for this group
+      const hTag = event.tags.find(t => t[0] === 'h');
+      if (hTag?.[1] !== groupId) return;
+
+      const message: Message = {
+        id: event.id,
+        pubkey: event.pubkey,
+        content: event.content,
+        created_at: event.created_at
       };
 
-      const subscription = ndk.subscribe(filter, { closeOnEose: false });
-
-      subscription.on('event', async (event: NDKEvent) => {
-        // Extract message data
-        const message: Message = {
-          id: event.id,
-          pubkey: event.pubkey,
-          content: event.content,
-          created_at: event.created_at || Date.now() / 1000
-        };
-
-        // Try to fetch author metadata
+      // Fetch author metadata if not cached
+      if (!authorMetadataCache.has(event.pubkey) && metadataPoolRef.current) {
         try {
-          const authorEvent = await ndk.fetchEvent({
-            kinds: [0 as NDKKind],
-            authors: [event.pubkey]
-          });
+          const metadataRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
+          const metadataFilter: Filter = {
+            kinds: [0],
+            authors: [event.pubkey],
+            limit: 1
+          };
 
-          if (authorEvent) {
-            const metadata = JSON.parse(authorEvent.content);
-            message.author = {
+          const metadataEvents = await metadataPoolRef.current.querySync(metadataRelays, metadataFilter);
+          const metadataEvent = metadataEvents[0];
+
+          if (metadataEvent) {
+            const metadata = JSON.parse(metadataEvent.content);
+            const author = {
               name: metadata.name || metadata.display_name,
               picture: metadata.picture,
               npub: nip19.npubEncode(event.pubkey)
             };
+            authorMetadataCache.set(event.pubkey, author);
+            message.author = author;
           }
         } catch (error) {
           console.error('Error fetching author metadata:', error);
         }
+      } else if (authorMetadataCache.has(event.pubkey)) {
+        message.author = authorMetadataCache.get(event.pubkey);
+      }
 
-        setMessages(prev => {
-          const exists = prev.find(m => m.id === message.id);
-          if (!exists) {
-            const updated = [...prev, message].sort((a, b) => a.created_at - b.created_at);
-            return updated.slice(-100); // Keep last 100 messages
-          }
-          return prev;
-        });
-
-        // Track members
-        setMembers(prev => new Set([...prev, event.pubkey]));
-      });
-
-      setLoading(false);
-
-      // Fetch group members (kind 9000 events)
-      const memberFilter = {
-        kinds: [9000 as NDKKind],
-        '#h': [groupId],
-        limit: 100
-      };
-
-      const memberSub = ndk.subscribe(memberFilter, { closeOnEose: true });
-
-      memberSub.on('event', (event: NDKEvent) => {
-        // Extract p-tag for member pubkey
-        const pTag = event.tags.find(tag => tag[0] === 'p');
-        if (pTag && pTag[1]) {
-          setMembers(prev => new Set([...prev, pTag[1]]));
+      setMessages(prev => {
+        const exists = prev.find(m => m.id === message.id);
+        if (!exists) {
+          const updated = [...prev, message].sort((a, b) => a.created_at - b.created_at);
+          return updated.slice(-100); // Keep last 100 messages
         }
+        return prev;
       });
 
-      return () => {
-        subscription.stop();
-        memberSub.stop();
-      };
-    };
+      // Track members
+      setMembers(prev => new Set([...prev, event.pubkey]));
+    });
 
-    fetchGroupMessages();
-  }, [ndk, groupId]);
+    // Listen for group members updates
+    const unsubscribeMembers = relayManager.onEvent(`group-metadata-${groupId}`, (event: Event) => {
+      if (event.kind === NIP29_KINDS.GROUP_MEMBERS) {
+        const memberPubkeys = event.tags
+          .filter(t => t[0] === 'p')
+          .map(t => t[1]);
+        setMembers(new Set(memberPubkeys));
+      }
+    });
+
+    setLoading(false);
+
+    return () => {
+      unsubscribeMessages();
+      unsubscribeMembers();
+      relayManager.unsubscribeFromGroup(groupId);
+    };
+  }, [relayManager, connected, groupId]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -136,19 +177,12 @@ export function CommunityFeed({
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!ndk || !user || !newMessage.trim()) return;
+    if (!relayManager || !identity || !newMessage.trim() || !connected) return;
 
     setSending(true);
     try {
-      // Create NIP-29 group message (kind 9)
-      const event = new NDKEvent(ndk);
-      event.kind = 9 as NDKKind;
-      event.content = newMessage.trim();
-      event.tags = [
-        ['h', groupId]
-      ];
-
-      await event.publish();
+      const secretKey = hexToBytes(identity.secretKey);
+      await relayManager.sendMessage(groupId, newMessage.trim(), secretKey);
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -225,7 +259,7 @@ export function CommunityFeed({
                   </div>
 
                   {dateMessages.map((message) => {
-                    const isOwnMessage = user?.pubkey === message.pubkey;
+                    const isOwnMessage = identity?.publicKey === message.pubkey;
 
                     return (
                       <div
@@ -247,7 +281,7 @@ export function CommunityFeed({
                         </Avatar>
 
                         <div className={`flex-1 ${isOwnMessage ? 'text-right' : ''}`}>
-                          <div className="flex items-baseline gap-2 mb-1">
+                          <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
                             <span className="text-sm font-medium">
                               {message.author?.name || message.author?.npub?.slice(0, 8) || 'Anonymous'}
                             </span>
@@ -285,21 +319,26 @@ export function CommunityFeed({
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              disabled={sending || !user}
+              disabled={sending || !identity || !connected}
               className="flex-1"
             />
             <Button
               type="submit"
               size="icon"
-              disabled={sending || !user || !newMessage.trim()}
+              disabled={sending || !identity || !connected || !newMessage.trim()}
             >
               <Send className="h-4 w-4" />
             </Button>
           </form>
 
-          {!user && (
+          {!identity && (
             <p className="text-xs text-muted-foreground mt-2">
               Connect your Nostr account to send messages
+            </p>
+          )}
+          {identity && !connected && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Connecting to relay...
             </p>
           )}
         </div>
