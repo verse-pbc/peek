@@ -293,7 +293,7 @@ export const JoinFlow: React.FC = () => {
             canRetry = true;
           }
         } else if (errorCode === 'INVALID_ID') {
-          userMessage = 'This QR code is invalid or expired';
+          userMessage = 'Invalid QR code format';
           canRetry = false;
         } else if (errorCode === 'COMMUNITY_ERROR') {
           userMessage = 'Failed to access community information';

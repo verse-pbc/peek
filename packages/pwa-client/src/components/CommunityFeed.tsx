@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Send, Users } from 'lucide-react';
 import { RelayManager, NIP29_KINDS } from '@/services/relay-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
-import { nip19, Event, SimplePool, Filter } from 'nostr-tools';
+import { nip19, Event, SimplePool, Filter, finalizeEvent } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 
 interface Message {
@@ -57,6 +57,12 @@ export function CommunityFeed({
 
     if (identity?.publicKey) {
       manager.setUserPubkey(identity.publicKey);
+
+      // Set up NIP-42 authentication handler
+      const secretKey = hexToBytes(identity.secretKey);
+      manager.setAuthHandler(async (challenge) => {
+        return finalizeEvent(challenge, secretKey);
+      });
     }
 
     setRelayManager(manager);

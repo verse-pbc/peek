@@ -7,15 +7,19 @@ pub struct Config {
     
     #[serde(default = "default_relay_url")]
     pub relay_url: String,
-    
+
+    // Public relay URL to return to browser clients
+    #[serde(default = "default_public_relay_url")]
+    pub public_relay_url: String,
+
     // Relay's secret key for managing groups and accessing all events
     pub relay_secret_key: String,
     
     // Admin private key for creating NIP-29 invites (deprecated, using relay key instead)
     pub admin_nsec: Option<String>,
 
-    // Service private key for NIP-59 gift wrap communication
-    pub service_nsec: String,
+    // Service private key for NIP-59 gift wrap communication (hex format)
+    pub service_secret_key: String,
 
     #[serde(default = "default_max_distance")]
     pub max_distance_meters: f64,
@@ -41,9 +45,10 @@ impl Default for Config {
         Self {
             port: default_port(),
             relay_url: default_relay_url(),
+            public_relay_url: default_public_relay_url(),
             relay_secret_key: String::new(), // Must be provided via environment
             admin_nsec: None,
-            service_nsec: String::new(), // Must be provided via environment
+            service_secret_key: String::new(), // Must be provided via environment
             max_distance_meters: default_max_distance(),
             max_accuracy_meters: default_max_accuracy(),
             max_timestamp_age_seconds: default_max_timestamp_age(),
@@ -57,6 +62,10 @@ fn default_port() -> u16 {
 }
 
 fn default_relay_url() -> String {
+    "wss://peek.hol.is".to_string()
+}
+
+fn default_public_relay_url() -> String {
     "wss://peek.hol.is".to_string()
 }
 

@@ -116,13 +116,13 @@ impl LocationProof {
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum LocationValidationError {
-    #[error("GPS accuracy too low. Please enable precise location.")]
+    #[error("Your GPS accuracy is too low. Please enable precise location and try again.")]
     AccuracyTooLow,
-    
-    #[error("Location proof expired. Please try again.")]
+
+    #[error("Location request timed out. Please try again.")]
     ProofExpired,
-    
-    #[error("Invalid timestamp.")]
+
+    #[error("Location data is outdated. Please refresh and try again.")]
     InvalidTimestamp,
     
     #[error("Invalid coordinates provided.")]

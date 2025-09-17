@@ -185,7 +185,8 @@ export class LocationCapture {
     }
 
     // Check if timestamp is recent (within last minute)
-    const ageMs = Date.now() - location.timestamp;
+    // Note: timestamp is in seconds, convert to milliseconds for comparison
+    const ageMs = Date.now() - (location.timestamp * 1000);
     if (ageMs > 60000) {
       return {
         isValid: false,
@@ -265,7 +266,7 @@ export class LocationCapture {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
       accuracy: position.coords.accuracy,
-      timestamp: position.timestamp,
+      timestamp: Math.floor(position.timestamp / 1000), // Convert from milliseconds to seconds
       altitude: position.coords.altitude,
       altitudeAccuracy: position.coords.altitudeAccuracy,
       heading: position.coords.heading,

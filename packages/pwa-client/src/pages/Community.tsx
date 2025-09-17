@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useNostrContext } from '@/hooks/useNostrContext';
-import { NDKEvent, NDKKind } from '@/lib/ndk-shim';
+import { SimplePool, type Event, type Filter } from 'nostr-tools';
 import { CommunityFeed } from '../components/CommunityFeed';
 import { AdminPanel } from '../components/AdminPanel';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Alert, AlertDescription } from '../components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import {
   ArrowLeft,
@@ -37,7 +36,6 @@ interface CommunityData {
 const Community = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
-  const { ndk, user } = useNostrContext();
   const { pubkey } = useNostrLogin();
   const { toast } = useToast();
 
@@ -45,15 +43,23 @@ const Community = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [pool] = useState(() => new SimplePool());
 
   // The group ID format for NIP-29
   const groupId = communityId ? `peek-${communityId}` : null;
 
+  // Get relay URL from stored group info or use default
+  const getRelayUrl = (): string => {
+    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+    const groupInfo = joinedGroups.find((g: any) => g.communityId === communityId);
+    return groupInfo?.relayUrl || import.meta.env.VITE_RELAY_URL || 'ws://localhost:8090';
+  };
+
   // Verify user has access to this community
   useEffect(() => {
-    if (!ndk || !user || !groupId) {
+    if (!pubkey || !groupId) {
       setLoading(false);
-      if (!user) {
+      if (!pubkey) {
         setError('Please login to access communities');
       }
       return;
@@ -63,22 +69,31 @@ const Community = () => {
       setLoading(true);
       setError(null);
 
+      const relayUrl = getRelayUrl();
+      console.log('Connecting to relay:', relayUrl, 'for group:', groupId);
+
       try {
-        // Check if user is a member (kind 9000 with user's p-tag)
-        const memberFilter = {
-          kinds: [9000 as NDKKind],
+        // Check if user is a member (kind 9000 put-user events with user's p-tag)
+        const memberFilter: Filter = {
+          kinds: [9000],
           '#h': [groupId],
-          '#p': [user.pubkey],
+          '#p': [pubkey],
           limit: 1
         };
 
-        const memberEvents = await ndk.fetchEvents(memberFilter);
-        const isMember = memberEvents.size > 0;
+        const memberEvents = await pool.querySync([relayUrl], memberFilter);
+        const isMember = memberEvents.length > 0;
 
         if (!isMember) {
-          setError('You are not a member of this community. Please scan the QR code at the physical location to join.');
-          setLoading(false);
-          return;
+          // Check localStorage as fallback (user just joined)
+          const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+          const isInLocal = joinedGroups.some((g: any) => g.communityId === communityId);
+
+          if (!isInLocal) {
+            setError('You are not a member of this community. Please scan the QR code at the physical location to join.');
+            setLoading(false);
+            return;
+          }
         }
 
         // User is a member, fetch community data
@@ -90,32 +105,59 @@ const Community = () => {
           isMember: true
         };
 
-        // Check if user is admin (kind 9002)
-        const adminFilter = {
-          kinds: [9002 as NDKKind],
-          '#h': [groupId],
-          '#p': [user.pubkey],
+        // Check if user is admin (kind 9002 edit-metadata permission or kind 39001 listing)
+        const adminFilter: Filter = {
+          kinds: [39001],
+          '#d': [groupId],
           limit: 1
         };
 
-        const adminEvents = await ndk.fetchEvents(adminFilter);
+        const adminEvents = await pool.querySync([relayUrl], adminFilter);
 
         for (const event of adminEvents) {
-          const permissionTag = event.tags.find(tag => tag[0] === 'permission');
-          if (permissionTag && permissionTag[1] === 'add-user') {
+          // Check if user's pubkey is in the admin list
+          const isAdminInEvent = event.tags.some(tag =>
+            tag[0] === 'p' && tag[1] === pubkey
+          );
+          if (isAdminInEvent) {
             community.isAdmin = true;
             break;
           }
         }
 
-        // Count total members
-        const allMembersFilter = {
-          kinds: [9000 as NDKKind],
+        // Get community metadata (kind 39000)
+        const metadataFilter: Filter = {
+          kinds: [39000],
+          '#d': [groupId],
+          limit: 1
+        };
+
+        const metadataEvents = await pool.querySync([relayUrl], metadataFilter);
+
+        if (metadataEvents.length > 0) {
+          const metadata = metadataEvents[0];
+
+          // Extract name from tags
+          const nameTag = metadata.tags.find(tag => tag[0] === 'name');
+          if (nameTag && nameTag[1]) {
+            community.name = nameTag[1];
+          }
+
+          // Extract other metadata
+          const aboutTag = metadata.tags.find(tag => tag[0] === 'about');
+          const pictureTag = metadata.tags.find(tag => tag[0] === 'picture');
+
+          community.createdAt = metadata.created_at;
+        }
+
+        // Count members (kind 39002 or count kind 9000 events)
+        const allMembersFilter: Filter = {
+          kinds: [9000],
           '#h': [groupId],
           limit: 500
         };
 
-        const allMemberEvents = await ndk.fetchEvents(allMembersFilter);
+        const allMemberEvents = await pool.querySync([relayUrl], allMembersFilter);
         const uniqueMembers = new Set<string>();
 
         for (const event of allMemberEvents) {
@@ -125,32 +167,13 @@ const Community = () => {
           }
         }
 
-        community.memberCount = uniqueMembers.size;
+        community.memberCount = uniqueMembers.size || 1; // At least the current user
 
-        // Try to get community metadata from group creation event (kind 9007)
-        const groupCreationFilter = {
-          kinds: [9007 as NDKKind],
-          '#h': [groupId],
-          limit: 1
-        };
-
-        const creationEvents = await ndk.fetchEvents(groupCreationFilter);
-
-        for (const event of creationEvents) {
-          community.createdAt = event.created_at;
-
-          // Extract name from tags
-          const nameTag = event.tags.find(tag => tag[0] === 'name');
-          if (nameTag && nameTag[1]) {
-            community.name = nameTag[1];
-          }
-
-          // Mock location for now (would come from validation service in production)
-          community.location = {
-            latitude: -34.919143 + Math.random() * 0.01,
-            longitude: -56.161693 + Math.random() * 0.01
-          };
-          break;
+        // Get stored location from localStorage (set during join)
+        const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+        const groupInfo = joinedGroups.find((g: any) => g.communityId === communityId);
+        if (groupInfo?.location) {
+          community.location = groupInfo.location;
         }
 
         setCommunityData(community);
@@ -163,7 +186,12 @@ const Community = () => {
     };
 
     verifyCommunityAccess();
-  }, [ndk, user, groupId, communityId]);
+
+    // Cleanup
+    return () => {
+      pool.close([getRelayUrl()]);
+    };
+  }, [pubkey, groupId, communityId, pool]);
 
   const handleBack = () => {
     navigate('/');
@@ -177,7 +205,7 @@ const Community = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -189,61 +217,62 @@ const Community = () => {
     );
   }
 
-  if (error || !communityData) {
+  if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <Lock className="h-8 w-8 text-destructive" />
-              <div>
-                <CardTitle>Access Denied</CardTitle>
-                <CardDescription>Cannot access this community</CardDescription>
-              </div>
+            <div className="flex items-center gap-2 text-destructive">
+              <Lock className="h-5 w-5" />
+              <CardTitle>Access Denied</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert variant="destructive">
+          <CardContent>
+            <Alert className="border-destructive/20">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                {error || 'Community not found or you do not have access.'}
-              </AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
-
-            {error?.includes('not a member') && (
-              <Alert>
-                <MapPin className="h-4 w-4" />
-                <AlertDescription>
-                  To join this community, you must be physically present at the location.
-                  Scan the QR code with your phone camera when you're there.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Button onClick={handleBack} className="w-full">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
-            </Button>
+            <div className="mt-4 flex gap-2">
+              <Button onClick={handleBack} variant="outline" className="flex-1">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Home
+              </Button>
+              <Button
+                onClick={() => navigate(`/join/${communityId}`)}
+                className="flex-1"
+              >
+                Join Community
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={handleBack}>
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
+  if (!communityData) {
+    return null;
+  }
 
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={handleBack}
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
               <div>
-                <h1 className="text-xl font-bold line-clamp-1">{communityData.name}</h1>
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <h1 className="text-xl font-semibold">{communityData.name}</h1>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
                     {communityData.memberCount} members
@@ -251,70 +280,85 @@ const Community = () => {
                   {communityData.location && (
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
-                      Location-based
+                      Location verified
                     </span>
                   )}
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              {communityData.isAdmin && (
-                <>
-                  <Badge variant="default" className="hidden sm:flex">
-                    <Shield className="h-3 w-3 mr-1" />
-                    Admin
-                  </Badge>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleAdminClick}
-                    title="Admin Panel"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-            </div>
+            {communityData.isAdmin && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="gap-1">
+                  <Shield className="h-3 w-3" />
+                  Admin
+                </Badge>
+                <Button
+                  onClick={handleAdminClick}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Manage
+                </Button>
+              </div>
+            )}
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <div className="max-w-4xl mx-auto">
-          {/* Success Alert for New Members */}
-          {window.location.search.includes('joined=true') && (
-            <Alert className="mb-4 border-green-200 bg-green-50">
-              <Shield className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                Welcome! You've successfully joined this community. You can now participate in discussions
-                and connect with other members who've been to this location.
-              </AlertDescription>
-            </Alert>
-          )}
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="grid gap-6">
+          {/* Community Info Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Welcome to the Community</CardTitle>
+              <CardDescription>
+                This is a location-based group for people who have visited this place
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Alert>
+                  <MapPin className="h-4 w-4" />
+                  <AlertTitle>Location Verified Community</AlertTitle>
+                  <AlertDescription>
+                    All members have physically visited this location.
+                    New members must be present at the location to join.
+                  </AlertDescription>
+                </Alert>
 
-          {/* Community Feed */}
+                {communityData.isAdmin && (
+                  <Alert className="border-purple-200 bg-purple-50">
+                    <Shield className="h-4 w-4 text-purple-600" />
+                    <AlertTitle className="text-purple-900">You're an Admin</AlertTitle>
+                    <AlertDescription className="text-purple-800">
+                      You have admin privileges for this community.
+                      You can manage members and moderate content.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Feed */}
           <CommunityFeed
-            groupId={groupId!}
-            communityName={communityData.name}
+            groupId={communityData.groupId}
+            relayUrl={getRelayUrl()}
+            userPubkey={pubkey || ''}
             isAdmin={communityData.isAdmin}
-            onMemberClick={(pubkey) => {
-              // Could open member profile or actions
-              console.log('Member clicked:', pubkey);
-            }}
           />
         </div>
-      </main>
+      </div>
 
       {/* Admin Panel Modal */}
-      {communityData.isAdmin && (
+      {showAdminPanel && (
         <AdminPanel
-          groupId={groupId!}
-          communityName={communityData.name}
-          communityLocation={communityData.location}
-          open={showAdminPanel}
-          onOpenChange={setShowAdminPanel}
+          groupId={communityData.groupId}
+          relayUrl={getRelayUrl()}
+          onClose={() => setShowAdminPanel(false)}
         />
       )}
     </div>

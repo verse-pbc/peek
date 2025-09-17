@@ -79,6 +79,7 @@ export class RelayManager {
   private reconnectTimer?: NodeJS.Timeout;
   private isConnecting: boolean;
   private userPubkey?: string;
+  private authHandler?: (challenge: EventTemplate) => Promise<any>;
 
   constructor(options: RelayConnectionOptions) {
     this.pool = new SimplePool();
@@ -102,6 +103,13 @@ export class RelayManager {
    */
   setUserPubkey(pubkey: string) {
     this.userPubkey = pubkey;
+  }
+
+  /**
+   * Set the authentication handler for NIP-42
+   */
+  setAuthHandler(handler: (challenge: EventTemplate) => Promise<any>) {
+    this.authHandler = handler;
   }
 
   /**
@@ -136,6 +144,24 @@ export class RelayManager {
       });
 
       console.log(`[RelayManager] Connected to ${this.relayUrl}`);
+
+      // Try to authenticate immediately if we have an auth handler
+      if (this.authHandler && this.relay) {
+        try {
+          // Wait a moment for AUTH challenge to arrive
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Check if relay sent a challenge
+          if ((this.relay as any).challenge) {
+            console.log('[RelayManager] Authenticating with relay...');
+            await this.relay.auth(this.authHandler);
+            console.log('[RelayManager] Authentication successful');
+          }
+        } catch (error) {
+          console.warn('[RelayManager] Pre-authentication failed:', error);
+        }
+      }
+
       this.reconnectAttempts = 0;
       this.isConnecting = false;
       this.notifyConnectionHandlers(true);
@@ -271,7 +297,8 @@ export class RelayManager {
       [hFilter, dFilter],
       {
         onevent: (event) => this.handleGroupEvent(groupId, event),
-        oneose: () => console.log(`[RelayManager] Synced with group ${groupId}`)
+        oneose: () => console.log(`[RelayManager] Synced with group ${groupId}`),
+        onauth: this.authHandler
       }
     );
 

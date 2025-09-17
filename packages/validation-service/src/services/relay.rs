@@ -66,46 +66,77 @@ impl RelayService {
     ) -> Result<String> {
         // Generate group ID (h-tag for NIP-29)
         let group_id = format!("peek-{}", community_id);
-        
-        // Create metadata to store
+
+        // Parse creator's public key
+        let creator_pk = PublicKey::from_bech32(&creator_pubkey)
+            .or_else(|_| PublicKey::from_hex(&creator_pubkey))?;
+
+        // Step 1: Create NIP-29 group creation event (kind 9007)
+        let group_creation = EventBuilder::new(
+            Kind::from(9007),
+            "",  // Empty content per NIP-29
+        )
+        .tags([
+            Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
+        ]);
+
+        let event = self.client.sign_event_builder(group_creation).await?;
+        self.client.send_event(&event).await?;
+
+        // Step 2: Create group metadata event (kind 39000)
+        let group_metadata = EventBuilder::new(
+            Kind::from(39000),
+            "",  // Empty content
+        )
+        .tags([
+            Tag::custom(TagKind::Custom("d".into()), [group_id.clone()]),
+            Tag::custom(TagKind::Custom("name".into()), [name.clone()]),
+            Tag::custom(TagKind::Custom("about".into()),
+                [format!("Location-based community at {:.4}, {:.4}",
+                    location.latitude, location.longitude)]),
+            Tag::custom(TagKind::Custom("picture".into()), [String::new()]),
+            Tag::custom(TagKind::Custom("public".into()), Vec::<String>::new()),  // Public group
+            Tag::custom(TagKind::Custom("open".into()), Vec::<String>::new()),    // Open to join
+        ]);
+
+        let event = self.client.sign_event_builder(group_metadata).await?;
+        self.client.send_event(&event).await?;
+
+        // Step 3: Create group admins event (kind 39001) with creator as admin
+        let group_admins = EventBuilder::new(
+            Kind::from(39001),
+            format!("Admin list for group {}", name),
+        )
+        .tags([
+            Tag::custom(TagKind::Custom("d".into()), [group_id.clone()]),
+            Tag::custom(TagKind::Custom("p".into()),
+                [creator_pk.to_hex(), "admin".to_string()]),
+        ]);
+
+        let event = self.client.sign_event_builder(group_admins).await?;
+        self.client.send_event(&event).await?;
+
+        // Step 4: Add creator as first member (kind 9000)
+        self.add_group_member(&group_id, &creator_pubkey, true).await?;
+
+        // Store metadata for caching
         let metadata = CommunityMetadata {
             id: community_id,
             name: name.clone(),
-            description: Some(format!("Location-based community at {:.4}, {:.4}", 
+            description: Some(format!("Location-based community at {:.4}, {:.4}",
                 location.latitude, location.longitude)),
             location,
             created_at: Timestamp::now(),
             creator_pubkey: creator_pubkey.clone(),
             member_count: 1,
         };
-        
-        // Store metadata using NIP-44 encryption (kind 30078)
+
+        // Store encrypted metadata
         self.store_encrypted_metadata(&group_id, &metadata).await?;
-        
-        // Create NIP-29 group creation event (kind 9007)
-        let group_creation = EventBuilder::new(
-            Kind::from(9007),
-            format!("Created group {}", name),
-        )
-        .tags([
-            Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
-            Tag::custom(TagKind::Custom("name".into()), [name]),
-            Tag::custom(TagKind::Custom("about".into()),
-                [format!("Location-based community")]),
-            Tag::custom(TagKind::Custom("picture".into()), [String::new()]),
-            Tag::custom(TagKind::Custom("private".into()), ["false".to_string()]),
-            Tag::custom(TagKind::Custom("closed".into()), ["false".to_string()]),
-        ]);
-        
-        let event = self.client.sign_event_builder(group_creation).await?;
-        self.client.send_event(&event).await?;
-        
-        // Add creator as first member and admin
-        self.add_group_member(&group_id, &creator_pubkey, true).await?;
-        
+
         // Cache the metadata
         self.metadata_cache.write().await.insert(community_id, metadata);
-        
+
         Ok(group_id)
     }
     
@@ -124,12 +155,12 @@ impl RelayService {
         &self,
         group_id: &str,
         user_pubkey: &str,
-        is_admin: bool,
+        _is_admin: bool,  // Not used here, admin is set during group creation
     ) -> Result<()> {
         // Parse user's public key
         let pubkey = PublicKey::from_bech32(user_pubkey)
             .or_else(|_| PublicKey::from_hex(user_pubkey))?;
-        
+
         // Create NIP-29 add user event (kind 9000)
         let add_user = EventBuilder::new(
             Kind::from(9000),
@@ -139,27 +170,10 @@ impl RelayService {
             Tag::public_key(pubkey),
             Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
         ]);
-        
+
         let event = self.client.sign_event_builder(add_user).await?;
         self.client.send_event(&event).await?;
-        
-        // If admin, also send admin permission event (kind 9002)
-        if is_admin {
-            let add_permission = EventBuilder::new(
-                Kind::from(9002),
-                format!("Granted admin permission"),
-            )
-            .tags([
-                Tag::public_key(pubkey),
-                Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
-                Tag::custom(TagKind::Custom("permission".into()),
-                    ["add-user".to_string()])
-            ]);
-            
-            let event = self.client.sign_event_builder(add_permission).await?;
-            self.client.send_event(&event).await?;
-        }
-        
+
         // Update member count in metadata
         if let Some(community_id) = group_id.strip_prefix("peek-")
             .and_then(|id| Uuid::parse_str(id).ok()) {
@@ -169,7 +183,7 @@ impl RelayService {
                 self.store_encrypted_metadata(group_id, &metadata).await?;
             }
         }
-        
+
         Ok(())
     }
     

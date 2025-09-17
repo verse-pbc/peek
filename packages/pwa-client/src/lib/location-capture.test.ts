@@ -49,7 +49,7 @@ describe('LocationCapture', () => {
           heading: null,
           speed: null,
         },
-        timestamp: Date.now(),
+        timestamp: Math.floor(Date.now() / 1000),
       };
 
       mockGeolocation.getCurrentPosition.mockImplementation((success: any) => {
@@ -77,7 +77,7 @@ describe('LocationCapture', () => {
           heading: null,
           speed: null,
         },
-        timestamp: Date.now(),
+        timestamp: Math.floor(Date.now() / 1000),
       };
 
       mockGeolocation.getCurrentPosition.mockImplementation((success: any) => {
@@ -144,7 +144,7 @@ describe('LocationCapture', () => {
           heading: null,
           speed: null,
         },
-        timestamp: Date.now(),
+        timestamp: Math.floor(Date.now() / 1000),
       };
 
       mockGeolocation.watchPosition.mockReturnValue(123); // Watch ID
@@ -208,7 +208,7 @@ describe('LocationCapture', () => {
           latitude: 37.7749,
           longitude: -122.4194,
           accuracy: 15,
-          timestamp: Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
         };
 
         const result = LocationCapture.validateLocation(location);
@@ -220,7 +220,7 @@ describe('LocationCapture', () => {
           latitude: 91, // Invalid
           longitude: -122.4194,
           accuracy: 15,
-          timestamp: Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
         };
 
         const result = LocationCapture.validateLocation(location);
@@ -233,7 +233,7 @@ describe('LocationCapture', () => {
           latitude: 37.7749,
           longitude: 181, // Invalid
           accuracy: 15,
-          timestamp: Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
         };
 
         const result = LocationCapture.validateLocation(location);
@@ -246,7 +246,7 @@ describe('LocationCapture', () => {
           latitude: 37.7749,
           longitude: -122.4194,
           accuracy: 150, // Too poor
-          timestamp: Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
         };
 
         const result = LocationCapture.validateLocation(location);
@@ -259,7 +259,7 @@ describe('LocationCapture', () => {
           latitude: 37.7749,
           longitude: -122.4194,
           accuracy: 15,
-          timestamp: Date.now() - 120000, // 2 minutes old
+          timestamp: Math.floor(Date.now() / 1000) - 120, // 2 minutes old
         };
 
         const result = LocationCapture.validateLocation(location);
@@ -274,7 +274,7 @@ describe('LocationCapture', () => {
           latitude: 37.7749294,
           longitude: -122.4194155,
           accuracy: 10,
-          timestamp: Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
         };
 
         const formatted = LocationCapture.formatLocation(location);
@@ -286,7 +286,7 @@ describe('LocationCapture', () => {
           latitude: 37.7749294,
           longitude: -122.4194155,
           accuracy: 10,
-          timestamp: Date.now(),
+          timestamp: Math.floor(Date.now() / 1000),
         };
 
         const formatted = LocationCapture.formatLocation(location, 3);

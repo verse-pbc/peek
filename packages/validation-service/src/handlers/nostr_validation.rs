@@ -56,9 +56,9 @@ impl NostrValidationHandler {
         community_service: Arc<CommunityService>,
         relay_service: Arc<RwLock<RelayService>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        // Parse the service's secret key
-        let secret_key = SecretKey::from_bech32(&config.service_nsec)
-            .map_err(|e| format!("Failed to parse service nsec: {}", e))?;
+        // Parse the service's secret key from hex
+        let secret_key = SecretKey::from_hex(&config.service_secret_key)
+            .map_err(|e| format!("Failed to parse service secret key: {}", e))?;
         let service_keys = Keys::new(secret_key);
 
         info!("Service pubkey: {}", service_keys.public_key().to_bech32()?);
@@ -122,7 +122,7 @@ impl NostrValidationHandler {
                 if let RelayPoolNotification::Event { event, .. } = notification {
                     if event.kind == Kind::GiftWrap {
                         if let Err(e) = self.handle_gift_wrap(*event).await {
-                            error!("Failed to handle gift wrap: {}", e);
+                            error!("❌ Failed to handle gift wrap: {}", e);
                         }
                     }
                 }
@@ -135,11 +135,21 @@ impl NostrValidationHandler {
 
     /// Handle a received gift wrap event
     async fn handle_gift_wrap(&self, gift_wrap: Event) -> Result<(), Box<dyn std::error::Error>> {
-        debug!("Received gift wrap: {}", gift_wrap.id);
+        info!(
+            "📦 Received gift wrap from {} (event: {})",
+            gift_wrap.pubkey.to_bech32()?,
+            &gift_wrap.id.to_string()[0..8]
+        );
 
         // Unwrap the gift wrap
         let unwrapped = self.client.unwrap_gift_wrap(&gift_wrap).await?;
         let rumor = unwrapped.rumor;
+
+        info!(
+            "🔓 Unwrapped gift wrap from sender: {} (kind: {})",
+            unwrapped.sender.to_bech32()?,
+            rumor.kind
+        );
 
         // Check if it's a location validation request
         if rumor.kind != LOCATION_VALIDATION_REQUEST_KIND {
@@ -150,15 +160,38 @@ impl NostrValidationHandler {
         // Parse the request
         let request: LocationValidationRequest = serde_json::from_str(&rumor.content)?;
         info!(
-            "Processing location validation for community: {}",
-            request.community_id
+            "📍 Location validation request for community: {} from user: {}",
+            request.community_id,
+            unwrapped.sender.to_bech32()?
+        );
+        debug!(
+            "   Location: ({:.6}, {:.6}) accuracy: {:.1}m",
+            request.location.latitude,
+            request.location.longitude,
+            request.location.accuracy
         );
 
         // Process the validation
         let response = self.process_validation(request, unwrapped.sender).await;
 
-        // Send gift-wrapped response back
-        self.send_response(unwrapped.sender, response).await?;
+        info!(
+            "✅ Validation complete - success: {}, is_admin: {:?}, is_member: {:?}, relay_url: {:?}",
+            response.success,
+            response.is_admin,
+            response.is_member,
+            response.relay_url
+        );
+        if let Some(ref error) = response.error {
+            info!("   Error: {} (code: {:?})", error, response.error_code);
+        }
+        if response.invite_code.is_some() {
+            info!("   Generated invite code for group: {:?}", response.group_id);
+        }
+
+        // Send gift-wrapped response back with reference to request ID
+        let rumor_id = rumor.id.map(|id| id.to_string()).unwrap_or_else(|| "unknown".to_string());
+        self.send_response(unwrapped.sender, response, &rumor_id).await?;
+        info!("📤 Sent gift-wrapped response to {}", unwrapped.sender.to_bech32()?);
 
         Ok(())
     }
@@ -240,7 +273,7 @@ impl NostrValidationHandler {
 
             if !check_result.passed {
                 let error_msg = if let Some(ref error) = check_result.error {
-                    format!("{:?}", error)
+                    error.to_string()
                 } else if check_result.accuracy > self.config.max_accuracy_meters {
                     format!("GPS accuracy too poor: {:.0}m (max: {}m)",
                         check_result.accuracy,
@@ -264,45 +297,86 @@ impl NostrValidationHandler {
             }
         }
 
-        // Add user to group
+        // Create or join group
         let group_id = format!("peek-{}", community_id);
 
-        match self
-            .relay_service
-            .write()
-            .await
-            .add_user_to_group(&group_id, &sender_pubkey.to_hex(), is_new)
-            .await
-        {
-            Ok(_) => {
-                info!(
-                    "Added user {} to group {} (admin: {})",
+        // If this is a new community, create the group first
+        if is_new {
+            match self
+                .relay_service
+                .write()
+                .await
+                .create_group(
+                    community_id,
+                    community.name.clone(),
                     sender_pubkey.to_hex(),
-                    group_id,
-                    is_new
-                );
-
-                LocationValidationResponse {
-                    success: true,
-                    invite_code: Some(group_id.clone()), // Using group_id as invite code
-                    group_id: Some(group_id),
-                    relay_url: Some(self.config.relay_url.clone()),
-                    is_admin: Some(is_new),
-                    is_member: Some(true),
-                    error: None,
-                    error_code: None,
+                    crate::services::relay::Location {
+                        latitude: community.location.latitude,
+                        longitude: community.location.longitude,
+                    },
+                )
+                .await
+            {
+                Ok(_) => {
+                    info!(
+                        "Created new group {} with admin {}",
+                        group_id,
+                        sender_pubkey.to_hex()
+                    );
+                }
+                Err(e) => {
+                    return LocationValidationResponse {
+                        success: false,
+                        invite_code: None,
+                        group_id: None,
+                        relay_url: None,
+                        is_admin: None,
+                        is_member: None,
+                        error: Some(format!("Failed to create group: {}", e)),
+                        error_code: Some("GROUP_CREATE_FAILED".to_string()),
+                    };
                 }
             }
-            Err(e) => LocationValidationResponse {
-                success: false,
-                invite_code: None,
-                group_id: None,
-                relay_url: None,
-                is_admin: None,
-                is_member: None,
-                error: Some(format!("Failed to add user to group: {}", e)),
-                error_code: Some("GROUP_ADD_FAILED".to_string()),
-            },
+        } else {
+            // For existing groups, just add the user
+            match self
+                .relay_service
+                .write()
+                .await
+                .add_user_to_group(&group_id, &sender_pubkey.to_hex(), false)
+                .await
+            {
+                Ok(_) => {
+                    info!(
+                        "Added user {} to existing group {}",
+                        sender_pubkey.to_hex(),
+                        group_id
+                    );
+                }
+                Err(e) => {
+                    return LocationValidationResponse {
+                        success: false,
+                        invite_code: None,
+                        group_id: None,
+                        relay_url: None,
+                        is_admin: None,
+                        is_member: None,
+                        error: Some(format!("Failed to add user to group: {}", e)),
+                        error_code: Some("GROUP_ADD_FAILED".to_string()),
+                    };
+                }
+            }
+        }
+
+        LocationValidationResponse {
+            success: true,
+            invite_code: Some(group_id.clone()), // Using group_id as invite code
+            group_id: Some(group_id),
+            relay_url: Some(self.config.public_relay_url.clone()),
+            is_admin: Some(is_new),
+            is_member: Some(true),
+            error: None,
+            error_code: None,
         }
     }
 
@@ -311,22 +385,25 @@ impl NostrValidationHandler {
         &self,
         recipient: PublicKey,
         response: LocationValidationResponse,
+        request_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Create response rumor
+        // Create response rumor with 'e' tag pointing to request
         let response_json = serde_json::to_string(&response)?;
 
         let rumor = UnsignedEvent::new(
             self.service_keys.public_key(),
             Timestamp::now(),
             LOCATION_VALIDATION_RESPONSE_KIND,
-            vec![],
+            vec![
+                Tag::custom(TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::E)), vec![request_id.to_string()]),
+            ],
             response_json,
         );
 
         // Create and send gift wrap using the client
         self.client.gift_wrap(&recipient, rumor, vec![]).await?;
 
-        info!("Sent gift-wrapped response to {}", recipient.to_bech32()?);
+        info!("Sent gift-wrapped response to {} for request {}", recipient.to_bech32()?, request_id);
 
         Ok(())
     }

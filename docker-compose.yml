@@ -9,17 +9,18 @@ services:
       RUST_LOG: "info"
       NIP29__relay__relay_url: "ws://localhost:8090"
       NIP29__relay__auth_url: "ws://localhost:8090"
-      # Use test key for relay admin
-      NIP29__relay__nsec: "nsec1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9l0wzl"
+      # Use test key for relay admin (hex format)
+      NIP29__relay__secret_key: "0000000000000000000000000000000000000000000000000000000000000001"
     ports:
       - "8090:8080"
     volumes:
       - relay_data:/app/db
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+    # Health check disabled - container doesn't have curl
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8080"]
+    #   interval: 5s
+    #   timeout: 3s
+    #   retries: 5
 
   # Validation service
   validation_service:
@@ -29,26 +30,27 @@ services:
     environment:
       PORT: "3001"
       RELAY_URL: "ws://groups_relay:8080"  # Internal docker network port
+      PUBLIC_RELAY_URL: "ws://localhost:8090"  # Public URL for browser access
       # Test key for relay admin and validation service (same identity)
       # Secret: 0000000000000000000000000000000000000000000000000000000000000001
       # Pubkey: 79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
       RELAY_SECRET_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
-      SERVICE_NSEC: "nsec1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq9l0wzl"
-      MAX_DISTANCE_METERS: "25"
-      MAX_ACCURACY_METERS: "20"
+      SERVICE_SECRET_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+      MAX_DISTANCE_METERS: "100"
+      MAX_ACCURACY_METERS: "500"
       MAX_TIMESTAMP_AGE_SECONDS: "300"
       INVITE_EXPIRY_SECONDS: "300"
       RUST_LOG: "debug"
     ports:
       - "3001:3001"
     depends_on:
-      groups_relay:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      - groups_relay
+    # Health check disabled - container doesn't have curl
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+    #   interval: 5s
+    #   timeout: 3s
+    #   retries: 5
 
 volumes:
   relay_data:

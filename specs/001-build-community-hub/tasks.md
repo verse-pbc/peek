@@ -68,17 +68,17 @@ Task: "Complete T003: Setup Rust validation service"
 
 ## Phase 2: Contract Tests (T006-T007)
 
-### T006: Write contract tests for validate-location endpoint
+### T006: Write contract tests for validate-location endpoint ✅
 **File**: `/packages/validation-service/tests/contracts/validate_location.rs`
 ```rust
 // Test successful validation returns invite code
 // Test accuracy > 20m rejection
-// Test distance > 25m rejection  
+// Test distance > 25m rejection
 // Test expired timestamp rejection
 // Test invalid coordinates rejection
 ```
 
-### T007: Write contract tests for community preview endpoint [P]
+### T007: Write contract tests for community preview endpoint [P] ✅
 **File**: `/packages/validation-service/tests/contracts/community_preview.rs`
 ```rust
 // Test returns community info without auth
@@ -163,15 +163,15 @@ pub struct LocationProof {
 
 ## Phase 5: Critical Infrastructure (T016-T019)
 
-### T016: Setup validation service keypair
+### T016: Setup validation service keypair ✅
 **File**: `/packages/validation-service/.env`, `/packages/pwa-client/.env`
 - Generate validation service Nostr keypair
 - Store private key in validation service environment
 - Configure public key in PWA client (VITE_VALIDATION_SERVICE_PUBKEY)
-- Document key rotation procedure
-- Add key backup and recovery process
+- Document key rotation procedure (deferred)
+- Add key backup and recovery process (deferred)
 
-### T017: Create relay connection service
+### T017: Create relay connection service ✅
 **File**: `/packages/pwa-client/src/services/relay-manager.ts`
 - Implement WebSocket connection to wss://peek.hol.is
 - Handle connection lifecycle (connect, disconnect, reconnect)
@@ -179,7 +179,7 @@ pub struct LocationProof {
 - Add connection status monitoring
 - Cache relay state for offline support
 
-### T018: Implement NIP-29 group management
+### T018: Implement NIP-29 group management ✅
 **File**: `/packages/pwa-client/src/services/group-manager.ts`
 - Implement group creation (kind 9007)
 - Handle member addition (kind 9000)
@@ -188,7 +188,7 @@ pub struct LocationProof {
 - Implement group metadata handling (kind 30078)
 - Cache group state locally
 
-### T019: Update backend for NIP-59 gift wrap handling
+### T019: Update backend for NIP-59 gift wrap handling ✅
 **File**: `/packages/validation-service/src/handlers/nostr_validation.rs`
 - Connect to Nostr relays using nostr-sdk crate
 - Subscribe to kind 1059 gift wrap events for service pubkey
@@ -297,26 +297,26 @@ pub struct LocationProof {
 
 ## Phase 8: Services & Utilities (T031-T034)
 
-### T031: Implement API client service
+### T031: Implement API client service ✅
 **File**: `/packages/pwa-client/src/services/api.ts`
 - Axios/fetch wrapper
 - Type-safe requests
 - Error handling
 - Request/response logging
 
-### T032: Enhance Nostrify relay connections for Peek
-**File**: `/packages/pwa-client/src/services/peek-relay.ts`
+### T032: Enhance Nostrify relay connections for Peek ✅
+**File**: `/packages/pwa-client/src/services/relay-manager.ts` (implemented here instead)
 - Extend Nostrify's relay management
 - Add Peek-specific subscriptions
 - Handle NIP-29 group events
 - Event filtering for communities
 
-### T033: Extend MKStack state for Peek features
-**File**: `/packages/pwa-client/src/store/`
+### T033: Extend MKStack state for Peek features ✅
+**File**: `/packages/pwa-client/src/services/` (implemented in services instead of store)
 - Extend MKStack's existing state management
-- Add communities state
-- Location validation state
-- QR scan history
+- Add communities state (in GroupManager)
+- Location validation state (in components)
+- QR scan history (in components)
 
 ### T034: Implement error reporting
 **File**: `/packages/pwa-client/src/services/error-reporter.ts`
