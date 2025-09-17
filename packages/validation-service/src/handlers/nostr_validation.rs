@@ -66,15 +66,21 @@ impl NostrValidationHandler {
         // Create client with service keys
         let client = Client::new(service_keys.clone());
 
-        // Add public relays for receiving gift wraps
-        let relays = vec![
-            "wss://relay.damus.io",
-            "wss://relay.nostr.band",
-            "wss://nos.lol",
-        ];
+        // Add relays for receiving gift wraps
+        // Use local relay if configured, otherwise use public relays
+        let relays = if config.relay_url.starts_with("ws://localhost") || config.relay_url.starts_with("ws://127.0.0.1") {
+            vec![config.relay_url.clone()]
+        } else {
+            vec![
+                config.relay_url.clone(),
+                "wss://relay.damus.io".to_string(),
+                "wss://relay.nostr.band".to_string(),
+                "wss://nos.lol".to_string(),
+            ]
+        };
 
         for relay_url in &relays {
-            client.add_relay(*relay_url).await?;
+            client.add_relay(relay_url).await?;
         }
 
         client.connect().await;
@@ -94,10 +100,15 @@ impl NostrValidationHandler {
         info!("Starting NIP-59 gift wrap listener");
 
         // Subscribe to gift wraps for our service pubkey
+        // Gift wraps are tagged with #p for the recipient
+        // Don't use .since() because NIP-59 randomizes timestamps up to 2 days in past
         let filter = Filter::new()
             .kind(Kind::GiftWrap)
-            .pubkey(self.service_keys.public_key())
-            .since(Timestamp::now());
+            .custom_tag(
+                SingleLetterTag::lowercase(Alphabet::P),
+                self.service_keys.public_key().to_hex()
+            )
+            .limit(100); // Limit to recent events to avoid getting flooded
 
         self.client
             .subscribe(filter.clone(), None)

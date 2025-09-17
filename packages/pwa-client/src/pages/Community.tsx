@@ -296,7 +296,7 @@ const Community = () => {
 
           {/* Community Feed */}
           <CommunityFeed
-            groupId={groupId}
+            groupId={groupId!}
             communityName={communityData.name}
             isAdmin={communityData.isAdmin}
             onMemberClick={(pubkey) => {
@@ -310,7 +310,7 @@ const Community = () => {
       {/* Admin Panel Modal */}
       {communityData.isAdmin && (
         <AdminPanel
-          groupId={groupId}
+          groupId={groupId!}
           communityName={communityData.name}
           communityLocation={communityData.location}
           open={showAdminPanel}
