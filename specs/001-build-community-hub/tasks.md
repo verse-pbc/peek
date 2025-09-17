@@ -251,7 +251,7 @@ pub struct LocationProof {
 - Navigation to feeds
 - Use existing MKStack profile components
 
-### T025b: Create Community page (combines Feed & Admin)
+### T025b: Create Community page (combines Feed & Admin) ✅
 **File**: `/packages/pwa-client/src/pages/Community.tsx`
 - Display CommunityFeed component
 - Show AdminPanel for admins
