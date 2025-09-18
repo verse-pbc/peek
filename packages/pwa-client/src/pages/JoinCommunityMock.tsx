@@ -192,6 +192,35 @@ const JoinCommunityMock = () => {
               </div>
             </div>
 
+            {/* Join Button */}
+            {!hasJoined ? (
+              <Button
+                onClick={handleJoin}
+                disabled={isJoining}
+                size="lg"
+                className="w-full"
+              >
+                {isJoining ? (
+                  <>
+                    <AlertCircle className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying Location...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="mr-2 h-4 w-4" />
+                    Join Community
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800 dark:text-green-200">
+                  <strong>Welcome!</strong> You've successfully joined {mockCommunity.name}.
+                  Redirecting to community page...
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Community Info Sections */}
             <div className="grid md:grid-cols-2 gap-6">
@@ -262,36 +291,6 @@ const JoinCommunityMock = () => {
                 ))}
               </ul>
             </div>
-
-            {/* Join Button */}
-            {!hasJoined ? (
-              <Button
-                onClick={handleJoin}
-                disabled={isJoining}
-                size="lg"
-                className="w-full"
-              >
-                {isJoining ? (
-                  <>
-                    <AlertCircle className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying Location...
-                  </>
-                ) : (
-                  <>
-                    <MapPin className="mr-2 h-4 w-4" />
-                    Join Community
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800 dark:text-green-200">
-                  <strong>Welcome!</strong> You've successfully joined {mockCommunity.name}.
-                  Redirecting to community page...
-                </AlertDescription>
-              </Alert>
-            )}
 
             {/* Additional Info */}
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
