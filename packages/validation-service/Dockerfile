@@ -3,14 +3,14 @@ FROM rust:latest as builder
 
 WORKDIR /app
 
-# Copy manifests
-COPY Cargo.toml Cargo.lock ./
+# Copy manifest
+COPY Cargo.toml ./
 
-# Copy source
+# Copy source before generating the lockfile so Cargo sees targets
 COPY src ./src
 
-# Build for release
-RUN cargo build --release
+# Generate lockfile (if missing) and build for release
+RUN cargo generate-lockfile && cargo build --release
 
 # Runtime stage
 FROM debian:bookworm-slim
