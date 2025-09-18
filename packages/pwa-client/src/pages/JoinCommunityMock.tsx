@@ -56,15 +56,15 @@ const mockCommunity = {
     'Keep discussions relevant to coffee and Oslo café culture'
   ],
   recentMembers: [
-    { id: '1', name: 'Erik', joined: '2 minutes ago', avatar: null },
-    { id: '2', name: 'Astrid', joined: '15 minutes ago', avatar: null },
-    { id: '3', name: 'Magnus', joined: '1 hour ago', avatar: null },
-    { id: '4', name: 'Ingrid', joined: '3 hours ago', avatar: null },
+    { id: '1', name: 'Erik', joined: '2 minutes ago', avatar: 'https://i.pravatar.cc/150?img=12' },
+    { id: '2', name: 'Astrid', joined: '15 minutes ago', avatar: 'https://i.pravatar.cc/150?img=5' },
+    { id: '3', name: 'Magnus', joined: '1 hour ago', avatar: 'https://i.pravatar.cc/150?img=8' },
+    { id: '4', name: 'Ingrid', joined: '3 hours ago', avatar: 'https://i.pravatar.cc/150?img=9' },
   ],
   topContributors: [
-    { id: '5', name: 'Lars', messages: 523, avatar: null, badge: 'Founder' },
-    { id: '6', name: 'Sofie', messages: 412, avatar: null, badge: 'Admin' },
-    { id: '7', name: 'Henrik', messages: 389, avatar: null, badge: 'Top Contributor' },
+    { id: '5', name: 'Lars', messages: 523, avatar: 'https://i.pravatar.cc/150?img=3', badge: 'Founder' },
+    { id: '6', name: 'Sofie', messages: 412, avatar: 'https://i.pravatar.cc/150?img=16', badge: 'Admin' },
+    { id: '7', name: 'Henrik', messages: 389, avatar: 'https://i.pravatar.cc/150?img=11', badge: 'Top Contributor' },
   ]
 };
 
@@ -216,6 +216,7 @@ const JoinCommunityMock = () => {
                   {mockCommunity.recentMembers.map(member => (
                     <div key={member.id} className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
+                        <AvatarImage src={member.avatar} alt={member.name} />
                         <AvatarFallback>{member.name[0]}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
@@ -237,6 +238,7 @@ const JoinCommunityMock = () => {
                   {mockCommunity.topContributors.map(contributor => (
                     <div key={contributor.id} className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
+                        <AvatarImage src={contributor.avatar} alt={contributor.name} />
                         <AvatarFallback>{contributor.name[0]}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
