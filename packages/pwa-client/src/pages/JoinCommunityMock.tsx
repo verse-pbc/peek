@@ -192,17 +192,6 @@ const JoinCommunityMock = () => {
               </div>
             </div>
 
-            {/* Location Info */}
-            <Alert className="border-green-200 bg-green-50 dark:bg-green-950/20">
-              <MapPin className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800 dark:text-green-200">
-                <strong>Physical Location:</strong> {mockCommunity.location.name}
-                <br />
-                <span className="text-sm">{mockCommunity.location.address}</span>
-                <br />
-                <span className="text-sm font-medium">You are {mockCommunity.location.distance} from this location</span>
-              </AlertDescription>
-            </Alert>
 
             {/* Community Info Sections */}
             <div className="grid md:grid-cols-2 gap-6">
