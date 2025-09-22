@@ -6,13 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { 
-  CheckCircle, 
-  AlertCircle, 
-  MapPin, 
-  Users, 
-  Loader2, 
-  ArrowLeft,
+import {
+  CheckCircle,
+  AlertCircle,
+  MapPin,
+  Users,
+  Loader2,
   Shield,
   XCircle
 } from 'lucide-react';
@@ -75,6 +74,10 @@ export const JoinFlow: React.FC = () => {
   } | null>(null);
   const [waitingForLogin, setWaitingForLogin] = useState(false);
 
+  // Check if this is likely a first scan (for immediate title display)
+  const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
+  const isLikelyFirstScan = !accessedCommunities.includes(communityId);
+
   // Check if user is logged in (skip for initial preview)
   useEffect(() => {
     // Only require login when actually trying to join, not for preview
@@ -125,16 +128,27 @@ export const JoinFlow: React.FC = () => {
     } catch (err) {
       // MOCK MODE: If API fails, use mock data for testing
       console.log('API failed, using mock data for testing');
+
+      // Check localStorage to see if this community has been accessed before
+      const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
+      const isFirstAccess = !accessedCommunities.includes(communityId);
+
+      // Mark this community as accessed
+      if (isFirstAccess && communityId) {
+        accessedCommunities.push(communityId);
+        localStorage.setItem('accessedCommunities', JSON.stringify(accessedCommunities));
+      }
+
       const mockPreview: CommunityPreviewData = {
         name: "Test Community Hub",
         description: "This is a test community for development. In production, this would show real community data from the validation service.",
-        member_count: Math.floor(Math.random() * 50) + 1,
+        member_count: isFirstAccess ? 0 : Math.floor(Math.random() * 50) + 1,
         created_at: Math.floor(Date.now() / 1000) - 86400 * 3, // 3 days ago
         location: {
           latitude: -34.919143,
           longitude: -56.161693
         },
-        is_first_scan: communityId === 'new-community' || Math.random() > 0.7
+        is_first_scan: isFirstAccess  // True for first access to this community ID
       };
       
       setPreviewData(mockPreview);
@@ -349,9 +363,6 @@ export const JoinFlow: React.FC = () => {
     }
   };
 
-  const handleBack = () => {
-    navigate('/');
-  };
 
   const getProgressValue = () => {
     switch (currentStep) {
@@ -369,16 +380,9 @@ export const JoinFlow: React.FC = () => {
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Header */}
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        
-        <h1 className="text-3xl font-bold mb-2">Join Community</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          {(previewData?.is_first_scan || isLikelyFirstScan) ? 'Create a Community' : 'Join Community'}
+        </h1>
         <Progress value={getProgressValue()} className="h-2" />
       </div>
 
@@ -518,12 +522,12 @@ export const JoinFlow: React.FC = () => {
                 <Users className="mr-2 h-4 w-4" />
                 Go to Community
               </Button>
-              <Button 
+              <Button
                 onClick={() => navigate('/')}
                 variant="outline"
                 className="flex-1"
               >
-                Back to Home
+                Go to Home
               </Button>
             </div>
           </CardContent>
@@ -583,12 +587,12 @@ export const JoinFlow: React.FC = () => {
                   Try Again
                 </Button>
               )}
-              <Button 
-                onClick={handleBack}
+              <Button
+                onClick={() => navigate('/')}
                 variant="outline"
                 className={error.canRetry ? 'flex-1' : 'w-full'}
               >
-                Back to Home
+                Go to Home
               </Button>
             </div>
           </CardContent>
