@@ -166,14 +166,15 @@ impl RelayService {
         }
         tracing::info!("⏱️ Kind 9007 processing took {:?}ms total", send_start.elapsed().as_millis());
 
-        // Step 2: Add creator as admin (kind 9003)
+        // Step 2: Add creator as admin (kind 9000 with admin role)
+        // Per NIP-29, roles are added as additional values in the p tag
         let add_admin = EventBuilder::new(
-            Kind::from(9003),
-            format!("Added admin to group"),
+            Kind::from(9000),  // put-user event
+            "",  // Empty content per NIP-29
         )
         .tags([
-            Tag::public_key(creator_pk),
             Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
+            Tag::custom(TagKind::Custom("p".into()), [creator_pk.to_string(), "admin".to_string()]),
         ]);
 
         let admin_start = std::time::Instant::now();
@@ -182,7 +183,7 @@ impl RelayService {
         tracing::info!("⏱️ Signed in {:?}ms", admin_start.elapsed().as_millis());
 
         let send_start = std::time::Instant::now();
-        tracing::info!("⏱️ Sending kind 9003 (add admin)...");
+        tracing::info!("⏱️ Sending kind 9000 (put-user with admin role)...");
 
         // Send with timeout
         match tokio::time::timeout(
@@ -190,23 +191,55 @@ impl RelayService {
             self.client.send_event(&event)
         ).await {
             Ok(Ok(_)) => {
-                tracing::info!("⏱️ Kind 9003 sent successfully in {:?}ms", send_start.elapsed().as_millis());
+                tracing::info!("⏱️ Kind 9000 sent successfully in {:?}ms", send_start.elapsed().as_millis());
             },
             Ok(Err(e)) => {
-                tracing::warn!("⏱️ Kind 9003 send failed: {}", e);
+                tracing::warn!("⏱️ Kind 9000 send failed: {}", e);
             },
             Err(_) => {
-                tracing::warn!("⏱️ Kind 9003 send timed out after 2 seconds");
+                tracing::warn!("⏱️ Kind 9000 send timed out after 2 seconds");
             }
         }
 
-        // Step 3: Add creator as first member (kind 9000)
+        // Step 3: Remove relay key from admin (kind 9001)
+        // The relay key automatically becomes admin when creating the group,
+        // but we want the creator to be the sole admin
+        let remove_relay = EventBuilder::new(
+            Kind::from(9001),  // remove-user event
+            "",  // Empty content per NIP-29
+        )
+        .allow_self_tagging()  // Allow removing ourselves from the group
+        .tags([
+            Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
+            Tag::custom(TagKind::Custom("p".into()), [self.relay_keys.public_key().to_string()]),
+        ]);
+
+        let remove_start = std::time::Instant::now();
+        tracing::info!("⏱️ Removing relay key from group admins...");
+        let event = self.client.sign_event_builder(remove_relay).await?;
+
+        match tokio::time::timeout(
+            Duration::from_secs(2),
+            self.client.send_event(&event)
+        ).await {
+            Ok(Ok(_)) => {
+                tracing::info!("⏱️ Kind 9001 sent successfully in {:?}ms", remove_start.elapsed().as_millis());
+            },
+            Ok(Err(e)) => {
+                tracing::warn!("⏱️ Kind 9001 send failed: {}", e);
+            },
+            Err(_) => {
+                tracing::warn!("⏱️ Kind 9001 send timed out after 2 seconds");
+            }
+        }
+
+        // Step 4: Add creator as first member (kind 9000)
         let member_start = std::time::Instant::now();
         tracing::info!("⏱️ Adding creator as member...");
         self.add_group_member(&group_id, &creator_pubkey, true).await?;
         tracing::info!("⏱️ Added member in {:?}ms", member_start.elapsed().as_millis());
 
-        // Step 4: Set group metadata with location (kind 9002)
+        // Step 5: Set group metadata with location (kind 9002)
         let metadata_event = EventBuilder::new(
             Kind::from(9002),
             "",  // Empty content per NIP-29
@@ -282,20 +315,28 @@ impl RelayService {
         &self,
         group_id: &str,
         user_pubkey: &str,
-        _is_admin: bool,  // Not used here, admin is set during group creation
+        is_admin: bool,
     ) -> Result<()> {
         // Parse user's public key
         let pubkey = PublicKey::from_bech32(user_pubkey)
             .or_else(|_| PublicKey::from_hex(user_pubkey))?;
 
         // Create NIP-29 add user event (kind 9000)
+        // Per NIP-29, roles are added as additional values in the p tag
+        let mut p_tag_values = vec![pubkey.to_string()];
+
+        // Add admin role if requested
+        if is_admin {
+            p_tag_values.push("admin".to_string());
+        }
+
         let add_user = EventBuilder::new(
             Kind::from(9000),
-            format!("Added user to group"),
+            "",  // Empty content per NIP-29
         )
         .tags([
-            Tag::public_key(pubkey),
             Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
+            Tag::custom(TagKind::Custom("p".into()), p_tag_values),
         ]);
 
         let event = self.client.sign_event_builder(add_user).await?;
