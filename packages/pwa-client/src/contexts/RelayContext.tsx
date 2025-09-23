@@ -1,0 +1,178 @@
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { RelayManager } from '@/services/relay-manager';
+import { finalizeEvent, type EventTemplate, type VerifiedEvent } from 'nostr-tools';
+import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+import { hexToBytes, bytesToHex } from '@/lib/hex';
+import { useNostrLogin } from '@/lib/nostrify-shim';
+
+interface RelayContextType {
+  relayManager: RelayManager | null;
+  connected: boolean;
+  connect: () => Promise<void>;
+  disconnect: () => void;
+  waitForConnection: () => Promise<void>;
+}
+
+const RelayContext = createContext<RelayContextType | null>(null);
+
+export const useRelayManager = () => {
+  const context = useContext(RelayContext);
+  if (!context) {
+    throw new Error('useRelayManager must be used within RelayProvider');
+  }
+  return context;
+};
+
+interface RelayProviderProps {
+  children: React.ReactNode;
+}
+
+export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
+  const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
+  const [connected, setConnected] = useState(false);
+  const managerRef = useRef<RelayManager | null>(null);
+  const connectionPromiseRef = useRef<Promise<void> | null>(null);
+  const connectionResolveRef = useRef<(() => void) | null>(null);
+  const { identity } = useNostrLogin();
+
+  useEffect(() => {
+    // Initialize relay manager
+    const relayUrl = import.meta.env.VITE_RELAY_URL || 'ws://localhost:8080';
+    const manager = new RelayManager({
+      url: relayUrl,
+      autoConnect: false // We'll connect manually after setting up auth
+    });
+
+    let secretKeyBytes: Uint8Array;
+    let publicKeyHex: string;
+    let usingExtension = false;
+
+    // Set up NIP-42 authentication
+    if (identity?.secretKey && identity?.publicKey) {
+      // Check if using NIP-07 extension
+      if (identity.secretKey === 'NIP07_EXTENSION') {
+        // Using browser extension for signing
+        usingExtension = true;
+        publicKeyHex = identity.publicKey;
+        console.log('[RelayContext] Using NIP-07 browser extension for auth');
+      } else {
+        // Use existing user identity
+        console.log('[RelayContext] Using existing user identity for auth');
+        secretKeyBytes = hexToBytes(identity.secretKey);
+        publicKeyHex = identity.publicKey;
+      }
+    } else {
+      // Generate anonymous identity for new users
+      const ANON_KEY = 'peek_anonymous_identity';
+      let anonIdentity = localStorage.getItem(ANON_KEY);
+
+      if (anonIdentity) {
+        // Use existing anonymous identity
+        const parsed = JSON.parse(anonIdentity);
+        secretKeyBytes = hexToBytes(parsed.secretKey);
+        publicKeyHex = parsed.publicKey;
+        console.log('[RelayContext] Using existing anonymous identity:', publicKeyHex.slice(0, 8) + '...');
+      } else {
+        // Generate new anonymous identity
+        secretKeyBytes = generateSecretKey();
+        publicKeyHex = getPublicKey(secretKeyBytes);
+
+        // Store for persistence
+        localStorage.setItem(ANON_KEY, JSON.stringify({
+          secretKey: bytesToHex(secretKeyBytes),
+          publicKey: publicKeyHex,
+          createdAt: Date.now()
+        }));
+
+        console.log('[RelayContext] Generated new anonymous identity:', publicKeyHex.slice(0, 8) + '...');
+      }
+    }
+
+    // Set up relay manager with auth
+    manager.setUserPubkey(publicKeyHex);
+
+    if (usingExtension) {
+      // Use NIP-07 extension for signing
+      manager.setAuthHandler(async (authEvent: EventTemplate) => {
+        console.log('[RelayContext] Signing auth event with NIP-07 extension');
+        if (!window.nostr) {
+          throw new Error('Browser extension not available');
+        }
+        const signedEvent = await window.nostr.signEvent(authEvent);
+        return signedEvent as VerifiedEvent;
+      });
+    } else {
+      // Use local key for signing
+      manager.setAuthHandler(async (authEvent: EventTemplate) => {
+        console.log('[RelayContext] Signing auth event for NIP-42');
+        const signedEvent = finalizeEvent(authEvent, secretKeyBytes!) as VerifiedEvent;
+        return signedEvent;
+      });
+    }
+
+    // Create connection promise that can be awaited
+    connectionPromiseRef.current = new Promise<void>((resolve) => {
+      connectionResolveRef.current = resolve;
+    });
+
+    // Set up connection status listener
+    manager.onConnectionChange((isConnected) => {
+      setConnected(isConnected);
+      // Resolve the connection promise when connected
+      if (isConnected && connectionResolveRef.current) {
+        connectionResolveRef.current();
+        connectionResolveRef.current = null;
+      }
+    });
+
+    // Connect to relay
+    manager.connect().catch(err => {
+      console.error('[RelayContext] Failed to connect to relay:', err);
+    });
+
+    managerRef.current = manager;
+    setRelayManager(manager);
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[RelayContext] Disposing relay manager');
+      manager.dispose();
+    };
+  }, [identity?.secretKey, identity?.publicKey]);
+
+  const connect = async () => {
+    if (managerRef.current) {
+      await managerRef.current.connect();
+    }
+  };
+
+  const disconnect = () => {
+    if (managerRef.current) {
+      managerRef.current.disconnect();
+    }
+  };
+
+  const waitForConnection = async () => {
+    // If already connected, return immediately
+    if (connected) {
+      return;
+    }
+
+    // Wait for the connection promise
+    if (connectionPromiseRef.current) {
+      await connectionPromiseRef.current;
+    }
+  };
+
+  return (
+    <RelayContext.Provider value={{
+      relayManager,
+      connected,
+      connect,
+      disconnect,
+      waitForConnection
+    }}>
+      {children}
+    </RelayContext.Provider>
+  );
+};

@@ -8,8 +8,8 @@ pub struct Config {
     #[serde(default = "default_relay_url")]
     pub relay_url: String,
 
-    // Public relay URL to return to browser clients
-    #[serde(default = "default_public_relay_url")]
+    // Public relay URL to return to browser clients (defaults to relay_url if not specified)
+    #[serde(default = "default_relay_url")]
     pub public_relay_url: String,
 
     // Relay's secret key for managing groups and accessing all events
@@ -45,7 +45,7 @@ impl Default for Config {
         Self {
             port: default_port(),
             relay_url: default_relay_url(),
-            public_relay_url: default_public_relay_url(),
+            public_relay_url: default_relay_url(),
             relay_secret_key: String::new(), // Must be provided via environment
             admin_nsec: None,
             service_secret_key: String::new(), // Must be provided via environment
@@ -62,11 +62,7 @@ fn default_port() -> u16 {
 }
 
 fn default_relay_url() -> String {
-    "wss://peek.hol.is".to_string()
-}
-
-fn default_public_relay_url() -> String {
-    "wss://peek.hol.is".to_string()
+    "wss://communities2.nos.social".to_string()
 }
 
 fn default_max_distance() -> f64 {
@@ -74,7 +70,7 @@ fn default_max_distance() -> f64 {
 }
 
 fn default_max_accuracy() -> f64 {
-    20.0 // 20 meters
+    50.0 // 50 meters
 }
 
 fn default_max_timestamp_age() -> i64 {

@@ -38,21 +38,72 @@ impl CommunityService {
     
     /// Get community metadata by ID
     pub async fn get(&self, id: &Uuid) -> Option<CommunityMetadata> {
-        self.relay_service.get_community_metadata(*id).await.ok()
-            .flatten()
-            .map(|relay_meta| CommunityMetadata {
-                community_id: relay_meta.id,
-                qr_id: relay_meta.id.to_string(), // Using ID as QR ID for now
-                location: LocationPoint {
-                    latitude: relay_meta.location.latitude,
-                    longitude: relay_meta.location.longitude,
-                },
-                name: relay_meta.name,
-                created_at: DateTime::from_timestamp(relay_meta.created_at.as_u64() as i64, 0)
+        // Check if NIP-29 group exists on relay
+        let group_id = format!("peek-{}", id);
+
+        // Try to get NIP-29 group metadata first
+        if let Ok(group_meta) = self.relay_service.get_group_metadata(&group_id).await {
+            // If group exists and has no members, it's essentially "new" for the first user
+            // Return None so the first user becomes admin
+            if group_meta.member_count == 0 {
+                return None;
+            }
+
+            // Group exists with members, construct metadata
+            // Get location from the metadata location field or try the encrypted storage
+            let location = if let Some(loc) = group_meta.location {
+                LocationPoint {
+                    latitude: loc.latitude,
+                    longitude: loc.longitude,
+                }
+            } else {
+                // Fallback: try to get from encrypted NIP-78 storage
+                if let Ok(Some(encrypted_meta)) = self.relay_service.get_community_metadata(*id).await {
+                    LocationPoint {
+                        latitude: encrypted_meta.location.latitude,
+                        longitude: encrypted_meta.location.longitude,
+                    }
+                } else {
+                    // Last resort: parse from about field for backward compatibility
+                    LocationPoint {
+                        latitude: group_meta.about.as_ref()
+                            .and_then(|about| {
+                                if about.starts_with("Location-based community at ") {
+                                    let coords = about.trim_start_matches("Location-based community at ");
+                                    coords.split(", ").next()?.parse::<f64>().ok()
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.0),
+                        longitude: group_meta.about.as_ref()
+                            .and_then(|about| {
+                                if about.starts_with("Location-based community at ") {
+                                    let coords = about.trim_start_matches("Location-based community at ");
+                                    coords.split(", ").nth(1)?.parse::<f64>().ok()
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0.0),
+                    }
+                }
+            };
+
+            return Some(CommunityMetadata {
+                community_id: *id,
+                qr_id: id.to_string(),
+                location,
+                name: group_meta.name,
+                created_at: DateTime::from_timestamp(group_meta.created_at.as_u64() as i64, 0)
                     .unwrap_or_else(|| Utc::now()),
-                created_by: relay_meta.creator_pubkey,
-                group_id: format!("peek-{}", relay_meta.id),
-            })
+                created_by: String::new(), // We don't know the creator from NIP-29 metadata
+                group_id,
+            });
+        }
+
+        // Group doesn't exist on relay
+        None
     }
     
     /// Create or get community

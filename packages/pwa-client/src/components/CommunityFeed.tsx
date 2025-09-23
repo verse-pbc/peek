@@ -6,9 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Send, Users } from 'lucide-react';
-import { RelayManager, NIP29_KINDS } from '@/services/relay-manager';
+import { NIP29_KINDS } from '@/services/relay-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
-import { nip19, Event, SimplePool, Filter, finalizeEvent } from 'nostr-tools';
+import { useRelayManager } from '@/contexts/RelayContext';
+import { nip19, Event, SimplePool, Filter, finalizeEvent, type VerifiedEvent } from 'nostr-tools';
+import * as nip42 from 'nostr-tools/nip42';
 import { hexToBytes } from '@/lib/hex';
 
 interface Message {
@@ -37,7 +39,7 @@ export function CommunityFeed({
   onMemberClick
 }: CommunityFeedProps) {
   const { identity } = useNostrLogin();
-  const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
+  const { relayManager, connected: relayConnected } = useRelayManager();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [members, setMembers] = useState<Set<string>>(new Set());
@@ -47,53 +49,30 @@ export function CommunityFeed({
   const scrollRef = useRef<HTMLDivElement>(null);
   const metadataPoolRef = useRef<SimplePool | null>(null);
 
-  // Initialize relay manager
+  // Initialize metadata pool
   useEffect(() => {
-    const relayUrl = import.meta.env.VITE_RELAY_URL || 'ws://localhost:8090';
-    const manager = new RelayManager({
-      url: relayUrl,
-      autoConnect: true
-    });
-
-    if (identity?.publicKey) {
-      manager.setUserPubkey(identity.publicKey);
-
-      // Set up NIP-42 authentication handler
-      const secretKey = hexToBytes(identity.secretKey);
-      manager.setAuthHandler(async (challenge) => {
-        return finalizeEvent(challenge, secretKey);
-      });
-    }
-
-    setRelayManager(manager);
-
     // Initialize metadata pool for fetching profiles
     metadataPoolRef.current = new SimplePool();
 
     return () => {
-      manager.dispose();
       metadataPoolRef.current = null;
     };
   }, [identity]);
 
-  // Subscribe to connection status
+  // Subscribe to connection status from context
   useEffect(() => {
-    if (!relayManager) return;
-
-    const unsubscribe = relayManager.onConnectionChange(isConnected => {
-      setConnected(isConnected);
-      if (isConnected) {
-        console.log('[CommunityFeed] Connected to relay');
-      }
-    });
-
-    return unsubscribe;
-  }, [relayManager]);
+    setConnected(relayConnected);
+    if (relayConnected) {
+      console.log('[CommunityFeed] Connected to relay');
+      setLoading(false);
+    }
+  }, [relayConnected]);
 
   // Subscribe to group messages
   useEffect(() => {
-    if (!relayManager || !connected) return;
+    if (!relayManager) return;
 
+    // Try to subscribe even if auth fails - we might still get public messages
     setLoading(true);
     const authorMetadataCache = new Map<string, { name?: string; picture?: string; npub: string }>();
 
@@ -173,7 +152,7 @@ export function CommunityFeed({
       unsubscribeMembers();
       relayManager.unsubscribeFromGroup(groupId);
     };
-  }, [relayManager, connected, groupId]);
+  }, [relayManager, groupId]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {

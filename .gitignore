@@ -7,10 +7,25 @@ dist/
 build/
 *.tsbuildinfo
 
-# Environment
+# Environment variables (SECURITY: Never commit these)
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.development
+*/.env
+*/**.env
+**/.env.*
+
+# Nostr keys and secrets
+*.nsec
+*.npub
+**/keys/
+**/*_key*
+**/*secret*
+!**/*.example
+!**/src/**
 
 # IDE
 .vscode/

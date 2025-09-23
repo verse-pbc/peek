@@ -48,11 +48,11 @@ const Community = () => {
   // The group ID format for NIP-29
   const groupId = communityId ? `peek-${communityId}` : null;
 
-  // Get relay URL from stored group info or use default
+  // Get relay URL - always use the configured relay
   const getRelayUrl = (): string => {
-    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-    const groupInfo = joinedGroups.find((g: any) => g.communityId === communityId);
-    return groupInfo?.relayUrl || import.meta.env.VITE_RELAY_URL || 'ws://localhost:8090';
+    // Always use the environment variable relay URL for now
+    // Old localStorage entries might have incorrect relay URLs
+    return import.meta.env.VITE_RELAY_URL || 'wss://communities2.nos.social';
   };
 
   // Verify user has access to this community
@@ -69,109 +69,99 @@ const Community = () => {
       setLoading(true);
       setError(null);
 
+      // First check if user has joined this community (stored in localStorage)
+      const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+      const groupInfo = joinedGroups.find((g: any) => g.communityId === communityId);
+
+      if (!groupInfo) {
+        // User hasn't joined this community at all
+        setError('You are not a member of this community. Please scan the QR code at the physical location to join.');
+        setLoading(false);
+        return;
+      }
+
+      // User has joined, verify they still have access
+      // Always use the configured relay URL (ignore old localStorage values)
       const relayUrl = getRelayUrl();
       console.log('Connecting to relay:', relayUrl, 'for group:', groupId);
 
       try {
-        // Check if user is a member (kind 9000 put-user events with user's p-tag)
-        const memberFilter: Filter = {
-          kinds: [9000],
-          '#h': [groupId],
-          '#p': [pubkey],
-          limit: 1
-        };
-
-        const memberEvents = await pool.querySync([relayUrl], memberFilter);
-        const isMember = memberEvents.length > 0;
-
-        if (!isMember) {
-          // Check localStorage as fallback (user just joined)
-          const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-          const isInLocal = joinedGroups.some((g: any) => g.communityId === communityId);
-
-          if (!isInLocal) {
-            setError('You are not a member of this community. Please scan the QR code at the physical location to join.');
-            setLoading(false);
-            return;
-          }
-        }
+        // For NIP-29 groups, membership is tracked in kind 39002 events
+        // But these require authentication to view
+        // Since the user has joined (per localStorage), we trust that
+        // and proceed to fetch community data
 
         // User is a member, fetch community data
         const community: CommunityData = {
           groupId,
           name: `Community ${communityId?.slice(0, 8)}`, // Default name
           memberCount: 0,
-          isAdmin: false,
+          isAdmin: groupInfo.isAdmin || false, // Get admin status from localStorage
           isMember: true
         };
 
-        // Check if user is admin (kind 9002 edit-metadata permission or kind 39001 listing)
-        const adminFilter: Filter = {
-          kinds: [39001],
-          '#d': [groupId],
-          limit: 1
-        };
+        // Admin status is already set from localStorage above
+        // We can't reliably query for it without authentication, so we trust localStorage
 
-        const adminEvents = await pool.querySync([relayUrl], adminFilter);
+        // Try to get community metadata (kind 39000)
+        // This may fail if authentication is required
+        try {
+          const metadataFilter: Filter = {
+            kinds: [39000],
+            '#d': [groupId],
+            limit: 1
+          };
 
-        for (const event of adminEvents) {
-          // Check if user's pubkey is in the admin list
-          const isAdminInEvent = event.tags.some(tag =>
-            tag[0] === 'p' && tag[1] === pubkey
-          );
-          if (isAdminInEvent) {
-            community.isAdmin = true;
-            break;
+          const metadataEvents = await pool.querySync([relayUrl], metadataFilter);
+
+          if (metadataEvents.length > 0) {
+            const metadata = metadataEvents[0];
+
+            // Extract name from tags
+            const nameTag = metadata.tags.find(tag => tag[0] === 'name');
+            if (nameTag && nameTag[1]) {
+              community.name = nameTag[1];
+            }
+
+            // Extract other metadata
+            const aboutTag = metadata.tags.find(tag => tag[0] === 'about');
+            const pictureTag = metadata.tags.find(tag => tag[0] === 'picture');
+
+            community.createdAt = metadata.created_at;
           }
+        } catch (err) {
+          console.log('Could not fetch metadata (authentication may be required):', err);
+          // Use default values set above
         }
 
-        // Get community metadata (kind 39000)
-        const metadataFilter: Filter = {
-          kinds: [39000],
-          '#d': [groupId],
-          limit: 1
-        };
+        // Try to count members (kind 39002 or count kind 9000 events)
+        // This may also fail if authentication is required
+        try {
+          const allMembersFilter: Filter = {
+            kinds: [9000],
+            '#h': [groupId],
+            limit: 500
+          };
 
-        const metadataEvents = await pool.querySync([relayUrl], metadataFilter);
+          const allMemberEvents = await pool.querySync([relayUrl], allMembersFilter);
+          const uniqueMembers = new Set<string>();
 
-        if (metadataEvents.length > 0) {
-          const metadata = metadataEvents[0];
-
-          // Extract name from tags
-          const nameTag = metadata.tags.find(tag => tag[0] === 'name');
-          if (nameTag && nameTag[1]) {
-            community.name = nameTag[1];
+          for (const event of allMemberEvents) {
+            const pTag = event.tags.find(tag => tag[0] === 'p');
+            if (pTag && pTag[1]) {
+              uniqueMembers.add(pTag[1]);
+            }
           }
 
-          // Extract other metadata
-          const aboutTag = metadata.tags.find(tag => tag[0] === 'about');
-          const pictureTag = metadata.tags.find(tag => tag[0] === 'picture');
-
-          community.createdAt = metadata.created_at;
-        }
-
-        // Count members (kind 39002 or count kind 9000 events)
-        const allMembersFilter: Filter = {
-          kinds: [9000],
-          '#h': [groupId],
-          limit: 500
-        };
-
-        const allMemberEvents = await pool.querySync([relayUrl], allMembersFilter);
-        const uniqueMembers = new Set<string>();
-
-        for (const event of allMemberEvents) {
-          const pTag = event.tags.find(tag => tag[0] === 'p');
-          if (pTag && pTag[1]) {
-            uniqueMembers.add(pTag[1]);
+          if (uniqueMembers.size > 0) {
+            community.memberCount = uniqueMembers.size;
           }
+        } catch (err) {
+          console.log('Could not fetch member count (authentication may be required):', err);
+          // Keep default member count
         }
-
-        community.memberCount = uniqueMembers.size || 1; // At least the current user
 
         // Get stored location from localStorage (set during join)
-        const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-        const groupInfo = joinedGroups.find((g: any) => g.communityId === communityId);
         if (groupInfo?.location) {
           community.location = groupInfo.location;
         }
@@ -346,19 +336,20 @@ const Community = () => {
           {/* Feed */}
           <CommunityFeed
             groupId={communityData.groupId}
-            relayUrl={getRelayUrl()}
-            userPubkey={pubkey || ''}
+            communityName={communityData.name}
             isAdmin={communityData.isAdmin}
           />
         </div>
       </div>
 
       {/* Admin Panel Modal */}
-      {showAdminPanel && (
+      {showAdminPanel && communityData && (
         <AdminPanel
           groupId={communityData.groupId}
-          relayUrl={getRelayUrl()}
-          onClose={() => setShowAdminPanel(false)}
+          communityName={communityData.name}
+          communityLocation={communityData.location}
+          open={showAdminPanel}
+          onOpenChange={setShowAdminPanel}
         />
       )}
     </div>

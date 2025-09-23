@@ -1,10 +1,4 @@
-use axum::{
-    routing::{get, post},
-    Router,
-};
-use std::net::SocketAddr;
 use std::sync::Arc;
-use tower_http::cors::CorsLayer;
 use tracing::{info, error};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -13,6 +7,12 @@ mod handlers;
 mod libraries;
 mod models;
 mod services;
+
+#[cfg(test)]
+mod test_gift_wrap;
+
+#[cfg(test)]
+mod test_h_tag_filter;
 
 use services::{community::CommunityService, relay::RelayService};
 use handlers::NostrValidationHandler;
@@ -32,7 +32,7 @@ async fn main() {
     dotenv::dotenv().ok();
     let config = config::Config::from_env().expect("Failed to load configuration");
 
-    info!("Starting validation service on port {}", config.port);
+    info!("Starting validation service (Nostr-only mode)");
     
     // Initialize community service with relay connection
     let community_service = CommunityService::new(
@@ -75,25 +75,11 @@ async fn main() {
         }
     });
 
-    // Create shared state for REST endpoints
-    let app_state = (config.clone(), community_service_arc);
+    // Keep the service running
+    // The Nostr handler is running in a background task
+    info!("Validation service running. Listening for Nostr gift wrap messages only.");
 
-    // Build our application with routes
-    let app = Router::new()
-        .route("/health", get(handlers::health))
-        .route("/api/validate-location", post(handlers::validate_location))
-        .layer(CorsLayer::permissive())
-        .with_state(app_state);
-
-    // Run it
-    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    info!("Listening on {}", addr);
-    
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .expect("Failed to bind to address");
-        
-    axum::serve(listener, app)
-        .await
-        .expect("Failed to start server");
+    // Block forever since we're only running the Nostr listener
+    tokio::signal::ctrl_c().await.expect("Failed to install Ctrl-C handler");
+    info!("Shutting down...");
 }

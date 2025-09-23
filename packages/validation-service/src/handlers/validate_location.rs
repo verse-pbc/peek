@@ -64,7 +64,7 @@ pub async fn validate_location(
         // First scanner is automatically added as admin
         return Ok(Json(ValidateLocationResponse::success_new_community(
             community.group_id.clone(),
-            config.relay_url.clone(),
+            config.public_relay_url.clone(),
             community.name.clone(),
         )));
     }
@@ -123,7 +123,7 @@ pub async fn validate_location(
             
             Ok(Json(ValidateLocationResponse::success_join_community(
                 community.group_id.clone(),
-                config.relay_url.clone(),
+                config.public_relay_url.clone(),
                 preview,
             )))
         }

@@ -15,6 +15,7 @@ export const NostrLoginProvider: React.FC<{
 
 // Storage keys
 const STORAGE_KEY = 'peek_nostr_identity';
+const ANON_KEY = 'peek_anonymous_identity';
 
 interface StoredIdentity {
   secretKey: string; // hex encoded
@@ -23,14 +24,30 @@ interface StoredIdentity {
   nsec: string;
 }
 
+interface AnonymousIdentity {
+  secretKey: string; // hex encoded
+  publicKey: string; // hex encoded
+  createdAt: number;
+}
+
+// Check for NIP-07 browser extension
+const hasNip07Extension = (): boolean => {
+  return typeof window !== 'undefined' && window.nostr !== undefined;
+};
+
 // Hook for Nostr login
 export const useNostrLogin = () => {
   const [identity, setIdentity] = React.useState<StoredIdentity | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [showIdentityModal, setShowIdentityModal] = React.useState(false);
+  const [hasExtension, setHasExtension] = React.useState(false);
   
   // Load identity from localStorage on mount
   React.useEffect(() => {
+    // Check for NIP-07 extension
+    setHasExtension(hasNip07Extension());
+
+    // Load user identity if exists
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -108,19 +125,88 @@ export const useNostrLogin = () => {
   
   const logout = React.useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
+    // Don't remove anonymous identity, just the user identity
     setIdentity(null);
-    console.log('Nostr logout');
+    console.log('Nostr logout - switching to anonymous identity');
+    // Force a page reload to reconnect with anonymous identity
+    window.location.reload();
   }, []);
+
+  const loginWithExtension = React.useCallback(async () => {
+    if (!hasNip07Extension()) {
+      throw new Error('No Nostr browser extension found');
+    }
+
+    try {
+      // Get public key from extension
+      const publicKey = await window.nostr!.getPublicKey();
+      const npub = nip19.npubEncode(publicKey);
+
+      // We can't get the private key from extension, so we'll use a special marker
+      const newIdentity: StoredIdentity = {
+        secretKey: 'NIP07_EXTENSION', // Special marker for extension usage
+        publicKey,
+        npub,
+        nsec: 'Using browser extension' // Display text
+      };
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newIdentity));
+      // Remove anonymous identity when logging in with real identity
+      localStorage.removeItem(ANON_KEY);
+      setIdentity(newIdentity);
+      console.log('Logged in with browser extension:', npub);
+
+      // Force reload to reconnect with new identity
+      window.location.reload();
+      return newIdentity;
+    } catch (err) {
+      console.error('Failed to login with extension:', err);
+      throw new Error('Failed to connect to browser extension');
+    }
+  }, []);
+
+  const switchIdentity = React.useCallback(() => {
+    setShowIdentityModal(true);
+  }, []);
+
+  // Get effective identity (user or anonymous)
+  const getEffectiveIdentity = React.useCallback(() => {
+    // If user has logged in, use their identity
+    if (identity) {
+      return identity;
+    }
+
+    // Otherwise, check for anonymous identity
+    const anonStored = localStorage.getItem(ANON_KEY);
+    if (anonStored) {
+      const parsed = JSON.parse(anonStored) as AnonymousIdentity;
+      return {
+        secretKey: parsed.secretKey,
+        publicKey: parsed.publicKey,
+        npub: nip19.npubEncode(parsed.publicKey),
+        nsec: 'Anonymous'
+      } as StoredIdentity;
+    }
+
+    return null;
+  }, [identity]);
   
+  const effectiveIdentity = getEffectiveIdentity();
+
   return {
-    pubkey: identity?.publicKey || null,
-    npub: identity?.npub || null,
-    identity,
+    pubkey: effectiveIdentity?.publicKey || null,
+    npub: effectiveIdentity?.npub || null,
+    identity: effectiveIdentity,
+    userIdentity: identity, // The actual user identity (not anonymous)
+    isAnonymous: !identity, // True if using anonymous identity
     login,
     logout,
     createNewIdentity,
     importIdentity,
+    loginWithExtension,
+    switchIdentity,
     isLoading,
+    hasExtension,
     showIdentityModal,
     setShowIdentityModal
   };
@@ -135,6 +221,29 @@ export interface NostrEvent {
   tags: string[][];
   content: string;
   sig: string;
+}
+
+// Global window type extension for NIP-07
+declare global {
+  interface Window {
+    nostr?: {
+      getPublicKey(): Promise<string>;
+      signEvent(event: {
+        created_at: number;
+        kind: number;
+        tags: string[][];
+        content: string;
+      }): Promise<NostrEvent>;
+      nip04?: {
+        encrypt(pubkey: string, plaintext: string): Promise<string>;
+        decrypt(pubkey: string, ciphertext: string): Promise<string>;
+      };
+      nip44?: {
+        encrypt(pubkey: string, plaintext: string): Promise<string>;
+        decrypt(pubkey: string, ciphertext: string): Promise<string>;
+      };
+    };
+  }
 }
 
 export class NPool {

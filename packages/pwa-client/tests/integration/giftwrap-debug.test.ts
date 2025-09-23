@@ -13,7 +13,8 @@ describe('Gift Wrap Debug Test', () => {
     const secretKey = generateSecretKey();
     const publicKey = getPublicKey(secretKey);
     const relay = 'ws://localhost:8090';
-    const VALIDATION_SERVICE_PUBKEY = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+    const VALIDATION_SERVICE_PUBKEY = process.env.VITE_VALIDATION_SERVICE_PUBKEY ||
+      '829774829a2c9884607fc59f22762de04c1ee2ac36a504228ff1a99d6519fac2';
 
     // First, send a regular gift wrap event (kind 1059) directly
     const pool = new SimplePool();

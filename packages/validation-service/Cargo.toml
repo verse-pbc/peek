@@ -48,3 +48,19 @@ rand = "0.8"
 axum-test = "15.0"
 reqwest = { version = "0.12", features = ["json"] }
 tower = { version = "0.4", features = ["util"] }
+
+[[bin]]
+name = "test_gift_wrap"
+path = "src/test_gift_wrap.rs"
+
+[[bin]]
+name = "export_gift_wrap"
+path = "src/export_gift_wrap.rs"
+
+[[bin]]
+name = "import_js_gift_wrap"
+path = "src/import_js_gift_wrap.rs"
+
+[[bin]]
+name = "test_actual_pubkey"
+path = "src/test_actual_pubkey.rs"

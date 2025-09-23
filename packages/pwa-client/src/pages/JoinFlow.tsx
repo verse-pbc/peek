@@ -17,9 +17,11 @@ import {
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { IdentityModal } from '../components/IdentityModal';
-import { NostrLocationService, getPreviewData, type LocationValidationResponse } from '../services/nostr-location';
-import { hexToBytes } from '../lib/hex';
+import { NostrLocationService, type LocationValidationResponse, type CommunityPreviewResponse } from '../services/nostr-location';
+import { hexToBytes, bytesToHex } from '../lib/hex';
+import { getPublicKey, generateSecretKey } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
+import { useRelayManager } from '@/contexts/RelayContext';
 
 // Types that were previously from API
 export interface CommunityPreviewData {
@@ -60,6 +62,7 @@ export const JoinFlow: React.FC = () => {
   const navigate = useNavigate();
   const { pubkey, npub, login, createNewIdentity, importIdentity, showIdentityModal, setShowIdentityModal, identity } = useNostrLogin();
   const { toast } = useToast();
+  const { relayManager, connected, waitForConnection } = useRelayManager();
   
   // Flow state
   const [currentStep, setCurrentStep] = useState<JoinStep>(JoinStep.LOADING);
@@ -94,10 +97,10 @@ export const JoinFlow: React.FC = () => {
 
   // Initial load - fetch preview data with a test location
   useEffect(() => {
-    if (communityId && currentStep === JoinStep.LOADING) {
+    if (communityId && currentStep === JoinStep.LOADING && relayManager && connected) {
       fetchPreview();
     }
-  }, [communityId]);
+  }, [communityId, relayManager, connected]);
 
   // Handle transition to location step after login
   useEffect(() => {
@@ -109,60 +112,101 @@ export const JoinFlow: React.FC = () => {
 
   const fetchPreview = async () => {
     if (!communityId) return;
-    
+
     try {
-      // For preview, we get community info via Nostr
-      // This could be a separate event type or included in validation response
-      const previewData = await getPreviewData(
-        communityId,
-        identity?.secretKey ? hexToBytes(identity.secretKey) : new Uint8Array(32),
-        pubkey || 'preview-only'
+      // Create a temporary NostrLocationService for fetching preview
+      // Use a stable ephemeral key for the session to ensure we can receive responses
+      let secretKey: Uint8Array;
+      let publicKey: string;
+
+      if (identity?.secretKey && pubkey) {
+        // User is logged in, use their actual keys
+        secretKey = hexToBytes(identity.secretKey);
+        publicKey = pubkey;
+      } else {
+        // User is not logged in, use the same anonymous identity as RelayContext
+        const ANON_KEY = 'peek_anonymous_identity';
+        let anonIdentity = localStorage.getItem(ANON_KEY);
+
+        if (!anonIdentity) {
+          // Generate new anonymous identity (matching RelayContext)
+          const newSecretKey = generateSecretKey();
+          const newPublicKey = getPublicKey(newSecretKey);
+
+          localStorage.setItem(ANON_KEY, JSON.stringify({
+            secretKey: bytesToHex(newSecretKey),
+            publicKey: newPublicKey,
+            createdAt: Date.now()
+          }));
+
+          secretKey = newSecretKey;
+          publicKey = newPublicKey;
+          console.log('[JoinFlow] Generated new anonymous identity:', newPublicKey.slice(0, 8) + '...');
+        } else {
+          const parsed = JSON.parse(anonIdentity);
+          secretKey = hexToBytes(parsed.secretKey);
+          publicKey = parsed.publicKey;
+          console.log('[JoinFlow] Using existing anonymous identity:', publicKey.slice(0, 8) + '...');
+        }
+      }
+
+      if (!relayManager) {
+        throw new Error('Relay manager not initialized');
+      }
+
+      const nostrService = new NostrLocationService(
+        secretKey,
+        publicKey,
+        relayManager
       );
 
-      if (previewData) {
+      console.log('Fetching community preview via gift wrap:', {
+        communityId
+      });
+
+      // Fetch community preview via NIP-59 gift wrap
+      const response = await nostrService.getCommunityPreview(communityId);
+      // No need to close - RelayManager is managed globally
+
+      console.log('Preview response:', response);
+
+      if (response.success) {
+        const previewData: CommunityPreviewData = {
+          name: response.name || 'Community',
+          description: response.about || 'Location-based community',
+          member_count: response.member_count || 0,
+          created_at: response.created_at || Math.floor(Date.now() / 1000),
+          is_first_scan: response.member_count === 0 || response.member_count === 1
+        };
+
+        setPreviewData(previewData);
+        setCurrentStep(JoinStep.PREVIEW);
+      } else if (response.error?.toLowerCase().includes('not found') ||
+                 response.error?.toLowerCase().includes('group not found')) {
+        // Group doesn't exist - this is a first scanner who will create it
+        const previewData: CommunityPreviewData = {
+          name: `New Community`,
+          description: 'Be the first to create this location-based community. You will become the admin.',
+          member_count: 0,
+          created_at: Math.floor(Date.now() / 1000),
+          is_first_scan: true
+        };
+
         setPreviewData(previewData);
         setCurrentStep(JoinStep.PREVIEW);
       } else {
-        throw new Error('Community not found');
+        throw new Error(response.error || 'Failed to fetch preview');
       }
     } catch (err) {
-      // MOCK MODE: If API fails, use mock data for testing
-      console.log('API failed, using mock data for testing');
+      console.error('Preview fetch error:', err);
 
-      // Check localStorage to see if this community has been accessed before
-      const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
-      const isFirstAccess = !accessedCommunities.includes(communityId);
-
-      // Mark this community as accessed
-      if (isFirstAccess && communityId) {
-        accessedCommunities.push(communityId);
-        localStorage.setItem('accessedCommunities', JSON.stringify(accessedCommunities));
-      }
-
-      const mockPreview: CommunityPreviewData = {
-        name: "Test Community Hub",
-        description: "This is a test community for development. In production, this would show real community data from the validation service.",
-        member_count: isFirstAccess ? 0 : Math.floor(Math.random() * 50) + 1,
-        created_at: Math.floor(Date.now() / 1000) - 86400 * 3, // 3 days ago
-        location: {
-          latitude: -34.919143,
-          longitude: -56.161693
-        },
-        is_first_scan: isFirstAccess  // True for first access to this community ID
-      };
-      
-      setPreviewData(mockPreview);
-      setCurrentStep(JoinStep.PREVIEW);
-      
-      // Only show error in production
-      if (import.meta.env.PROD) {
-        setError({
-          message: 'Failed to load community information. The QR code may be invalid.',
-          code: 'PREVIEW_FAILED',
-          canRetry: true
-        });
-        setCurrentStep(JoinStep.ERROR);
-      }
+      // Show error - preview request failed (likely timeout)
+      setError({
+        message: err instanceof Error ? err.message : 'Unable to fetch community information. Please try again.',
+        code: 'PREVIEW_FAILED',
+        canRetry: true
+      });
+      setCurrentStep(JoinStep.ERROR);
     }
   };
 
@@ -194,9 +238,23 @@ export const JoinFlow: React.FC = () => {
 
     setCurrentStep(JoinStep.VALIDATING);
 
-    // Validate location with the server
-    await validateLocation(location);
-  }, [communityId, pubkey, toast]);
+    // Wait for relay connection if not already connected
+    try {
+      await waitForConnection();
+      console.log('Relay connection confirmed, proceeding with validation');
+
+      // Validate location with the server
+      await validateLocation(location);
+    } catch (err) {
+      console.error('Failed to establish relay connection:', err);
+      setError({
+        message: 'Connection failed. Please check your internet and try again.',
+        code: 'CONNECTION_FAILED',
+        canRetry: true
+      });
+      setCurrentStep(JoinStep.ERROR);
+    }
+  }, [communityId, pubkey, toast, waitForConnection]);
 
   const validateLocation = async (location: {
     latitude: number;
@@ -214,41 +272,61 @@ export const JoinFlow: React.FC = () => {
       return;
     }
 
-    if (!identity?.secretKey) {
-      setError({
-        message: 'Please login with your Nostr account to join communities',
-        code: 'NOT_LOGGED_IN',
-        canRetry: false
-      });
-      setCurrentStep(JoinStep.ERROR);
-      return;
+    let secretKey: Uint8Array;
+    let userPubkey: string;
+
+    if (identity?.secretKey && pubkey) {
+      // User is logged in, use their actual keys
+      secretKey = hexToBytes(identity.secretKey);
+      userPubkey = pubkey;
+    } else {
+      // User is not logged in, use the same anonymous identity as RelayContext
+      const ANON_KEY = 'peek_anonymous_identity';
+      let anonIdentity = localStorage.getItem(ANON_KEY);
+
+      if (!anonIdentity) {
+        // Generate new anonymous identity (matching RelayContext)
+        const newSecretKey = generateSecretKey();
+        const newPublicKey = getPublicKey(newSecretKey);
+
+        localStorage.setItem(ANON_KEY, JSON.stringify({
+          secretKey: bytesToHex(newSecretKey),
+          publicKey: newPublicKey,
+          createdAt: Date.now()
+        }));
+
+        secretKey = newSecretKey;
+        userPubkey = newPublicKey;
+        console.log('[JoinFlow] Generated new anonymous identity for validation:', newPublicKey.slice(0, 8) + '...');
+      } else {
+        const parsed = JSON.parse(anonIdentity);
+        secretKey = hexToBytes(parsed.secretKey);
+        userPubkey = parsed.publicKey;
+        console.log('[JoinFlow] Using existing anonymous identity for validation:', userPubkey.slice(0, 8) + '...');
+      }
     }
 
     try {
-      // Use Nostr event-based validation via gift wraps
-      const secretKey = hexToBytes(identity.secretKey);
 
-      // Get relay URL from environment or use local for testing
-      const relayUrl = import.meta.env.VITE_DEV_MODE === 'true'
-        ? 'ws://localhost:8090'
-        : (import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is');
+      if (!relayManager) {
+        throw new Error('Relay manager not initialized');
+      }
 
       console.log('Validating location via gift wrap:', {
         communityId,
-        relay: relayUrl,
         accuracy: location.accuracy,
-        userPubkey: pubkey
+        userPubkey
       });
 
       const nostrService = new NostrLocationService(
         secretKey,
-        pubkey!,
-        [relayUrl] // Use configured relay
+        userPubkey,
+        relayManager
       );
 
       // Send validation request via NIP-59 gift wrap
       const response = await nostrService.validateLocation(communityId, location);
-      nostrService.close();
+      // No need to close - RelayManager is managed globally
 
       console.log('Validation response:', response);
       setValidationResponse(response);
@@ -323,6 +401,17 @@ export const JoinFlow: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Location validation error:', err);
+
+      // Check for relay connection issues
+      if (err.message?.includes('not initialized') || err.message?.includes('not connected')) {
+        setError({
+          message: 'Connection issue. Please wait a moment and try again.',
+          code: 'NETWORK_ERROR',
+          canRetry: true
+        });
+        setCurrentStep(JoinStep.ERROR);
+        return;
+      }
 
       // Check for timeout
       if (err.message?.includes('timeout') || err.message?.includes('Validation timeout')) {

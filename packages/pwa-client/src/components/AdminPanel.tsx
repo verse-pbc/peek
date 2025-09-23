@@ -37,9 +37,10 @@ import {
   Users,
   Settings
 } from 'lucide-react';
-import { RelayManager, NIP29_KINDS } from '@/services/relay-manager';
+import { NIP29_KINDS } from '@/services/relay-manager';
 import { GroupManager } from '@/services/group-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useRelayManager } from '@/contexts/RelayContext';
 import { nip19, SimplePool, Filter, finalizeEvent, EventTemplate } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
@@ -71,45 +72,25 @@ export function AdminPanel({
 }: AdminPanelProps) {
   const { identity } = useNostrLogin();
   const { toast } = useToast();
-  const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
+  const { relayManager, connected: relayConnected } = useRelayManager();
   const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
 
-  // Initialize relay and group managers
-  useEffect(() => {
-    const relayUrl = import.meta.env.VITE_RELAY_URL || 'ws://localhost:8090';
-    const manager = new RelayManager({
-      url: relayUrl,
-      autoConnect: true
-    });
-
-    if (identity?.publicKey) {
-      manager.setUserPubkey(identity.publicKey);
-    }
-
-    const groupMgr = new GroupManager(manager);
-
-    setRelayManager(manager);
-    setGroupManager(groupMgr);
-
-    return () => {
-      manager.dispose();
-    };
-  }, [identity]);
-
-  // Subscribe to connection status
+  // Initialize group manager with shared relay manager
   useEffect(() => {
     if (!relayManager) return;
 
-    const unsubscribe = relayManager.onConnectionChange(isConnected => {
-      setConnected(isConnected);
-    });
-
-    return unsubscribe;
+    const groupMgr = new GroupManager(relayManager);
+    setGroupManager(groupMgr);
   }, [relayManager]);
+
+  // Subscribe to connection status from context
+  useEffect(() => {
+    setConnected(relayConnected);
+  }, [relayConnected]);
 
   // Fetch group members and their roles
   useEffect(() => {

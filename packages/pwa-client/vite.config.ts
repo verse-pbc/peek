@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig(() => ({
   server: {
     host: "::",
-    port: 8080,
+    port: 3000,
     hmr: {
       clientPort: 443,
     },

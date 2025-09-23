@@ -13,6 +13,7 @@ import { AppProvider } from '@/components/AppProvider';
 import { NWCProvider } from '@/contexts/NWCContext';
 import { AppConfig } from '@/contexts/AppContext';
 import { ThemeProvider } from '@/components/theme-provider';
+import { RelayProvider } from '@/contexts/RelayContext';
 import AppRouter from './AppRouter';
 
 const head = createHead({
@@ -50,16 +51,18 @@ export function App() {
         <AppProvider storageKey="nostr:app-config" defaultConfig={defaultConfig} presetRelays={presetRelays}>
           <QueryClientProvider client={queryClient}>
             <NostrLoginProvider storageKey='nostr:login'>
-              <NostrProvider>
-                <NWCProvider>
-                  <TooltipProvider>
-                    <Toaster />
-                    <Suspense>
-                      <AppRouter />
-                    </Suspense>
-                  </TooltipProvider>
-                </NWCProvider>
-              </NostrProvider>
+              <RelayProvider>
+                <NostrProvider>
+                  <NWCProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <Suspense>
+                        <AppRouter />
+                      </Suspense>
+                    </TooltipProvider>
+                  </NWCProvider>
+                </NostrProvider>
+              </RelayProvider>
             </NostrLoginProvider>
           </QueryClientProvider>
         </AppProvider>

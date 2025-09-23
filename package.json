@@ -14,9 +14,9 @@
     "test": "pnpm run --recursive test",
     "lint": "pnpm run --recursive lint",
     "typecheck": "pnpm run --recursive typecheck",
-    "relay:start": "docker-compose up -d",
-    "relay:stop": "docker-compose down",
-    "relay:logs": "docker-compose logs -f groups_relay",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f validation_service",
     "clean": "pnpm run --recursive clean && cargo clean --manifest-path packages/validation-service/Cargo.toml"
   },
   "devDependencies": {

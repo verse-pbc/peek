@@ -26,14 +26,16 @@ pnpm install
 ```bash
 cp .env.example .env
 cp packages/validation-service/.env.example packages/validation-service/.env
+cp packages/pwa-client/.env.example packages/pwa-client/.env
 ```
 
-Edit the `.env` files and add your Nostr admin keypair for the relay.
+4. **IMPORTANT**: Edit the `.env` files and add your real Nostr keys:
+   - Generate keys with: `nak key generate` or use the provided node command
+   - Add your relay admin key to `RELAY_SECRET_KEY`
+   - Add service keys for `SERVICE_NSEC`/`SERVICE_NPUB`
+   - **Never commit `.env` files** - they are gitignored for security
 
-4. Start the local relay:
-```bash
-pnpm relay:start
-```
+> **Note**: The service now uses `wss://communities2.nos.social` by default. No local relay setup required!
 
 ## Development
 
@@ -48,6 +50,11 @@ pnpm dev:pwa          # PWA client on http://localhost:5173
 pnpm dev:validation   # Validation service on http://localhost:3000
 ```
 
+For Docker development:
+```bash
+docker-compose up --build    # Build and run validation service in Docker
+```
+
 ## Scripts
 
 - `pnpm dev` - Run all services in development mode
@@ -55,9 +62,9 @@ pnpm dev:validation   # Validation service on http://localhost:3000
 - `pnpm test` - Run all tests
 - `pnpm lint` - Run linting
 - `pnpm typecheck` - Run TypeScript type checking
-- `pnpm relay:start` - Start local groups_relay
-- `pnpm relay:stop` - Stop local groups_relay
-- `pnpm relay:logs` - View relay logs
+- `pnpm docker:up` - Start validation service in Docker
+- `pnpm docker:down` - Stop Docker services
+- `pnpm docker:logs` - View validation service logs
 - `pnpm clean` - Clean all build artifacts
 
 ## Architecture

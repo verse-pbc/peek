@@ -4,7 +4,8 @@ import {
   Event,
   Filter,
   finalizeEvent,
-  type EventTemplate
+  type EventTemplate,
+  type VerifiedEvent
 } from 'nostr-tools';
 
 // NIP-29 event kinds
@@ -29,7 +30,7 @@ export const NIP29_KINDS = {
   GROUP_ROLES: 39003,
 
   // Content events
-  CHAT_MESSAGE: 9,
+  CHAT_MESSAGE: 1,  // Use kind 1 (text note) for NIP-29 messages
   CHANNEL_MESSAGE: 42,
 } as const;
 
@@ -79,7 +80,7 @@ export class RelayManager {
   private reconnectTimer?: NodeJS.Timeout;
   private isConnecting: boolean;
   private userPubkey?: string;
-  private authHandler?: (challenge: EventTemplate) => Promise<any>;
+  private authHandler?: (authEvent: EventTemplate) => Promise<VerifiedEvent>;
 
   constructor(options: RelayConnectionOptions) {
     this.pool = new SimplePool();
@@ -107,9 +108,17 @@ export class RelayManager {
 
   /**
    * Set the authentication handler for NIP-42
+   * The handler should sign the auth event and return a VerifiedEvent
    */
-  setAuthHandler(handler: (challenge: EventTemplate) => Promise<any>) {
+  setAuthHandler(handler: (authEvent: EventTemplate) => Promise<VerifiedEvent>) {
     this.authHandler = handler;
+  }
+
+  /**
+   * Get the relay URL
+   */
+  get url(): string {
+    return this.relayUrl;
   }
 
   /**
@@ -145,20 +154,14 @@ export class RelayManager {
 
       console.log(`[RelayManager] Connected to ${this.relayUrl}`);
 
-      // Try to authenticate immediately if we have an auth handler
-      if (this.authHandler && this.relay) {
+      // Handle NIP-42 authentication if the relay sent an AUTH challenge
+      if (this.authHandler && this.relay && (this.relay as any).challenge) {
+        console.log('[RelayManager] AUTH challenge detected, authenticating...');
         try {
-          // Wait a moment for AUTH challenge to arrive
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          // Check if relay sent a challenge
-          if ((this.relay as any).challenge) {
-            console.log('[RelayManager] Authenticating with relay...');
-            await this.relay.auth(this.authHandler);
-            console.log('[RelayManager] Authentication successful');
-          }
+          await (this.relay as any).auth(this.authHandler);
+          console.log('[RelayManager] Successfully authenticated');
         } catch (error) {
-          console.warn('[RelayManager] Pre-authentication failed:', error);
+          console.error('[RelayManager] Authentication failed:', error);
         }
       }
 
@@ -265,6 +268,8 @@ export class RelayManager {
         admins: new Map()
       });
     }
+
+    console.log(`[RelayManager] Subscribing to group ${groupId} with auth handler:`, !!this.authHandler);
 
     // Subscribe to h-tagged events (content and moderation)
     const hFilter: Filter = {
@@ -506,6 +511,8 @@ export class RelayManager {
    * Handle events for a specific group
    */
   private handleGroupEvent(groupId: string, event: Event): void {
+    console.log(`[RelayManager] Received event for group ${groupId}:`, event.kind, event.id);
+
     const state = this.groupStates.get(groupId);
     if (!state) return;
 
@@ -677,6 +684,101 @@ export class RelayManager {
       this.reconnectAttempts++;
       this.connect();
     }, delay);
+  }
+
+  /**
+   * Publish a gift wrap event (NIP-59)
+   * Reuses existing authenticated connection
+   */
+  async publishGiftWrap(giftWrap: Event): Promise<void> {
+    if (!this.relay) {
+      throw new Error('Not connected to relay');
+    }
+
+    await this.relay.publish(giftWrap);
+    console.log(`[RelayManager] Published gift wrap ${giftWrap.id}`);
+  }
+
+  /**
+   * Subscribe to gift wrap events for a specific recipient
+   * @param recipientPubkey The public key of the recipient
+   * @param handler Function to call when a gift wrap is received
+   * @returns Subscription ID for later cleanup
+   */
+  subscribeToGiftWraps(
+    recipientPubkey: string,
+    handler: (event: Event) => void
+  ): string {
+    if (!this.relay) {
+      throw new Error('Not connected to relay');
+    }
+
+    const subId = `gift-wraps-${Date.now()}`;
+    const filter: Filter = {
+      kinds: [1059], // NIP-59 gift wrap kind
+      '#p': [recipientPubkey],
+      since: Math.floor(Date.now() / 1000) - (2 * 24 * 60 * 60), // Last 2 days (NIP-59 max timestamp randomization)
+      limit: 100, // Additional safety limit to avoid fetching too many events
+    };
+
+    const sub = this.relay.subscribe([filter], {
+      onevent: (event) => {
+        console.log(`[RelayManager] Received gift wrap: ${event.id}`);
+        handler(event);
+      },
+      oneose: () => {
+        console.log(`[RelayManager] End of stored gift wraps for ${recipientPubkey}`);
+      }
+    });
+
+    this.subscriptions.set(subId, sub);
+    return subId;
+  }
+
+  /**
+   * Wait for a gift wrap response with a specific request ID
+   * @param requestId The ID to look for in the unwrapped content
+   * @param recipientPubkey The public key expecting the response
+   * @param timeout Timeout in milliseconds
+   * @returns Promise that resolves with the gift wrap event
+   */
+  async waitForGiftWrapResponse(
+    requestId: string,
+    recipientPubkey: string,
+    timeout: number = 30000
+  ): Promise<Event> {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        if (subId) {
+          this.unsubscribe(subId);
+        }
+        reject(new Error(`Gift wrap response timeout for request ${requestId}`));
+      }, timeout);
+
+      let subId: string | null = null;
+
+      subId = this.subscribeToGiftWraps(recipientPubkey, (event) => {
+        // The handler would need to check if this is the expected response
+        // This is simplified - actual implementation would need to decrypt and check
+        clearTimeout(timeoutId);
+        if (subId) {
+          this.unsubscribe(subId);
+        }
+        resolve(event);
+      });
+    });
+  }
+
+  /**
+   * Unsubscribe from a specific subscription
+   */
+  unsubscribe(subId: string): void {
+    const sub = this.subscriptions.get(subId);
+    if (sub) {
+      sub.close();
+      this.subscriptions.delete(subId);
+      console.log(`[RelayManager] Unsubscribed from ${subId}`);
+    }
   }
 
   /**

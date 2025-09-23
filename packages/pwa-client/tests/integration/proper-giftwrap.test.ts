@@ -9,7 +9,9 @@ import {
   type UnsignedEvent
 } from 'nostr-tools';
 
-const VALIDATION_SERVICE_PUBKEY = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+// Use the actual validation service pubkey for tests
+const VALIDATION_SERVICE_PUBKEY = process.env.VITE_VALIDATION_SERVICE_PUBKEY ||
+  '829774829a2c9884607fc59f22762de04c1ee2ac36a504228ff1a99d6519fac2';
 const LOCATION_VALIDATION_REQUEST_KIND = 27492;
 
 describe('Proper Gift Wrap Test', () => {

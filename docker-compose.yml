@@ -1,54 +1,21 @@
 services:
-  # Local groups relay for development
-  groups_relay:
-    image: ghcr.io/verse-pbc/groups_relay:latest
-    platform: linux/amd64
-    environment:
-      RUST_LOG: "info"
-      NIP29__relay__relay_url: "ws://localhost:8090"
-      NIP29__relay__auth_url: "ws://localhost:8090"
-      # Use test key for relay admin (hex format)
-      NIP29__relay__secret_key: "0000000000000000000000000000000000000000000000000000000000000001"
-    ports:
-      - "8090:8080"
-    volumes:
-      - relay_data:/app/db
-    # Health check disabled - container doesn't have curl
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:8080"]
-    #   interval: 5s
-    #   timeout: 3s
-    #   retries: 5
-
-  # Validation service
+  # Validation service - uses communities2.nos.social relay
   validation_service:
     build:
       context: ./packages/validation-service
       dockerfile: Dockerfile
-    environment:
-      PORT: "3001"
-      RELAY_URL: "ws://groups_relay:8080"  # Internal docker network port
-      PUBLIC_RELAY_URL: "ws://localhost:8090"  # Public URL for browser access
-      # Test key for relay admin and validation service (same identity)
-      # Secret: 0000000000000000000000000000000000000000000000000000000000000001
-      # Pubkey: 79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
-      RELAY_SECRET_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
-      SERVICE_SECRET_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
-      MAX_DISTANCE_METERS: "100"
-      MAX_ACCURACY_METERS: "500"
-      MAX_TIMESTAMP_AGE_SECONDS: "300"
-      INVITE_EXPIRY_SECONDS: "300"
-      RUST_LOG: "debug"
     ports:
       - "3001:3001"
-    depends_on:
-      - groups_relay
+    env_file:
+      - ./packages/validation-service/.env
+    environment:
+      # Override port for consistency
+      PORT: "3001"
+      # Set log level
+      RUST_LOG: "debug"
     # Health check disabled - container doesn't have curl
     # healthcheck:
     #   test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
     #   interval: 5s
     #   timeout: 3s
     #   retries: 5
-
-volumes:
-  relay_data:

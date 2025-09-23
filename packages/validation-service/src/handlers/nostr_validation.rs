@@ -1,15 +1,16 @@
 use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
+use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
     config::Config,
-    libraries::location_check::{LocationChecker, LocationCheckConfig},
+    libraries::location_check::{LocationCheckConfig, LocationChecker},
     models::{LocationPoint, LocationProof},
-    services::{community::CommunityService, relay::RelayService},
+    services::{community::CommunityService, gift_wrap::GiftWrapService, relay::RelayService},
 };
 
 // Custom event kinds for Peek location validation (ephemeral range)
@@ -24,16 +25,62 @@ pub struct LocationData {
     pub timestamp: i64,
 }
 
+// Unified request types using serde's tag attribute
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ServiceRequest {
+    #[serde(rename = "location_validation")]
+    LocationValidation {
+        community_id: String,
+        location: LocationData,
+    },
+    #[serde(rename = "preview_request")]
+    PreviewRequest { community_id: String },
+}
+
+// Unified response types using serde's tag attribute
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ServiceResponse {
+    #[serde(rename = "location_validation_response")]
+    LocationValidation {
+        success: bool,
+        group_id: Option<String>,
+        relay_url: Option<String>,
+        is_admin: Option<bool>,
+        is_member: Option<bool>,
+        error: Option<String>,
+        error_code: Option<String>,
+    },
+    #[serde(rename = "preview_response")]
+    Preview {
+        success: bool,
+        name: Option<String>,
+        picture: Option<String>,
+        about: Option<String>,
+        rules: Option<Vec<String>>,
+        member_count: Option<u32>,
+        is_public: Option<bool>,
+        is_open: Option<bool>,
+        created_at: Option<u64>,
+        error: Option<String>,
+    },
+}
+
+// Legacy types for backwards compatibility
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationValidationRequest {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub request_type: Option<String>,
     pub community_id: String,
     pub location: LocationData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationValidationResponse {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub response_type: Option<String>,
     pub success: bool,
-    pub invite_code: Option<String>,
     pub group_id: Option<String>,
     pub relay_url: Option<String>,
     pub is_admin: Option<bool>,
@@ -42,12 +89,14 @@ pub struct LocationValidationResponse {
     pub error_code: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct NostrValidationHandler {
     client: Client,
     service_keys: Keys,
     community_service: Arc<CommunityService>,
     relay_service: Arc<RwLock<RelayService>>,
     config: Config,
+    gift_wrap_service: Arc<GiftWrapService>,
 }
 
 impl NostrValidationHandler {
@@ -67,8 +116,12 @@ impl NostrValidationHandler {
         let client = Client::new(service_keys.clone());
 
         // Add relays for receiving gift wraps
-        // Use local relay if configured, otherwise use public relays
-        let relays = if config.relay_url.starts_with("ws://localhost") || config.relay_url.starts_with("ws://127.0.0.1") {
+        // Use only local relay for development/testing environments
+        let relays = if config.relay_url.starts_with("ws://localhost")
+            || config.relay_url.starts_with("ws://127.0.0.1")
+            || config.relay_url.starts_with("ws://groups_relay")
+            || config.relay_url.starts_with("ws://host.docker.internal")
+        {
             vec![config.relay_url.clone()]
         } else {
             vec![
@@ -84,7 +137,13 @@ impl NostrValidationHandler {
         }
 
         client.connect().await;
-        info!("Connected to {} relays for gift wrap reception", relays.len());
+        info!(
+            "Connected to {} relays for gift wrap reception",
+            relays.len()
+        );
+
+        // Create gift wrap service
+        let gift_wrap_service = Arc::new(GiftWrapService::new(service_keys.clone()));
 
         Ok(Self {
             client,
@@ -92,6 +151,7 @@ impl NostrValidationHandler {
             community_service,
             relay_service,
             config,
+            gift_wrap_service,
         })
     }
 
@@ -99,34 +159,66 @@ impl NostrValidationHandler {
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         info!("Starting NIP-59 gift wrap listener");
 
-        // Subscribe to gift wraps for our service pubkey
+        // Subscribe to gift wraps for our service pubkey using limit(0) like the bot example
         // Gift wraps are tagged with #p for the recipient
-        // Don't use .since() because NIP-59 randomizes timestamps up to 2 days in past
         let filter = Filter::new()
             .kind(Kind::GiftWrap)
-            .custom_tag(
-                SingleLetterTag::lowercase(Alphabet::P),
-                self.service_keys.public_key().to_hex()
-            )
-            .limit(100); // Limit to recent events to avoid getting flooded
+            .pubkey(self.service_keys.public_key())
+            .limit(0); // Get unlimited results like the bot example
 
+        info!(
+            "Subscribing to gift wrap events for service pubkey: {}",
+            self.service_keys
+                .public_key()
+                .to_bech32()
+                .unwrap_or_else(|_| self.service_keys.public_key().to_hex())
+        );
+
+        // Subscribe to the filter
+        self.client.subscribe(filter, None).await?;
+
+        info!("Starting notification handler, waiting for gift wraps...");
+
+        // Clone self for use in the async closure
+        let handler = self.clone();
         self.client
-            .subscribe(filter.clone(), None)
-            .await?;
+            .handle_notifications(move |notification| {
+                let handler = handler.clone();
+                async move {
+                    info!("Received notification: {:?}", notification);
+                    if let RelayPoolNotification::Event {
+                        event, relay_url, ..
+                    } = notification
+                    {
+                        if event.kind == Kind::GiftWrap {
+                            info!(
+                                "📦 Received gift wrap from {} via {} (event: {})",
+                                event
+                                    .pubkey
+                                    .to_bech32()
+                                    .unwrap_or_else(|_| event.pubkey.to_hex()),
+                                relay_url,
+                                event.id.to_hex()
+                            );
 
-        info!("Subscribed to gift wrap events for service pubkey");
+                            // Clone the event and process it with the actual handler
+                            let gift_wrap = event.as_ref().clone();
 
-        // Handle incoming events
-        self.client
-            .handle_notifications(|notification| async {
-                if let RelayPoolNotification::Event { event, .. } = notification {
-                    if event.kind == Kind::GiftWrap {
-                        if let Err(e) = self.handle_gift_wrap(*event).await {
-                            error!("❌ Failed to handle gift wrap: {}", e);
+                            // Process the gift wrap using the real handle_gift_wrap method
+                            if let Err(e) = handler.handle_gift_wrap(gift_wrap).await {
+                                error!("❌ Failed to handle gift wrap: {}", e);
+                            }
+                        } else {
+                            debug!(
+                                "⏩ Ignoring non-gift-wrap event kind {}",
+                                event.kind.as_u16()
+                            );
                         }
+                    } else {
+                        debug!("📋 Received non-event notification: {:?}", notification);
                     }
+                    Ok(false) // Continue listening
                 }
-                Ok(false) // Continue listening
             })
             .await?;
 
@@ -135,6 +227,13 @@ impl NostrValidationHandler {
 
     /// Handle a received gift wrap event
     async fn handle_gift_wrap(&self, gift_wrap: Event) -> Result<(), Box<dyn std::error::Error>> {
+        let handle_start = std::time::Instant::now();
+        info!(
+            "⏱️ 🎁 handle_gift_wrap called at {:?} - processing event {}",
+            handle_start,
+            gift_wrap.id.to_string()
+        );
+
         info!(
             "📦 Received gift wrap from {} (event: {})",
             gift_wrap.pubkey.to_bech32()?,
@@ -142,73 +241,242 @@ impl NostrValidationHandler {
         );
 
         // Unwrap the gift wrap
+        let unwrap_start = std::time::Instant::now();
+        info!("⏱️ Starting unwrap at {:?}", unwrap_start);
         let unwrapped = self.client.unwrap_gift_wrap(&gift_wrap).await?;
+        let unwrap_duration = unwrap_start.elapsed();
+        info!("⏱️ Unwrap completed in {:?}ms", unwrap_duration.as_millis());
         let rumor = unwrapped.rumor;
 
+        // The actual sender is in the rumor pubkey, not the unwrapped.sender (which is ephemeral)
+        let actual_sender = rumor.pubkey;
+
         info!(
-            "🔓 Unwrapped gift wrap from sender: {} (kind: {})",
+            "🔓 Unwrapped gift wrap - ephemeral sender: {} actual sender: {} (kind: {})",
             unwrapped.sender.to_bech32()?,
+            actual_sender.to_bech32()?,
             rumor.kind
         );
 
-        // Check if it's a location validation request
+        // Log the full decrypted content for debugging
+        info!("📝 Decrypted rumor content: {}", rumor.content);
+        info!("🏷️ Rumor tags: {:?}", rumor.tags);
+        info!("🆔 Rumor ID: {:?}", rumor.id);
+
+        // Check if it's a request we handle
         if rumor.kind != LOCATION_VALIDATION_REQUEST_KIND {
             debug!("Ignoring non-validation rumor kind: {}", rumor.kind);
             return Ok(());
         }
 
-        // Parse the request
-        let request: LocationValidationRequest = serde_json::from_str(&rumor.content)?;
-        info!(
-            "📍 Location validation request for community: {} from user: {}",
-            request.community_id,
-            unwrapped.sender.to_bech32()?
-        );
-        debug!(
-            "   Location: ({:.6}, {:.6}) accuracy: {:.1}m",
-            request.location.latitude,
-            request.location.longitude,
-            request.location.accuracy
-        );
+        // Try to parse as unified request first, fall back to legacy format
+        let parse_start = std::time::Instant::now();
+        info!("⏱️ Starting request parsing at {:?}", parse_start);
+        let response = if let Ok(request) = serde_json::from_str::<ServiceRequest>(&rumor.content) {
+            // Handle unified request format
+            match request {
+                ServiceRequest::LocationValidation {
+                    community_id,
+                    location,
+                } => {
+                    info!(
+                        "📍 Location validation request for community: {} from user: {}",
+                        community_id,
+                        actual_sender.to_bech32()?
+                    );
+                    debug!(
+                        "   Location: ({:.6}, {:.6}) accuracy: {:.1}m",
+                        location.latitude, location.longitude, location.accuracy
+                    );
 
-        // Process the validation
-        let response = self.process_validation(request, unwrapped.sender).await;
+                    let process_start = std::time::Instant::now();
+                    info!(
+                        "⏱️ Starting location validation processing at {:?}",
+                        process_start
+                    );
+                    let result = self
+                        .process_location_validation(community_id, location, actual_sender)
+                        .await;
+                    let process_duration = process_start.elapsed();
+                    info!(
+                        "⏱️ Location validation completed in {:?}ms",
+                        process_duration.as_millis()
+                    );
 
-        info!(
-            "✅ Validation complete - success: {}, is_admin: {:?}, is_member: {:?}, relay_url: {:?}",
-            response.success,
-            response.is_admin,
-            response.is_member,
-            response.relay_url
-        );
-        if let Some(ref error) = response.error {
-            info!("   Error: {} (code: {:?})", error, response.error_code);
-        }
-        if response.invite_code.is_some() {
-            info!("   Generated invite code for group: {:?}", response.group_id);
+                    ServiceResponse::LocationValidation {
+                        success: result.success,
+                        group_id: result.group_id,
+                        relay_url: result.relay_url,
+                        is_admin: result.is_admin,
+                        is_member: result.is_member,
+                        error: result.error,
+                        error_code: result.error_code,
+                    }
+                }
+                ServiceRequest::PreviewRequest { community_id } => {
+                    info!(
+                        "🔍 Community preview request for: {} from user: {}",
+                        community_id,
+                        actual_sender.to_bech32()?
+                    );
+
+                    let result = self.process_preview(community_id).await;
+
+                    ServiceResponse::Preview {
+                        success: result.0,
+                        name: result.1,
+                        picture: result.2,
+                        about: result.3,
+                        rules: result.4,
+                        member_count: result.5,
+                        is_public: result.6,
+                        is_open: result.7,
+                        created_at: result.8,
+                        error: result.9,
+                    }
+                }
+            }
+        } else if let Ok(legacy_request) =
+            serde_json::from_str::<LocationValidationRequest>(&rumor.content)
+        {
+            // Handle legacy format (without type field)
+            info!(
+                "📍 Location validation request (legacy format) for community: {} from user: {}",
+                legacy_request.community_id,
+                actual_sender.to_bech32()?
+            );
+
+            let result = self
+                .process_location_validation(
+                    legacy_request.community_id,
+                    legacy_request.location,
+                    actual_sender,
+                )
+                .await;
+
+            ServiceResponse::LocationValidation {
+                success: result.success,
+                group_id: result.group_id,
+                relay_url: result.relay_url,
+                is_admin: result.is_admin,
+                is_member: result.is_member,
+                error: result.error,
+                error_code: result.error_code,
+            }
+        } else {
+            error!("Failed to parse request from rumor content");
+            return Ok(());
+        };
+
+        // Log response details
+        match &response {
+            ServiceResponse::LocationValidation {
+                success,
+                is_admin,
+                is_member,
+                error,
+                ..
+            } => {
+                info!(
+                    "✅ Validation complete - success: {}, is_admin: {:?}, is_member: {:?}",
+                    success, is_admin, is_member
+                );
+                if let Some(ref err) = error {
+                    info!("   Error: {}", err);
+                }
+            }
+            ServiceResponse::Preview {
+                success,
+                name,
+                member_count,
+                error,
+                ..
+            } => {
+                info!(
+                    "✅ Preview complete - success: {}, name: {:?}, members: {:?}",
+                    success, name, member_count
+                );
+                if let Some(ref err) = error {
+                    info!("   Error: {}", err);
+                }
+            }
         }
 
         // Send gift-wrapped response back with reference to request ID
-        let rumor_id = rumor.id.map(|id| id.to_string()).unwrap_or_else(|| "unknown".to_string());
-        self.send_response(unwrapped.sender, response, &rumor_id).await?;
-        info!("📤 Sent gift-wrapped response to {}", unwrapped.sender.to_bech32()?);
+        let send_start = std::time::Instant::now();
+        info!("⏱️ Starting response preparation at {:?}", send_start);
+        let rumor_id = rumor
+            .id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+        let response_json = serde_json::to_string(&response)?;
+
+        info!("📤 Sending response: {}", response_json);
+        info!("📮 Response for request ID: {}", rumor_id);
+
+        // Debug: Check what type was serialized
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&response_json) {
+            if let Some(response_type) = parsed.get("type").and_then(|v| v.as_str()) {
+                info!("📋 Response type field: '{}'", response_type);
+            } else {
+                tracing::warn!("⚠️ Response has no 'type' field! JSON: {}", response_json);
+            }
+        }
+
+        // Send to the actual sender, not the ephemeral key
+        info!(
+            "🔐 Attempting to send response to recipient: {} ({})",
+            actual_sender.to_bech32()?,
+            actual_sender.to_hex()
+        );
+
+        match self
+            .send_service_response(actual_sender, response_json, &rumor_id)
+            .await
+        {
+            Ok(_) => {
+                let send_duration = send_start.elapsed();
+                let total_duration = handle_start.elapsed();
+                info!("⏱️ Response sent in {:?}ms", send_duration.as_millis());
+                info!(
+                    "⏱️ ✅ Total handle_gift_wrap time: {:?}ms",
+                    total_duration.as_millis()
+                );
+                info!(
+                    "✅ Gift-wrapped response sent to {}",
+                    actual_sender.to_bech32()?
+                );
+            }
+            Err(e) => {
+                error!("❌ Failed to send gift-wrapped response: {}", e);
+                error!("   Recipient pubkey hex: {}", actual_sender.to_hex());
+                error!("   Recipient pubkey npub: {}", actual_sender.to_bech32()?);
+                return Err(format!("Failed to send response: {}", e).into());
+            }
+        }
 
         Ok(())
     }
 
     /// Process a location validation request
-    async fn process_validation(
+    async fn process_location_validation(
         &self,
-        request: LocationValidationRequest,
+        community_id: String,
+        location: LocationData,
         sender_pubkey: PublicKey,
     ) -> LocationValidationResponse {
+        let process_start = std::time::Instant::now();
+        info!(
+            "⏱️ process_location_validation started at {:?}",
+            process_start
+        );
         // Parse community ID
-        let community_id = match Uuid::parse_str(&request.community_id) {
+        let community_uuid = match Uuid::parse_str(&community_id) {
             Ok(id) => id,
             Err(e) => {
                 return LocationValidationResponse {
+                    response_type: Some("location_validation_response".to_string()),
                     success: false,
-                    invite_code: None,
                     group_id: None,
                     relay_url: None,
                     is_admin: None,
@@ -221,26 +489,36 @@ impl NostrValidationHandler {
 
         // Extract location
         let user_location = LocationPoint {
-            latitude: request.location.latitude,
-            longitude: request.location.longitude,
+            latitude: location.latitude,
+            longitude: location.longitude,
         };
 
         // Get or create community
+        let community_start = std::time::Instant::now();
+        info!("⏱️ Getting/creating community at {:?}", community_start);
         let (community, is_new) = match self
             .community_service
             .get_or_create(
-                community_id,
-                community_id.to_string(),
+                community_uuid,
+                community_uuid.to_string(),
                 user_location.clone(),
                 sender_pubkey.to_hex(),
             )
             .await
         {
-            Ok(result) => result,
+            Ok(result) => {
+                let community_duration = community_start.elapsed();
+                info!(
+                    "⏱️ Community get/create took {:?}ms, is_new: {}",
+                    community_duration.as_millis(),
+                    result.1
+                );
+                result
+            }
             Err(e) => {
                 return LocationValidationResponse {
+                    response_type: Some("location_validation_response".to_string()),
                     success: false,
-                    invite_code: None,
                     group_id: None,
                     relay_url: None,
                     is_admin: None,
@@ -261,8 +539,8 @@ impl NostrValidationHandler {
 
             let proof = LocationProof {
                 coordinates: user_location.clone(),
-                accuracy: request.location.accuracy,
-                timestamp: request.location.timestamp,
+                accuracy: location.accuracy,
+                timestamp: location.timestamp,
                 heading: None,
                 speed: None,
                 altitude: None,
@@ -275,9 +553,10 @@ impl NostrValidationHandler {
                 let error_msg = if let Some(ref error) = check_result.error {
                     error.to_string()
                 } else if check_result.accuracy > self.config.max_accuracy_meters {
-                    format!("GPS accuracy too poor: {:.0}m (max: {}m)",
-                        check_result.accuracy,
-                        self.config.max_accuracy_meters)
+                    format!(
+                        "GPS accuracy too poor: {:.0}m (max: {}m)",
+                        check_result.accuracy, self.config.max_accuracy_meters
+                    )
                 } else if check_result.distance > self.config.max_distance_meters {
                     format!("Too far from location: {:.0}m away", check_result.distance)
                 } else {
@@ -285,8 +564,8 @@ impl NostrValidationHandler {
                 };
 
                 return LocationValidationResponse {
+                    response_type: Some("location_validation_response".to_string()),
                     success: false,
-                    invite_code: None,
                     group_id: None,
                     relay_url: None,
                     is_admin: None,
@@ -298,16 +577,18 @@ impl NostrValidationHandler {
         }
 
         // Create or join group
-        let group_id = format!("peek-{}", community_id);
+        let group_id = format!("peek-{}", community_uuid);
 
         // If this is a new community, create the group first
         if is_new {
+            let create_group_start = std::time::Instant::now();
+            info!("⏱️ Creating new group at {:?}", create_group_start);
             match self
                 .relay_service
                 .write()
                 .await
                 .create_group(
-                    community_id,
+                    community_uuid,
                     community.name.clone(),
                     sender_pubkey.to_hex(),
                     crate::services::relay::Location {
@@ -318,16 +599,18 @@ impl NostrValidationHandler {
                 .await
             {
                 Ok(_) => {
+                    let create_duration = create_group_start.elapsed();
                     info!(
-                        "Created new group {} with admin {}",
+                        "⏱️ Created new group {} with admin {} in {:?}ms",
                         group_id,
-                        sender_pubkey.to_hex()
+                        sender_pubkey.to_hex(),
+                        create_duration.as_millis()
                     );
                 }
                 Err(e) => {
                     return LocationValidationResponse {
+                        response_type: Some("location_validation_response".to_string()),
                         success: false,
-                        invite_code: None,
                         group_id: None,
                         relay_url: None,
                         is_admin: None,
@@ -339,6 +622,8 @@ impl NostrValidationHandler {
             }
         } else {
             // For existing groups, just add the user
+            let add_user_start = std::time::Instant::now();
+            info!("⏱️ Adding user to existing group at {:?}", add_user_start);
             match self
                 .relay_service
                 .write()
@@ -347,16 +632,18 @@ impl NostrValidationHandler {
                 .await
             {
                 Ok(_) => {
+                    let add_duration = add_user_start.elapsed();
                     info!(
-                        "Added user {} to existing group {}",
+                        "⏱️ Added user {} to existing group {} in {:?}ms",
                         sender_pubkey.to_hex(),
-                        group_id
+                        group_id,
+                        add_duration.as_millis()
                     );
                 }
                 Err(e) => {
                     return LocationValidationResponse {
+                        response_type: Some("location_validation_response".to_string()),
                         success: false,
-                        invite_code: None,
                         group_id: None,
                         relay_url: None,
                         is_admin: None,
@@ -368,9 +655,15 @@ impl NostrValidationHandler {
             }
         }
 
+        let total_duration = process_start.elapsed();
+        info!(
+            "⏱️ process_location_validation completed in {:?}ms",
+            total_duration.as_millis()
+        );
+
         LocationValidationResponse {
+            response_type: Some("location_validation_response".to_string()),
             success: true,
-            invite_code: Some(group_id.clone()), // Using group_id as invite code
             group_id: Some(group_id),
             relay_url: Some(self.config.public_relay_url.clone()),
             is_admin: Some(is_new),
@@ -380,30 +673,128 @@ impl NostrValidationHandler {
         }
     }
 
+    /// Process a community preview request
+    async fn process_preview(
+        &self,
+        community_id: String,
+    ) -> (
+        bool,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<Vec<String>>,
+        Option<u32>,
+        Option<bool>,
+        Option<bool>,
+        Option<u64>,
+        Option<String>,
+    ) {
+        info!("🔎 Processing preview for community: {}", community_id);
+
+        // Parse community ID
+        let community_uuid = match Uuid::parse_str(&community_id) {
+            Ok(id) => id,
+            Err(e) => {
+                error!("❌ Invalid community ID: {}", e);
+                return (
+                    false,                                        // success
+                    None,                                         // name
+                    None,                                         // picture
+                    None,                                         // about
+                    None,                                         // rules
+                    None,                                         // member_count
+                    None,                                         // is_public
+                    None,                                         // is_open
+                    None,                                         // created_at
+                    Some(format!("Invalid community ID: {}", e)), // error
+                );
+            }
+        };
+
+        let group_id = format!("peek-{}", community_uuid);
+        info!("📋 Fetching metadata for group: {}", group_id);
+
+        // Try to fetch NIP-29 group metadata from relay
+        match self
+            .relay_service
+            .read()
+            .await
+            .get_group_metadata(&group_id)
+            .await
+        {
+            Ok(metadata) => {
+                info!(
+                    "✅ Found community metadata: name={}, members={}",
+                    metadata.name, metadata.member_count
+                );
+                (
+                    true,
+                    Some(metadata.name),
+                    metadata.picture,
+                    metadata.about,
+                    metadata.rules,
+                    Some(metadata.member_count),
+                    Some(metadata.is_public),
+                    Some(metadata.is_open),
+                    Some(metadata.created_at.as_u64()),
+                    None,
+                )
+            }
+            Err(e) => {
+                error!("❌ Failed to fetch community metadata: {}", e);
+                (
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(format!("Failed to fetch community metadata: {}", e)),
+                )
+            }
+        }
+    }
+
     /// Send a gift-wrapped response back to the requester
-    async fn send_response(
+    async fn send_service_response(
         &self,
         recipient: PublicKey,
-        response: LocationValidationResponse,
+        response_json: String,
         request_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Create response rumor with 'e' tag pointing to request
-        let response_json = serde_json::to_string(&response)?;
-
-        let rumor = UnsignedEvent::new(
-            self.service_keys.public_key(),
-            Timestamp::now(),
-            LOCATION_VALIDATION_RESPONSE_KIND,
-            vec![
-                Tag::custom(TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::E)), vec![request_id.to_string()]),
-            ],
-            response_json,
+        info!(
+            "🎁 Creating gift wrap for recipient: {} ({})",
+            recipient.to_bech32()?,
+            recipient.to_hex()
         );
+        info!("📝 Response content length: {} chars", response_json.len());
+        info!("🔗 Request ID reference: {}", request_id);
 
-        // Create and send gift wrap using the client
-        self.client.gift_wrap(&recipient, rumor, vec![]).await?;
+        // Use the centralized gift wrap service
+        let tags = vec![Tag::custom(
+            TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::E)),
+            vec![request_id.to_string()],
+        )];
 
-        info!("Sent gift-wrapped response to {} for request {}", recipient.to_bech32()?, request_id);
+        let event_id = self
+            .gift_wrap_service
+            .create_and_send_gift_wrap(
+                &self.client,
+                &recipient,
+                response_json,
+                LOCATION_VALIDATION_RESPONSE_KIND,
+                tags,
+            )
+            .await?;
+
+        info!(
+            "✅ Gift wrap sent successfully: {} to {}",
+            event_id,
+            recipient.to_bech32()?
+        );
 
         Ok(())
     }
