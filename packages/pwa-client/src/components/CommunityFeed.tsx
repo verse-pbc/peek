@@ -163,6 +163,13 @@ export function CommunityFeed({
   const sendMessage = async () => {
     if (!relayManager || !identity || !newMessage.trim() || !connected) return;
 
+    // Check if using NIP-07 browser extension
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      console.warn('[CommunityFeed] Cannot send messages with NIP-07 extension - private key not available');
+      // TODO: Could implement NIP-07 signing for messages in the future
+      return;
+    }
+
     setSending(true);
     try {
       const secretKey = hexToBytes(identity.secretKey);
