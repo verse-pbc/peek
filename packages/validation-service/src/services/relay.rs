@@ -323,7 +323,11 @@ impl RelayService {
         // Send the event and check for duplicate member error
         match self.client.send_event(&event).await {
             Ok(_) => {
-                tracing::info!("Successfully added user {} to group {}", pubkey.to_string(), group_id);
+                tracing::info!(
+                    "Successfully added user {} to group {}",
+                    pubkey.to_string(),
+                    group_id
+                );
                 Ok(())
             }
             Err(e) => {
