@@ -101,11 +101,28 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
         const signedEvent = await window.nostr.signEvent(authEvent);
         return signedEvent as VerifiedEvent;
       });
+
+      // Set event signer for NIP-07
+      manager.setEventSigner(async (event: EventTemplate) => {
+        console.log('[RelayContext] Signing event with NIP-07 extension');
+        if (!window.nostr) {
+          throw new Error('Browser extension not available');
+        }
+        const signedEvent = await window.nostr.signEvent(event);
+        return signedEvent as VerifiedEvent;
+      });
     } else {
       // Use local key for signing
       manager.setAuthHandler(async (authEvent: EventTemplate) => {
         console.log('[RelayContext] Signing auth event for NIP-42');
         const signedEvent = finalizeEvent(authEvent, secretKeyBytes!) as VerifiedEvent;
+        return signedEvent;
+      });
+
+      // Set event signer for local keys
+      manager.setEventSigner(async (event: EventTemplate) => {
+        console.log('[RelayContext] Signing event with local key');
+        const signedEvent = finalizeEvent(event, secretKeyBytes!) as VerifiedEvent;
         return signedEvent;
       });
     }

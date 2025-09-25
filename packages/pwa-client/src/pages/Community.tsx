@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SimplePool, type Filter } from 'nostr-tools';
 import { CommunityFeed } from '../components/CommunityFeed';
 import { AdminPanel } from '../components/AdminPanel';
 import { Button } from '../components/ui/button';
@@ -19,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
+import { useRelayManager } from '../contexts/RelayContext';
+import { GroupManager } from '../services/group-manager';
 
 interface CommunityData {
   groupId: string;
@@ -43,25 +44,33 @@ const Community = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [pool] = useState(() => new SimplePool());
+  const { relayManager, connected, waitForConnection } = useRelayManager();
+  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
 
   // The group ID format for NIP-29
   const groupId = communityId ? `peek-${communityId}` : null;
 
-  // Get relay URL - always use the configured relay
-  const getRelayUrl = (): string => {
-    // Always use the environment variable relay URL for now
-    // Old localStorage entries might have incorrect relay URLs
-    return import.meta.env.VITE_RELAY_URL || 'wss://communities2.nos.social';
-  };
+  // Initialize GroupManager when relay is connected
+  useEffect(() => {
+    if (relayManager && connected) {
+      const gm = new GroupManager(relayManager);
+      setGroupManager(gm);
+
+      // Subscribe to the group to get updates
+      if (groupId) {
+        relayManager.subscribeToGroup(groupId);
+      }
+    }
+  }, [relayManager, connected, groupId]);
 
   // Verify user has access to this community
   useEffect(() => {
-    if (!pubkey || !groupId) {
-      setLoading(false);
+    if (!pubkey || !groupId || !groupManager || !connected) {
       if (!pubkey) {
+        setLoading(false);
         setError('Please login to access communities');
       }
+      // Still loading if we're waiting for connection or group manager
       return;
     }
 
@@ -69,71 +78,29 @@ const Community = () => {
       setLoading(true);
       setError(null);
 
-      // First check localStorage for cached membership (for quick loading)
-      const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-      const cachedGroupInfo = joinedGroups.find((g: { communityId: string; isAdmin?: boolean }) => g.communityId === communityId);
+      // Wait for connection to be established
+      await waitForConnection();
 
-      // Always use the configured relay URL
-      const relayUrl = getRelayUrl();
-      console.log('Connecting to relay:', relayUrl, 'for group:', groupId);
+      // Give the GroupManager a moment to receive membership events
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Verify actual membership status from relay (NIP-29 spec)
-      // Check for kind:9000 (put-user) and kind:9001 (remove-user) events
-      let isMemberOnRelay = false;
-      let wasRemoved = false;
+      // Check membership using GroupManager (which uses cached events from relay)
+      const isMember = groupManager.isGroupMember(groupId);
+      const isAdmin = groupManager.isGroupAdmin(groupId);
+      const membership = groupManager.getMyMembership(groupId);
 
-      try {
-        // Query for membership events for this user
-        const membershipFilter: Filter = {
-          kinds: [9000, 9001], // put-user and remove-user events
-          '#h': [groupId],
-          '#p': [pubkey],
-          limit: 10 // Get recent events to find the latest status
-        };
-
-        const membershipEvents = await pool.querySync([relayUrl], membershipFilter);
-
-        // Find the most recent event to determine current membership status
-        if (membershipEvents.length > 0) {
-          // Sort by created_at to find the latest event
-          membershipEvents.sort((a, b) => b.created_at - a.created_at);
-          const latestEvent = membershipEvents[0];
-
-          if (latestEvent.kind === 9000) {
-            // User was added to the group
-            isMemberOnRelay = true;
-            console.log('User is a member according to kind:9000 event');
-          } else if (latestEvent.kind === 9001) {
-            // User was removed from the group
-            wasRemoved = true;
-            console.log('User was removed according to kind:9001 event');
-          }
-        } else {
-          // No membership events found - check if group is unmanaged
-          // For now, we'll treat no events as not being a member
-          console.log('No membership events found for user');
-        }
-      } catch (err) {
-        console.warn('Could not verify membership status:', err);
-        // If we can't verify, fall back to localStorage but show a warning
-        if (cachedGroupInfo) {
-          isMemberOnRelay = true; // Assume cached data is valid if relay is unreachable
-        }
-      }
+      console.log('Membership check:', {
+        groupId,
+        isMember,
+        isAdmin,
+        membership,
+        userPubkey: pubkey
+      });
 
       // Handle membership verification results
-      if (!isMemberOnRelay) {
+      if (!isMember) {
         // User is not a member according to relay
-
-        // Clear stale localStorage entry if it exists
-        if (cachedGroupInfo) {
-          const filtered = joinedGroups.filter((g: { communityId: string }) => g.communityId !== communityId);
-          localStorage.setItem('joinedGroups', JSON.stringify(filtered));
-        }
-
-        const message = wasRemoved
-          ? 'You have been removed from this community. Please contact an admin or scan the QR code again to rejoin.'
-          : 'You are not a member of this community. Please scan the QR code at the physical location to join.';
+        const message = 'You are not a member of this community. Please scan the QR code at the physical location to join.';
 
         setError(message);
         setLoading(false);
@@ -145,101 +112,29 @@ const Community = () => {
         return;
       }
 
-      // User is a member - update localStorage if needed
-      if (!cachedGroupInfo) {
-        // User is a member but not in localStorage, add them
-        const newGroupInfo = {
-          communityId,
-          groupId,
-          relayUrl,
-          joinedAt: Date.now()
-        };
-        joinedGroups.push(newGroupInfo);
-        localStorage.setItem('joinedGroups', JSON.stringify(joinedGroups));
-      }
-
-      // Continue with loading community data
-      const groupInfo = cachedGroupInfo || { isAdmin: false };
-
+      // User is a member - load community data
       try {
-        // User's membership is verified, proceed to fetch community data
+        // Get metadata from GroupManager
+        const metadata = groupManager.getGroupMetadata(groupId);
+        const members = groupManager.getGroupMembers(groupId);
 
-        // User is a member, fetch community data
         const community: CommunityData = {
           groupId,
-          name: `Community ${communityId?.slice(0, 8)}`, // Default name
-          memberCount: 0,
-          isAdmin: groupInfo.isAdmin || false, // Get admin status from localStorage
+          name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
+          memberCount: members.length,
+          isAdmin,
           isMember: true
         };
 
-        // Admin status is already set from localStorage above
-        // We can't reliably query for it without authentication, so we trust localStorage
-
-        // Try to get community metadata (kind 39000)
-        // This may fail if authentication is required
-        try {
-          const metadataFilter: Filter = {
-            kinds: [39000],
-            '#d': [groupId],
-            limit: 1
-          };
-
-          const metadataEvents = await pool.querySync([relayUrl], metadataFilter);
-
-          if (metadataEvents.length > 0) {
-            const metadata = metadataEvents[0];
-
-            // Extract name from tags
-            const nameTag = metadata.tags.find(tag => tag[0] === 'name');
-            if (nameTag && nameTag[1]) {
-              community.name = nameTag[1];
-            }
-
-            // Extract other metadata
-            const _aboutTag = metadata.tags.find(tag => tag[0] === 'about');
-            const _pictureTag = metadata.tags.find(tag => tag[0] === 'picture');
-
-            community.createdAt = metadata.created_at;
-          }
-        } catch (err) {
-          console.log('Could not fetch metadata (authentication may be required):', err);
-          // Use default values set above
-        }
-
-        // Try to count members (kind 39002 or count kind 9000 events)
-        // This may also fail if authentication is required
-        try {
-          const allMembersFilter: Filter = {
-            kinds: [9000],
-            '#h': [groupId],
-            limit: 500
-          };
-
-          const allMemberEvents = await pool.querySync([relayUrl], allMembersFilter);
-          const uniqueMembers = new Set<string>();
-
-          for (const event of allMemberEvents) {
-            const pTag = event.tags.find(tag => tag[0] === 'p');
-            if (pTag && pTag[1]) {
-              uniqueMembers.add(pTag[1]);
-            }
-          }
-
-          if (uniqueMembers.size > 0) {
-            community.memberCount = uniqueMembers.size;
-          }
-        } catch (err) {
-          console.log('Could not fetch member count (authentication may be required):', err);
-          // Keep default member count
-        }
-
-        // Get stored location from localStorage (set during join)
-        if (groupInfo?.location) {
-          community.location = groupInfo.location;
+        // Get stored location from localStorage if available
+        const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+        const cachedGroupInfo = joinedGroups.find((g: { communityId: string }) => g.communityId === communityId);
+        if (cachedGroupInfo?.location) {
+          community.location = cachedGroupInfo.location;
         }
 
         setCommunityData(community);
+
       } catch (err) {
         console.error('Error fetching community data:', err);
 
@@ -269,12 +164,7 @@ const Community = () => {
     };
 
     verifyCommunityAccess();
-
-    // Cleanup
-    return () => {
-      pool.close([getRelayUrl()]);
-    };
-  }, [pubkey, groupId, communityId, pool, navigate]);
+  }, [pubkey, groupId, communityId, groupManager, connected, navigate, waitForConnection]);
 
   const handleBack = () => {
     navigate('/');

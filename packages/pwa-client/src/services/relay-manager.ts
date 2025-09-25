@@ -81,6 +81,7 @@ export class RelayManager {
   private isConnecting: boolean;
   private userPubkey?: string;
   private authHandler?: (authEvent: EventTemplate) => Promise<VerifiedEvent>;
+  private eventSigner?: (event: EventTemplate) => Promise<VerifiedEvent>;
 
   constructor(options: RelayConnectionOptions) {
     this.pool = new SimplePool();
@@ -112,6 +113,13 @@ export class RelayManager {
    */
   setAuthHandler(handler: (authEvent: EventTemplate) => Promise<VerifiedEvent>) {
     this.authHandler = handler;
+  }
+
+  /**
+   * Set event signer for creating events (supports NIP-07)
+   */
+  setEventSigner(signer: (event: EventTemplate) => Promise<VerifiedEvent>) {
+    this.eventSigner = signer;
   }
 
   /**
@@ -383,7 +391,7 @@ export class RelayManager {
   async sendMessage(
     groupId: string,
     content: string,
-    secretKey: Uint8Array,
+    secretKey?: Uint8Array,
     replyTo?: string
   ): Promise<Event> {
     if (!this.isConnected()) {
@@ -410,7 +418,15 @@ export class RelayManager {
       created_at: Math.floor(Date.now() / 1000)
     };
 
-    const signedEvent = finalizeEvent(event, secretKey);
+    // Use event signer if available (NIP-07), otherwise use provided secret key
+    let signedEvent: VerifiedEvent;
+    if (this.eventSigner) {
+      signedEvent = await this.eventSigner(event);
+    } else if (secretKey) {
+      signedEvent = finalizeEvent(event, secretKey) as VerifiedEvent;
+    } else {
+      throw new Error('No signing method available');
+    }
 
     await this.publishEvent(signedEvent);
     return signedEvent;

@@ -2,7 +2,8 @@ import {
   Event,
   EventTemplate,
   finalizeEvent,
-  getPublicKey
+  getPublicKey,
+  type VerifiedEvent
 } from 'nostr-tools';
 import { RelayManager, NIP29_KINDS } from './relay-manager';
 
@@ -52,6 +53,7 @@ export interface ModerationAction {
 
 export class GroupManager {
   private relayManager: RelayManager;
+  private eventSigner?: (event: EventTemplate) => Promise<VerifiedEvent>;
   private groupCache: Map<string, {
     metadata?: GroupMetadata;
     members: Map<string, GroupMember>;
@@ -66,6 +68,10 @@ export class GroupManager {
     this.groupCache = new Map();
 
     this.setupEventHandlers();
+  }
+
+  setEventSigner(signer: (event: EventTemplate) => Promise<VerifiedEvent>) {
+    this.eventSigner = signer;
   }
 
   private setupEventHandlers() {
@@ -321,7 +327,7 @@ export class GroupManager {
   async addUser(
     groupId: string,
     targetPubkey: string,
-    secretKey: Uint8Array,
+    secretKey?: Uint8Array,
     roles?: string[]
   ): Promise<Event> {
     return this.performModerationAction(groupId, secretKey, {
@@ -334,7 +340,7 @@ export class GroupManager {
   async removeUser(
     groupId: string,
     targetPubkey: string,
-    secretKey: Uint8Array,
+    secretKey?: Uint8Array,
     reason?: string
   ): Promise<Event> {
     return this.performModerationAction(groupId, secretKey, {
@@ -383,7 +389,7 @@ export class GroupManager {
 
   private async performModerationAction(
     groupId: string,
-    secretKey: Uint8Array,
+    secretKey: Uint8Array | undefined,
     action: ModerationAction
   ): Promise<Event> {
     const tags: string[][] = [
@@ -432,7 +438,16 @@ export class GroupManager {
       created_at: Math.floor(Date.now() / 1000)
     };
 
-    const event = finalizeEvent(eventTemplate, secretKey);
+    // Use event signer if available (NIP-07), otherwise use provided secret key
+    let event: VerifiedEvent;
+    if (this.eventSigner) {
+      event = await this.eventSigner(eventTemplate);
+    } else if (secretKey) {
+      event = finalizeEvent(eventTemplate, secretKey) as VerifiedEvent;
+    } else {
+      throw new Error('No signing method available for moderation action');
+    }
+
     await this.relayManager.publishEvent(event);
 
     return event;
