@@ -356,7 +356,7 @@ impl RelayService {
         // This gives us the actual member additions
         let members_filter = Filter::new()
             .kind(Kind::from(9000))
-            .custom_tag(SingleLetterTag::lowercase(Alphabet::H), [group_id])
+            .custom_tag(SingleLetterTag::lowercase(Alphabet::H), group_id.to_string())
             .limit(100);
 
         let members_events = self
@@ -389,7 +389,7 @@ impl RelayService {
         // These are the actual metadata events with name, about, etc.
         let metadata_filter = Filter::new()
             .kind(Kind::from(9002))
-            .custom_tag(SingleLetterTag::lowercase(Alphabet::H), [group_id])
+            .custom_tag(SingleLetterTag::lowercase(Alphabet::H), group_id.to_string())
             .limit(1);
 
         // Debug: Log the filter to see what it generates

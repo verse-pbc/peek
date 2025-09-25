@@ -202,8 +202,3 @@ mod tests {
         println!("✅ Manual gift wrap roundtrip successful!");
     }
 }
-
-fn main() {
-    // Run with: cargo test --bin test_gift_wrap -- --nocapture
-    println!("Run tests with: cargo test --bin test_gift_wrap -- --nocapture");
-}
