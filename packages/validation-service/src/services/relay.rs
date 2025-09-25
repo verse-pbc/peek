@@ -381,11 +381,18 @@ impl RelayService {
 
         // If no event was found, member_count remains 0
         if member_count == 0 {
-            tracing::info!("No kind 39002 event found for group {}, returning 0 members", group_id);
+            tracing::info!(
+                "No kind 39002 event found for group {}, returning 0 members",
+                group_id
+            );
             return Ok(0);
         }
 
-        tracing::info!("Found {} members in group {} from kind 39002", member_count, group_id);
+        tracing::info!(
+            "Found {} members in group {} from kind 39002",
+            member_count,
+            group_id
+        );
         Ok(member_count)
     }
 
