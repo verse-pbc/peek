@@ -1,21 +1,17 @@
 replicaCount: 1
-
 image:
   repository: ghcr.io/verse-pbc/peek-pwa-client
-  tag: "latest"
+  tag: "0.1.20250925-1858-6b51a47"
   pullPolicy: Always
-
 service:
   type: ClusterIP
   port: 80
-
 ingress:
   enabled: true
   className: "nginx"
   host: "peek.verse.app"
   tls:
     enabled: true
-
 resources:
   requests:
     memory: "64Mi"
@@ -23,20 +19,17 @@ resources:
   limits:
     memory: "128Mi"
     cpu: "100m"
-
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 3
   targetCPUUtilizationPercentage: 80
-
 livenessProbe:
   httpGet:
     path: /
     port: 80
   initialDelaySeconds: 10
   timeoutSeconds: 5
-
 readinessProbe:
   httpGet:
     path: /
