@@ -388,14 +388,11 @@ impl RelayService {
 
     /// Get NIP-29 group metadata from relay
     pub async fn get_group_metadata(&self, group_id: &str) -> Result<GroupMetadata> {
-        // Fetch kind 9002 (edit-metadata) events using h-tag
-        // These are the actual metadata events with name, about, etc.
+        // Fetch kind 39000 (group metadata) events using d-tag
+        // These are relay-generated events that contain the group metadata
         let metadata_filter = Filter::new()
-            .kind(Kind::from(9002))
-            .custom_tag(
-                SingleLetterTag::lowercase(Alphabet::H),
-                group_id.to_string(),
-            )
+            .kind(Kind::from(39000))
+            .identifier(group_id)
             .limit(1);
 
         // Debug: Log the filter to see what it generates
