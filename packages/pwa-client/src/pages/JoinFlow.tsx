@@ -62,7 +62,7 @@ export const JoinFlow: React.FC = () => {
   const { pubkey, npub, login, createNewIdentity, importIdentity, showIdentityModal, setShowIdentityModal, identity } = useNostrLogin();
   const { toast } = useToast();
   const { relayManager, connected, waitForConnection } = useRelayManager();
-  
+
   // Flow state
   const [currentStep, setCurrentStep] = useState<JoinStep>(JoinStep.LOADING);
   const [previewData, setPreviewData] = useState<CommunityPreviewData | null>(null);
@@ -79,6 +79,22 @@ export const JoinFlow: React.FC = () => {
   // Check if this is likely a first scan (for immediate title display)
   const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
   const isLikelyFirstScan = !accessedCommunities.includes(communityId);
+
+  // Check if user is already a member and skip join flow
+  useEffect(() => {
+    if (!communityId) return;
+
+    // Check if user is already a member of this community
+    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+    const existingMembership = joinedGroups.find((g: { communityId: string }) => g.communityId === communityId);
+
+    if (existingMembership) {
+      console.log('User is already a member, redirecting to community page');
+      // Skip join flow, go directly to community
+      navigate(`/community/${communityId}`, { replace: true });
+      return;
+    }
+  }, [communityId, navigate]);
 
   // Check if user is logged in (skip for initial preview)
   useEffect(() => {
@@ -160,7 +176,7 @@ export const JoinFlow: React.FC = () => {
           description: response.about || 'Location-based community',
           member_count: response.member_count || 0,
           created_at: response.created_at || Math.floor(Date.now() / 1000),
-          is_first_scan: response.member_count === 0 || response.member_count === 1
+          is_first_scan: response.member_count === 0
         };
 
         setPreviewData(previewData);
@@ -603,7 +619,7 @@ export const JoinFlow: React.FC = () => {
             </div>
 
             <div className="flex gap-3">
-              <Button 
+              <Button
                 onClick={() => navigate(`/community/${communityId}`)}
                 className="flex-1"
               >
@@ -668,7 +684,7 @@ export const JoinFlow: React.FC = () => {
 
             <div className="flex gap-3">
               {error.canRetry && (
-                <Button 
+                <Button
                   onClick={handleRetry}
                   className="flex-1"
                 >

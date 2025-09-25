@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { useNostrContext } from '@/hooks/useNostrContext';
 import { NDKKind } from '@/lib/ndk-shim';
@@ -41,17 +41,28 @@ interface Community {
 
 const Home = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { ndk, user } = useNostrContext();
   const { pubkey, npub, logout, login } = useNostrLogin();
   const { toast } = useToast();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('communities');
+  const [rejoinMessage, setRejoinMessage] = useState<string | null>(null);
 
   useSeoMeta({
     title: 'Peek - Location-Based Communities',
     description: 'Connect with people at physical locations through QR codes',
   });
+
+  // Check for navigation state message (e.g., from Community page redirect)
+  useEffect(() => {
+    if (location.state?.message) {
+      setRejoinMessage(location.state.message);
+      // Clear the navigation state to prevent message from persisting on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Fetch user's communities from NIP-29 groups
   useEffect(() => {
@@ -325,6 +336,26 @@ const Home = () => {
           </div>
         </div>
       </header>
+
+      {/* Rejoin Message Alert */}
+      {rejoinMessage && (
+        <div className="container mx-auto px-4 pt-4">
+          <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+            <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-amber-900 dark:text-amber-100">
+              {rejoinMessage}
+              <Button
+                size="sm"
+                variant="link"
+                className="ml-2 p-0 h-auto text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+                onClick={() => setRejoinMessage(null)}
+              >
+                Dismiss
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">

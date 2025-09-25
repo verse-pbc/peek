@@ -77,6 +77,13 @@ const Community = () => {
         // User hasn't joined this community at all
         setError('You are not a member of this community. Please scan the QR code at the physical location to join.');
         setLoading(false);
+
+        // Clean up and redirect to home with message
+        navigate('/', {
+          state: {
+            message: 'You need to scan the QR code at the location to join this community'
+          }
+        });
         return;
       }
 
@@ -169,7 +176,27 @@ const Community = () => {
         setCommunityData(community);
       } catch (err) {
         console.error('Error fetching community data:', err);
-        setError('Failed to load community data. Please try again.');
+
+        // Check if this is a membership/access error
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        if (errorMessage.includes('not a member') ||
+            errorMessage.includes('access denied') ||
+            errorMessage.includes('authentication') ||
+            errorMessage.includes('unauthorized')) {
+          // User was likely removed from the group - clear stale localStorage
+          const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+          const filtered = joinedGroups.filter((g: { communityId: string }) => g.communityId !== communityId);
+          localStorage.setItem('joinedGroups', JSON.stringify(filtered));
+
+          // Redirect to home with message
+          navigate('/', {
+            state: {
+              message: 'You need to scan the QR code at the location to rejoin this community'
+            }
+          });
+        } else {
+          setError('Failed to load community data. Please try again.');
+        }
       } finally {
         setLoading(false);
       }
@@ -181,7 +208,7 @@ const Community = () => {
     return () => {
       pool.close([getRelayUrl()]);
     };
-  }, [pubkey, groupId, communityId, pool]);
+  }, [pubkey, groupId, communityId, pool, navigate]);
 
   const handleBack = () => {
     navigate('/');
