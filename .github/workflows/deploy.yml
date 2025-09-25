@@ -73,7 +73,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VITE_RELAY_URL=wss://communities2.nos.social
-            VITE_VALIDATION_SERVICE_PUBKEY=npub1de8w8ur3drv89rtezsw0j32hq4wvv05qarsrdvxw75vvp9w35zdswz2tsq
+            VITE_VALIDATION_SERVICE_PUBKEY=6e4ee3f07168d8728d79141cf94557055cc63e80e8e036b0cef518c095d1a09b
             VITE_DEV_MODE=false
 
   build-validation:
