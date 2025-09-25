@@ -64,13 +64,8 @@ const Home = () => {
     }
   }, [location.state]);
 
-  // Fetch user's communities from NIP-29 groups
+  // Fetch user's communities from localStorage and enrich with relay data
   useEffect(() => {
-    if (!ndk || !user) {
-      setLoading(false);
-      return;
-    }
-
     let isActive = true;
     let fetchCount = 0;
 
@@ -88,103 +83,94 @@ const Home = () => {
       const userCommunities: Community[] = [];
 
       try {
-        // Check if fetchEvents method exists
-        if (!ndk.fetchEvents) {
-          console.warn('NDK fetchEvents method not available');
+        // Get joined communities from localStorage
+        const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+
+        if (joinedGroups.length === 0) {
           setCommunities([]);
           setLoading(false);
           return;
         }
 
-        // Fetch groups where user is a member (kind 9000 with user's p-tag)
-        const memberFilter = {
-          kinds: [9000 as NDKKind],
-          '#p': [user.pubkey],
-          limit: 100
-        };
+        // For each joined community, create a community object
+        for (const groupInfo of joinedGroups) {
+          const communityId = groupInfo.communityId;
+          const groupId = communityId; // Use the community ID directly for navigation
 
-        const memberEvents = await ndk.fetchEvents(memberFilter);
-        const groupIds = new Set<string>();
-
-        // Extract unique group IDs
-        if (memberEvents && memberEvents.size > 0) {
-          for (const event of memberEvents) {
-            const hTag = (event as Event & { tags: string[][] }).tags.find((tag: string[]) => tag[0] === 'h');
-            if (hTag && hTag[1]) {
-              groupIds.add(hTag[1]);
-            }
-          }
-        }
-
-        // For each group, fetch metadata and check admin status
-        for (const groupId of groupIds) {
           const community: Community = {
             groupId,
-            name: groupId.replace('peek-', 'Community '), // Default name
+            name: `Community ${communityId.slice(0, 8)}`, // Default name
             memberCount: 0,
-            isAdmin: false,
-            joinedAt: Date.now() / 1000
+            isAdmin: groupInfo.isAdmin || false, // Get admin status from localStorage
+            joinedAt: groupInfo.joinedAt || Date.now() / 1000,
+            location: groupInfo.location // Include location if stored
           };
 
-          // Check if user is admin (kind 9002 with permission tag)
-          const adminFilter = {
-            kinds: [9002 as NDKKind],
-            '#h': [groupId],
-            '#p': [user.pubkey],
-            limit: 1
-          };
+          // Try to fetch metadata from relay if ndk is available
+          if (ndk && ndk.fetchEvents) {
+            try {
+              // Fetch group metadata (kind 39000)
+              const metadataFilter = {
+                kinds: [39000 as NDKKind],
+                '#d': [`peek-${communityId}`], // Use full group ID for relay queries
+                limit: 1
+              };
 
-          const adminEvents = await ndk.fetchEvents(adminFilter);
+              const metadataEvents = await ndk.fetchEvents(metadataFilter);
 
-          for (const event of adminEvents) {
-            const permissionTag = (event as Event & { tags: string[][] }).tags.find((tag: string[]) => tag[0] === 'permission');
-            if (permissionTag && permissionTag[1] === 'add-user') {
-              community.isAdmin = true;
-              break;
+              if (metadataEvents && metadataEvents.size > 0) {
+                const metadataEvent = Array.from(metadataEvents)[0];
+                // Extract name from tags
+                const nameTag = (metadataEvent as Event & { tags: string[][] }).tags.find(
+                  (tag: string[]) => tag[0] === 'name'
+                );
+                if (nameTag && nameTag[1]) {
+                  community.name = nameTag[1];
+                }
+              }
+            } catch (error) {
+              console.warn('Failed to fetch metadata for', communityId, error);
             }
-          }
 
-          // Fetch recent activity (last message in group)
-          const messagesFilter = {
-            kinds: [9 as NDKKind],
-            '#h': [groupId],
-            limit: 1
-          };
+            // Try to fetch recent activity and member count
+            if (ndk && ndk.fetchEvents) {
+              try {
+                // Fetch recent activity (last message in group)
+                const messagesFilter = {
+                  kinds: [9 as NDKKind],
+                  '#h': [`peek-${communityId}`],
+                  limit: 1
+                };
 
-          const messageEvents = await ndk.fetchEvents(messagesFilter);
+                const messageEvents = await ndk.fetchEvents(messagesFilter);
 
-          for (const event of messageEvents) {
-            community.lastActivity = (event as Event & { created_at: number }).created_at;
-            break;
-          }
+                for (const event of messageEvents) {
+                  community.lastActivity = (event as Event & { created_at: number }).created_at;
+                  break;
+                }
 
-          // Count members
-          const allMembersFilter = {
-            kinds: [9000 as NDKKind],
-            '#h': [groupId],
-            limit: 500
-          };
+                // Count members from the kind 39002 event
+                const memberListFilter = {
+                  kinds: [39002 as NDKKind],
+                  '#d': [`peek-${communityId}`],
+                  limit: 1
+                };
 
-          const allMemberEvents = await ndk.fetchEvents(allMembersFilter);
-          const uniqueMembers = new Set<string>();
+                const memberListEvents = await ndk.fetchEvents(memberListFilter);
 
-          for (const event of allMemberEvents) {
-            const pTag = (event as Event & { tags: string[][] }).tags.find((tag: string[]) => tag[0] === 'p');
-            if (pTag && pTag[1]) {
-              uniqueMembers.add(pTag[1]);
+                if (memberListEvents && memberListEvents.size > 0) {
+                  const memberListEvent = Array.from(memberListEvents)[0];
+                  // Count p-tags to get member count
+                  const pTags = (memberListEvent as Event & { tags: string[][] }).tags.filter(
+                    (tag: string[]) => tag[0] === 'p'
+                  );
+                  community.memberCount = pTags.length;
+                }
+              } catch (error) {
+                console.warn('Failed to fetch activity/members for', communityId, error);
+              }
             }
-          }
 
-          community.memberCount = uniqueMembers.size;
-
-          // Try to extract location from group metadata if available
-          // This would be stored in a kind 30078 event in production
-          if (groupId.startsWith('peek-')) {
-            // Mock location for demo
-            community.location = {
-              latitude: -34.919143 + Math.random() * 0.01,
-              longitude: -56.161693 + Math.random() * 0.01
-            };
           }
 
           userCommunities.push(community);
@@ -228,7 +214,7 @@ const Home = () => {
       isActive = false;
       clearInterval(pollInterval);
     };
-  }, [ndk, user, toast]); // Include toast and user as dependencies
+  }, [ndk, toast]); // Include toast and ndk as dependencies
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';
@@ -244,9 +230,8 @@ const Home = () => {
   };
 
   const handleCommunityClick = (groupId: string) => {
-    // Extract community ID from group ID (e.g., "peek-uuid" -> "uuid")
-    const communityId = groupId.replace('peek-', '');
-    navigate(`/community/${communityId}`);
+    // Navigate to the community page - groupId is already the communityId from localStorage
+    navigate(`/community/${groupId}`);
   };
 
   const handleProfileClick = () => {
