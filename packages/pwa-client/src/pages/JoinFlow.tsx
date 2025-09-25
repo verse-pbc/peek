@@ -313,33 +313,52 @@ export const JoinFlow: React.FC = () => {
       setValidationResponse(response);
 
       if (response.success) {
-        // Success! User has been added to the NIP-29 group
+        // Success! User has been added to (or is already in) the NIP-29 group
         setCurrentStep(JoinStep.SUCCESS);
 
-        // Show success toast
-        toast({
-          title: "Successfully Joined! 🎉",
-          description: response.is_admin
-            ? "You're the founding admin of this community!"
-            : "You're now a member of this community.",
-        });
+        // Show appropriate toast message
+        if (response.is_member && !response.is_admin) {
+          // Already a member (re-validation after initial join)
+          toast({
+            title: "Welcome Back! 👋",
+            description: "You're already a member of this community.",
+          });
+        } else {
+          // New member or admin
+          toast({
+            title: "Successfully Joined! 🎉",
+            description: response.is_admin
+              ? "You're the founding admin of this community!"
+              : "You're now a member of this community.",
+          });
+        }
 
         // Store the group information for later use
         if (response.group_id && response.relay_url) {
-          // Save to local storage so Community page can connect
+          // Check if this group is already in localStorage
+          const existingGroups = JSON.parse(
+            localStorage.getItem('joinedGroups') || '[]'
+          );
+          const existingIndex = existingGroups.findIndex(
+            (g: { communityId: string }) => g.communityId === communityId
+          );
+
           const groupInfo = {
             communityId,
             groupId: response.group_id,
             relayUrl: response.relay_url,
             isAdmin: response.is_admin || false,
-            joinedAt: Date.now()
+            joinedAt: existingIndex >= 0 ? existingGroups[existingIndex].joinedAt : Date.now()
           };
 
-          // Store in localStorage for persistence
-          const existingGroups = JSON.parse(
-            localStorage.getItem('joinedGroups') || '[]'
-          );
-          existingGroups.push(groupInfo);
+          if (existingIndex >= 0) {
+            // Update existing entry
+            existingGroups[existingIndex] = groupInfo;
+          } else {
+            // Add new entry
+            existingGroups.push(groupInfo);
+          }
+
           localStorage.setItem('joinedGroups', JSON.stringify(existingGroups));
         }
 

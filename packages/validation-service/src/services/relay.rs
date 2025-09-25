@@ -302,6 +302,16 @@ impl RelayService {
         let pubkey =
             PublicKey::from_bech32(user_pubkey).or_else(|_| PublicKey::from_hex(user_pubkey))?;
 
+        // Check if user is already a member
+        if self.is_group_member(group_id, &pubkey.to_string()).await? {
+            tracing::info!(
+                "User {} is already a member of group {}, skipping add",
+                pubkey.to_bech32().unwrap_or_else(|_| pubkey.to_string()),
+                group_id
+            );
+            return Ok(());
+        }
+
         // Create NIP-29 add user event (kind 9000)
         // Per NIP-29, roles are added as additional values in the p tag
         let role = if is_admin { "admin" } else { "member" };
@@ -324,6 +334,34 @@ impl RelayService {
         // Member count is tracked by NIP-29 group metadata, no need for separate tracking
 
         Ok(())
+    }
+
+    /// Check if a user is already a member of the group
+    pub async fn is_group_member(&self, group_id: &str, user_pubkey: &str) -> Result<bool> {
+        // Fetch kind 39002 (group members list)
+        let members_filter = Filter::new()
+            .kind(Kind::from(39002))
+            .identifier(group_id)
+            .limit(1);
+
+        let members_events = self
+            .client
+            .fetch_events(members_filter, Duration::from_secs(5))
+            .await?;
+
+        if let Some(event) = members_events.first() {
+            // Check if user is in the p-tags
+            for tag in event.tags.iter() {
+                if tag.kind() == TagKind::Custom("p".into()) && tag.as_slice().len() > 0 {
+                    let member_pubkey = tag.as_slice()[0].as_str();
+                    if member_pubkey == user_pubkey {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     /// Get the member count for a NIP-29 group
