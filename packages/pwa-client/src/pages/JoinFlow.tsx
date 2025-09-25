@@ -120,9 +120,36 @@ export const JoinFlow: React.FC = () => {
       let publicKey: string;
 
       if (identity?.secretKey && pubkey) {
-        // User is logged in, use their actual keys
-        secretKey = hexToBytes(identity.secretKey);
-        publicKey = pubkey;
+        // Check if using NIP-07 browser extension
+        if (identity.secretKey === 'NIP07_EXTENSION') {
+          // Can't use extension for preview request, fall back to anonymous
+          const ANON_KEY = 'peek_anonymous_identity';
+          const anonIdentity = localStorage.getItem(ANON_KEY);
+
+          if (!anonIdentity) {
+            const newSecretKey = generateSecretKey();
+            const newPublicKey = getPublicKey(newSecretKey);
+
+            localStorage.setItem(ANON_KEY, JSON.stringify({
+              secretKey: bytesToHex(newSecretKey),
+              publicKey: newPublicKey,
+              createdAt: Date.now()
+            }));
+
+            secretKey = newSecretKey;
+            publicKey = newPublicKey;
+            console.log('[JoinFlow] Generated anonymous identity for NIP-07 user (preview):', newPublicKey.slice(0, 8) + '...');
+          } else {
+            const parsed = JSON.parse(anonIdentity);
+            secretKey = hexToBytes(parsed.secretKey);
+            publicKey = parsed.publicKey;
+            console.log('[JoinFlow] Using existing anonymous identity for NIP-07 user (preview):', publicKey.slice(0, 8) + '...');
+          }
+        } else {
+          // User is logged in with actual keys, use them
+          secretKey = hexToBytes(identity.secretKey);
+          publicKey = pubkey;
+        }
       } else {
         // User is not logged in, use the same anonymous identity as RelayContext
         const ANON_KEY = 'peek_anonymous_identity';
@@ -257,9 +284,36 @@ export const JoinFlow: React.FC = () => {
     let userPubkey: string;
 
     if (identity?.secretKey && pubkey) {
-      // User is logged in, use their actual keys
-      secretKey = hexToBytes(identity.secretKey);
-      userPubkey = pubkey;
+      // Check if using NIP-07 browser extension
+      if (identity.secretKey === 'NIP07_EXTENSION') {
+        // Can't use extension for location validation, fall back to anonymous
+        const ANON_KEY = 'peek_anonymous_identity';
+        const anonIdentity = localStorage.getItem(ANON_KEY);
+
+        if (!anonIdentity) {
+          const newSecretKey = generateSecretKey();
+          const newPublicKey = getPublicKey(newSecretKey);
+
+          localStorage.setItem(ANON_KEY, JSON.stringify({
+            secretKey: bytesToHex(newSecretKey),
+            publicKey: newPublicKey,
+            createdAt: Date.now()
+          }));
+
+          secretKey = newSecretKey;
+          userPubkey = newPublicKey;
+          console.log('[JoinFlow] Generated anonymous identity for NIP-07 user:', newPublicKey.slice(0, 8) + '...');
+        } else {
+          const parsed = JSON.parse(anonIdentity);
+          secretKey = hexToBytes(parsed.secretKey);
+          userPubkey = parsed.publicKey;
+          console.log('[JoinFlow] Using existing anonymous identity for NIP-07 user:', userPubkey.slice(0, 8) + '...');
+        }
+      } else {
+        // User is logged in with actual keys, use them
+        secretKey = hexToBytes(identity.secretKey);
+        userPubkey = pubkey;
+      }
     } else {
       // User is not logged in, use the same anonymous identity as RelayContext
       const ANON_KEY = 'peek_anonymous_identity';

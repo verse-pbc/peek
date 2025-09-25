@@ -175,6 +175,17 @@ export function AdminPanel({
   const promoteToAdmin = async (memberPubkey: string) => {
     if (!groupManager || !identity) return;
 
+    // Check if using NIP-07 browser extension
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
+      toast({
+        title: 'Error',
+        description: 'Admin actions require a private key. NIP-07 extension not supported.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setProcessingAction(memberPubkey);
     try {
       const secretKey = hexToBytes(identity.secretKey);
@@ -203,6 +214,17 @@ export function AdminPanel({
 
   const removeAdmin = async (memberPubkey: string) => {
     if (!groupManager || !identity) return;
+
+    // Check if using NIP-07 browser extension
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
+      toast({
+        title: 'Error',
+        description: 'Admin actions require a private key. NIP-07 extension not supported.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     setProcessingAction(memberPubkey);
     try {
@@ -233,6 +255,17 @@ export function AdminPanel({
 
   const muteMember = async (memberPubkey: string) => {
     if (!relayManager || !identity) return;
+
+    // Check if using NIP-07 browser extension
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
+      toast({
+        title: 'Error',
+        description: 'Admin actions require a private key. NIP-07 extension not supported.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     setProcessingAction(memberPubkey);
     try {
@@ -274,6 +307,17 @@ export function AdminPanel({
   const unmuteMember = async (memberPubkey: string) => {
     if (!relayManager || !identity) return;
 
+    // Check if using NIP-07 browser extension
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
+      toast({
+        title: 'Error',
+        description: 'Admin actions require a private key. NIP-07 extension not supported.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setProcessingAction(memberPubkey);
     try {
       const secretKey = hexToBytes(identity.secretKey);
@@ -313,6 +357,17 @@ export function AdminPanel({
 
   const removeMember = async (memberPubkey: string) => {
     if (!groupManager || !identity) return;
+
+    // Check if using NIP-07 browser extension
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
+      toast({
+        title: 'Error',
+        description: 'Admin actions require a private key. NIP-07 extension not supported.',
+        variant: 'destructive'
+      });
+      return;
+    }
 
     setProcessingAction(memberPubkey);
     try {
