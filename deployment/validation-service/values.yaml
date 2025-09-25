@@ -41,7 +41,7 @@ env:
 
 # Nostr configuration - will be replaced with actual values
 nostr:
-  relayUrl: "wss://communities.nos.social"
+  relayUrl: "wss://communities2.nos.social"
   # Private key will be stored in a sealed secret
 
 livenessProbe:
