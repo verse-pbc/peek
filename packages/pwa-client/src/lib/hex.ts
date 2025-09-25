@@ -16,6 +16,11 @@ export function hexToBytes(hex: string): Uint8Array {
     hex = hex.slice(2);
   }
 
+  // Validate that the string only contains hex characters
+  if (!/^[0-9a-fA-F]*$/.test(hex)) {
+    throw new Error(`Invalid hex string: contains non-hex characters. Input starts with: ${hex.slice(0, 20)}`);
+  }
+
   // Pad with leading zero if odd length
   if (hex.length % 2 !== 0) {
     console.warn(`hexToBytes: Padding odd-length hex string: ${hex.slice(0, 8)}...`);
