@@ -41,7 +41,7 @@ import { NIP29_KINDS } from '@/services/relay-manager';
 import { GroupManager } from '@/services/group-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
-import { nip19, SimplePool, Filter, finalizeEvent, EventTemplate } from 'nostr-tools';
+import { nip19, SimplePool, Filter, finalizeEvent, EventTemplate, type VerifiedEvent } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
 
@@ -81,11 +81,29 @@ export function AdminPanel({
 
   // Initialize group manager with shared relay manager
   useEffect(() => {
-    if (!relayManager) return;
+    if (!relayManager || !identity) return;
 
     const groupMgr = new GroupManager(relayManager);
+
+    // Set up event signer for NIP-07 support
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      groupMgr.setEventSigner(async (event: EventTemplate) => {
+        if (!window.nostr) {
+          throw new Error('Browser extension not available');
+        }
+        const signedEvent = await window.nostr.signEvent(event);
+        return signedEvent as VerifiedEvent;
+      });
+    } else {
+      groupMgr.setEventSigner(async (event: EventTemplate) => {
+        const secretKey = hexToBytes(identity.secretKey);
+        const signedEvent = finalizeEvent(event, secretKey) as VerifiedEvent;
+        return signedEvent;
+      });
+    }
+
     setGroupManager(groupMgr);
-  }, [relayManager]);
+  }, [relayManager, identity]);
 
   // Subscribe to connection status from context
   useEffect(() => {
@@ -175,20 +193,12 @@ export function AdminPanel({
   const promoteToAdmin = async (memberPubkey: string) => {
     if (!groupManager || !identity) return;
 
-    // Check if using NIP-07 browser extension
-    if (identity.secretKey === 'NIP07_EXTENSION') {
-      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
-      toast({
-        title: 'Error',
-        description: 'Admin actions require a private key. NIP-07 extension not supported.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setProcessingAction(memberPubkey);
     try {
-      const secretKey = hexToBytes(identity.secretKey);
+      // Pass undefined for secretKey if using NIP-07
+      const secretKey = identity.secretKey === 'NIP07_EXTENSION'
+        ? undefined
+        : hexToBytes(identity.secretKey);
       await groupManager.addUser(groupId, memberPubkey, secretKey, ['admin']);
 
       // Update local state
@@ -215,20 +225,12 @@ export function AdminPanel({
   const removeAdmin = async (memberPubkey: string) => {
     if (!groupManager || !identity) return;
 
-    // Check if using NIP-07 browser extension
-    if (identity.secretKey === 'NIP07_EXTENSION') {
-      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
-      toast({
-        title: 'Error',
-        description: 'Admin actions require a private key. NIP-07 extension not supported.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setProcessingAction(memberPubkey);
     try {
-      const secretKey = hexToBytes(identity.secretKey);
+      // Pass undefined for secretKey if using NIP-07
+      const secretKey = identity.secretKey === 'NIP07_EXTENSION'
+        ? undefined
+        : hexToBytes(identity.secretKey);
       // Re-add user as regular member (no roles)
       await groupManager.addUser(groupId, memberPubkey, secretKey, []);
 
@@ -256,32 +258,38 @@ export function AdminPanel({
   const muteMember = async (memberPubkey: string) => {
     if (!relayManager || !identity) return;
 
-    // Check if using NIP-07 browser extension
-    if (identity.secretKey === 'NIP07_EXTENSION') {
-      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
-      toast({
-        title: 'Error',
-        description: 'Admin actions require a private key. NIP-07 extension not supported.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setProcessingAction(memberPubkey);
     try {
-      const secretKey = hexToBytes(identity.secretKey);
-      // Create NIP-29 mute user event (kind 9005)
-      const eventTemplate: EventTemplate = {
-        kind: NIP29_KINDS.DELETE_EVENT,
-        content: 'User muted',
-        tags: [
-          ['h', groupId],
-          ['p', memberPubkey]
-        ],
-        created_at: Math.floor(Date.now() / 1000)
-      };
-      const event = finalizeEvent(eventTemplate, secretKey);
-      await relayManager.publishEvent(event);
+      // For now, mute/unmute still needs direct signing since it's not in GroupManager
+      // TODO: Move this to GroupManager for consistency
+      if (identity.secretKey === 'NIP07_EXTENSION') {
+        // Use NIP-07 for signing
+        const eventTemplate: EventTemplate = {
+          kind: NIP29_KINDS.DELETE_EVENT,
+          content: 'User muted',
+          tags: [
+            ['h', groupId],
+            ['p', memberPubkey]
+          ],
+          created_at: Math.floor(Date.now() / 1000)
+        };
+        const event = await window.nostr!.signEvent(eventTemplate) as VerifiedEvent;
+        await relayManager.publishEvent(event);
+      } else {
+        const secretKey = hexToBytes(identity.secretKey);
+        // Create NIP-29 mute user event (kind 9005)
+        const eventTemplate: EventTemplate = {
+          kind: NIP29_KINDS.DELETE_EVENT,
+          content: 'User muted',
+          tags: [
+            ['h', groupId],
+            ['p', memberPubkey]
+          ],
+          created_at: Math.floor(Date.now() / 1000)
+        };
+        const event = finalizeEvent(eventTemplate, secretKey);
+        await relayManager.publishEvent(event);
+      }
 
       // Update local state
       setMembers(prev => prev.map(m =>
@@ -307,32 +315,38 @@ export function AdminPanel({
   const unmuteMember = async (memberPubkey: string) => {
     if (!relayManager || !identity) return;
 
-    // Check if using NIP-07 browser extension
-    if (identity.secretKey === 'NIP07_EXTENSION') {
-      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
-      toast({
-        title: 'Error',
-        description: 'Admin actions require a private key. NIP-07 extension not supported.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setProcessingAction(memberPubkey);
     try {
-      const secretKey = hexToBytes(identity.secretKey);
-      // Note: NIP-29 doesn't have a standard unmute event, this would be custom
-      const eventTemplate: EventTemplate = {
-        kind: 9006, // Custom unmute event
-        content: 'User unmuted',
-        tags: [
-          ['h', groupId],
-          ['p', memberPubkey]
-        ],
-        created_at: Math.floor(Date.now() / 1000)
-      };
-      const event = finalizeEvent(eventTemplate, secretKey);
-      await relayManager.publishEvent(event);
+      // For now, mute/unmute still needs direct signing since it's not in GroupManager
+      // TODO: Move this to GroupManager for consistency
+      if (identity.secretKey === 'NIP07_EXTENSION') {
+        // Use NIP-07 for signing
+        const eventTemplate: EventTemplate = {
+          kind: 9006, // Custom unmute event
+          content: 'User unmuted',
+          tags: [
+            ['h', groupId],
+            ['p', memberPubkey]
+          ],
+          created_at: Math.floor(Date.now() / 1000)
+        };
+        const event = await window.nostr!.signEvent(eventTemplate) as VerifiedEvent;
+        await relayManager.publishEvent(event);
+      } else {
+        const secretKey = hexToBytes(identity.secretKey);
+        // Note: NIP-29 doesn't have a standard unmute event, this would be custom
+        const eventTemplate: EventTemplate = {
+          kind: 9006, // Custom unmute event
+          content: 'User unmuted',
+          tags: [
+            ['h', groupId],
+            ['p', memberPubkey]
+          ],
+          created_at: Math.floor(Date.now() / 1000)
+        };
+        const event = finalizeEvent(eventTemplate, secretKey);
+        await relayManager.publishEvent(event);
+      }
 
       // Update local state
       setMembers(prev => prev.map(m =>
@@ -358,20 +372,12 @@ export function AdminPanel({
   const removeMember = async (memberPubkey: string) => {
     if (!groupManager || !identity) return;
 
-    // Check if using NIP-07 browser extension
-    if (identity.secretKey === 'NIP07_EXTENSION') {
-      console.warn('[AdminPanel] Cannot perform admin actions with NIP-07 extension - private key not available');
-      toast({
-        title: 'Error',
-        description: 'Admin actions require a private key. NIP-07 extension not supported.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
     setProcessingAction(memberPubkey);
     try {
-      const secretKey = hexToBytes(identity.secretKey);
+      // Pass undefined for secretKey if using NIP-07
+      const secretKey = identity.secretKey === 'NIP07_EXTENSION'
+        ? undefined
+        : hexToBytes(identity.secretKey);
       await groupManager.removeUser(groupId, memberPubkey, secretKey, 'User removed from group');
 
       // Update local state
