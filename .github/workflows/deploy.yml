@@ -1,43 +1,55 @@
 name: Build and Deploy
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+  push:
+    branches: ['main']
+  pull_request:
+    branches: ['main']
 
 permissions:
-  contents: read
+  contents: write
   packages: write
+  actions: write
 
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ${{ github.repository_owner }}
 
 jobs:
-  changes:
-    name: Detect Changes
+  get_version:
+    name: Determine Version
     runs-on: ubuntu-latest
     outputs:
-      pwa: ${{ steps.filter.outputs.pwa }}
-      validation: ${{ steps.filter.outputs.validation }}
+      SemVer: ${{ steps.get-version.outputs.SemVer }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
-        id: filter
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          filters: |
-            pwa:
-              - 'packages/pwa-client/**'
-              - 'shared/**'
-              - 'pnpm-lock.yaml'
-            validation:
-              - 'packages/validation-service/**'
+          fetch-depth: 0
+
+      - name: Determine Version
+        id: get-version
+        run: |
+          # Use timestamp and short SHA for unique versioning
+          # Format: 0.1.YYYYMMDD-HHMM-SHA
+          TIMESTAMP=$(date -u +"%Y%m%d-%H%M")
+          SHORT_SHA=$(echo ${GITHUB_SHA} | cut -c1-7)
+          VERSION="0.1.${TIMESTAMP}-${SHORT_SHA}"
+          echo "SemVer=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
+
+      - name: Output Version
+        run: |
+          echo "Version for this build: ${{ steps.get-version.outputs.SemVer }}"
 
   build-pwa:
     name: Build PWA Client
-    # needs: changes
-    # if: needs.changes.outputs.pwa == 'true' || github.event_name == 'workflow_dispatch'
-    if: always()
+    needs: [get_version]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -58,9 +70,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/peek-pwa-client
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
+            type=raw,value=${{ needs.get_version.outputs.SemVer }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
@@ -78,9 +88,7 @@ jobs:
 
   build-validation:
     name: Build Validation Service
-    # needs: changes
-    # if: needs.changes.outputs.validation == 'true' || github.event_name == 'workflow_dispatch'
-    if: always()
+    needs: [get_version]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -101,9 +109,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/peek-validation-service
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
+            type=raw,value=${{ needs.get_version.outputs.SemVer }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
@@ -114,3 +120,69 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  merge_to_release:
+    name: Merge to Release and Update Versions
+    needs: [build-pwa, build-validation, get_version]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Check Out the Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Merge main Branch to Release
+        shell: bash
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+          git checkout release
+          git merge -Xtheirs --no-commit origin/main || true
+          # Reset workflow files to avoid permission issues
+          git reset HEAD .github/workflows/
+          git checkout -- .github/workflows/
+
+      - name: Update PWA Client Version
+        shell: bash
+        run: |
+          echo "Updating PWA Client to version: ${{ needs.get_version.outputs.SemVer }}"
+          yq -i '.version = "${{ needs.get_version.outputs.SemVer }}"' ./deployment/pwa-client/Chart.yaml
+          yq -i '.appVersion = "${{ needs.get_version.outputs.SemVer }}"' ./deployment/pwa-client/Chart.yaml
+          yq -i '.image.tag = "${{ needs.get_version.outputs.SemVer }}"' ./deployment/pwa-client/values.yaml
+
+      - name: Update Validation Service Version
+        shell: bash
+        run: |
+          echo "Updating Validation Service to version: ${{ needs.get_version.outputs.SemVer }}"
+          yq -i '.version = "${{ needs.get_version.outputs.SemVer }}"' ./deployment/validation-service/Chart.yaml
+          yq -i '.appVersion = "${{ needs.get_version.outputs.SemVer }}"' ./deployment/validation-service/Chart.yaml
+          yq -i '.image.tag = "${{ needs.get_version.outputs.SemVer }}"' ./deployment/validation-service/values.yaml
+
+      - name: Commit and Push Changes
+        shell: bash
+        run: |
+          git add deployment/*/Chart.yaml deployment/*/values.yaml
+          git commit -m "Deploy version ${{ needs.get_version.outputs.SemVer }}" || echo "No changes to commit"
+          git push origin release
+
+      - name: Output Deployment Summary
+        run: |
+          echo "# Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## Version Deployed: ${{ needs.get_version.outputs.SemVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Images Built and Pushed:" >> $GITHUB_STEP_SUMMARY
+          echo "- ghcr.io/${{ env.IMAGE_PREFIX }}/peek-pwa-client:${{ needs.get_version.outputs.SemVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ghcr.io/${{ env.IMAGE_PREFIX }}/peek-validation-service:${{ needs.get_version.outputs.SemVer }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Updated Files in Release Branch:" >> $GITHUB_STEP_SUMMARY
+          echo "- deployment/pwa-client/values.yaml" >> $GITHUB_STEP_SUMMARY
+          echo "- deployment/validation-service/values.yaml" >> $GITHUB_STEP_SUMMARY
