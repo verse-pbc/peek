@@ -352,37 +352,40 @@ impl RelayService {
 
     /// Get the member count for a NIP-29 group
     async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
-        // Count kind 9000 (put-user) events with h-tag for this group
-        // This gives us the actual member additions
+        // Fetch kind 39002 (group members) event using d-tag
+        // This is the relay-generated list of all group members
         let members_filter = Filter::new()
-            .kind(Kind::from(9000))
-            .custom_tag(
-                SingleLetterTag::lowercase(Alphabet::H),
-                group_id.to_string(),
-            )
-            .limit(100);
+            .kind(Kind::from(39002))
+            .identifier(group_id)
+            .limit(1);
 
         let members_events = self
             .client
             .fetch_events(members_filter, Duration::from_secs(5))
             .await?;
 
-        // Count unique pubkeys from p-tags
-        let mut unique_members = std::collections::HashSet::new();
+        // Get the first (and should be only) kind 39002 event
+        let mut member_count = 0u32;
+
         for event in members_events {
+            // Count p-tags in the kind 39002 event
             for tag in event.tags.iter() {
                 if let TagKind::SingleLetter(single_letter) = tag.kind() {
                     if single_letter.character == Alphabet::P {
-                        if let Some(pubkey) = tag.content() {
-                            unique_members.insert(pubkey.to_string());
-                        }
+                        member_count += 1;
                     }
                 }
             }
+            break; // Only process the first event
         }
 
-        let member_count = unique_members.len() as u32;
-        tracing::info!("Found {} members in group {}", member_count, group_id);
+        // If no event was found, member_count remains 0
+        if member_count == 0 {
+            tracing::info!("No kind 39002 event found for group {}, returning 0 members", group_id);
+            return Ok(0);
+        }
+
+        tracing::info!("Found {} members in group {} from kind 39002", member_count, group_id);
         Ok(member_count)
     }
 
