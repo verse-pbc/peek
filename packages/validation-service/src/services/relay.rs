@@ -365,10 +365,9 @@ impl RelayService {
             .await?;
 
         // Get the first (and should be only) kind 39002 event
-        let mut member_count = 0u32;
-
-        for event in members_events {
+        if let Some(event) = members_events.into_iter().next() {
             // Count p-tags in the kind 39002 event
+            let mut member_count = 0u32;
             for tag in event.tags.iter() {
                 if let TagKind::SingleLetter(single_letter) = tag.kind() {
                     if single_letter.character == Alphabet::P {
@@ -376,24 +375,21 @@ impl RelayService {
                     }
                 }
             }
-            break; // Only process the first event
-        }
 
-        // If no event was found, member_count remains 0
-        if member_count == 0 {
             tracing::info!(
-                "No kind 39002 event found for group {}, returning 0 members",
+                "Found {} members in group {} from kind 39002",
+                member_count,
                 group_id
             );
-            return Ok(0);
+            return Ok(member_count);
         }
 
+        // No kind 39002 event found
         tracing::info!(
-            "Found {} members in group {} from kind 39002",
-            member_count,
+            "No kind 39002 event found for group {}, returning 0 members",
             group_id
         );
-        Ok(member_count)
+        Ok(0)
     }
 
     /// Get NIP-29 group metadata from relay
