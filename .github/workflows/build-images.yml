@@ -1,0 +1,51 @@
+name: Build Docker Images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push PWA Client
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./packages/pwa-client/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/verse-pbc/peek-pwa-client:latest
+            ghcr.io/verse-pbc/peek-pwa-client:${{ github.sha }}
+          build-args: |
+            VITE_RELAY_URL=wss://communities2.nos.social
+            VITE_VALIDATION_SERVICE_PUBKEY=npub1de8w8ur3drv89rtezsw0j32hq4wvv05qarsrdvxw75vvp9w35zdswz2tsq
+            VITE_DEV_MODE=false
+
+      - name: Build and push Validation Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./packages/validation-service
+          file: ./packages/validation-service/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/verse-pbc/peek-validation-service:latest
+            ghcr.io/verse-pbc/peek-validation-service:${{ github.sha }}

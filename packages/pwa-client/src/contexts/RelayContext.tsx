@@ -64,7 +64,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     } else {
       // Generate anonymous identity for new users
       const ANON_KEY = 'peek_anonymous_identity';
-      let anonIdentity = localStorage.getItem(ANON_KEY);
+      const anonIdentity = localStorage.getItem(ANON_KEY);
 
       if (anonIdentity) {
         // Use existing anonymous identity

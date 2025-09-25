@@ -8,7 +8,11 @@ import {
 } from './location-capture';
 
 describe('LocationCapture', () => {
-  let mockGeolocation: any;
+  let mockGeolocation: {
+    getCurrentPosition: ReturnType<typeof vi.fn>;
+    watchPosition: ReturnType<typeof vi.fn>;
+    clearWatch: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     // Mock geolocation API
@@ -39,7 +43,7 @@ describe('LocationCapture', () => {
 
   describe('captureLocation', () => {
     it('should capture location successfully', async () => {
-      const mockPosition = {
+      const mockPosition: GeolocationPosition = {
         coords: {
           latitude: 37.7749,
           longitude: -122.4194,
@@ -48,11 +52,13 @@ describe('LocationCapture', () => {
           altitudeAccuracy: null,
           heading: null,
           speed: null,
+          toJSON: () => ({}),
         },
         timestamp: Math.floor(Date.now() / 1000),
+        toJSON: () => ({}),
       };
 
-      mockGeolocation.getCurrentPosition.mockImplementation((success: any) => {
+      mockGeolocation.getCurrentPosition.mockImplementation((success: PositionCallback) => {
         success(mockPosition);
       });
 
@@ -67,7 +73,7 @@ describe('LocationCapture', () => {
     });
 
     it('should fail when accuracy exceeds requirement', async () => {
-      const mockPosition = {
+      const mockPosition: GeolocationPosition = {
         coords: {
           latitude: 37.7749,
           longitude: -122.4194,
@@ -76,11 +82,13 @@ describe('LocationCapture', () => {
           altitudeAccuracy: null,
           heading: null,
           speed: null,
+          toJSON: () => ({}),
         },
         timestamp: Math.floor(Date.now() / 1000),
+        toJSON: () => ({}),
       };
 
-      mockGeolocation.getCurrentPosition.mockImplementation((success: any) => {
+      mockGeolocation.getCurrentPosition.mockImplementation((success: PositionCallback) => {
         success(mockPosition);
       });
 
@@ -92,7 +100,7 @@ describe('LocationCapture', () => {
     });
 
     it('should handle permission denied error', async () => {
-      const mockError = {
+      const mockError: GeolocationPositionError = {
         code: 1, // PERMISSION_DENIED
         message: 'User denied Geolocation',
         PERMISSION_DENIED: 1,
@@ -100,7 +108,7 @@ describe('LocationCapture', () => {
         TIMEOUT: 3,
       };
 
-      mockGeolocation.getCurrentPosition.mockImplementation((_: any, error: any) => {
+      mockGeolocation.getCurrentPosition.mockImplementation((_: PositionCallback, error: PositionErrorCallback) => {
         error(mockError);
       });
 
@@ -112,7 +120,7 @@ describe('LocationCapture', () => {
     });
 
     it('should handle timeout error', async () => {
-      const mockError = {
+      const mockError: GeolocationPositionError = {
         code: 3, // TIMEOUT
         message: 'Timeout expired',
         PERMISSION_DENIED: 1,
@@ -120,7 +128,7 @@ describe('LocationCapture', () => {
         TIMEOUT: 3,
       };
 
-      mockGeolocation.getCurrentPosition.mockImplementation((_: any, error: any) => {
+      mockGeolocation.getCurrentPosition.mockImplementation((_: PositionCallback, error: PositionErrorCallback) => {
         error(mockError);
       });
 
@@ -134,7 +142,7 @@ describe('LocationCapture', () => {
 
   describe('watchLocation', () => {
     it('should watch location changes', () => {
-      const mockPosition = {
+      const mockPosition: GeolocationPosition = {
         coords: {
           latitude: 37.7749,
           longitude: -122.4194,
@@ -143,8 +151,10 @@ describe('LocationCapture', () => {
           altitudeAccuracy: null,
           heading: null,
           speed: null,
+          toJSON: () => ({}),
         },
         timestamp: Math.floor(Date.now() / 1000),
+        toJSON: () => ({}),
       };
 
       mockGeolocation.watchPosition.mockReturnValue(123); // Watch ID
@@ -173,7 +183,7 @@ describe('LocationCapture', () => {
     });
 
     it('should handle watch errors', () => {
-      const mockError = {
+      const mockError: GeolocationPositionError = {
         code: 1,
         message: 'Permission denied',
         PERMISSION_DENIED: 1,

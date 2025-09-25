@@ -5,10 +5,22 @@ fn main() {
 
     // Test various public key formats
     let test_cases = vec![
-        ("hex_lowercase", "5504598d51f267a0a0a859efc9d424aeeb0fcc5ec78263536fff141123b8e95f"),
-        ("hex_uppercase", "5504598D51F267A0A0A859EFC9D424AEEB0FCC5EC78263536FFF141123B8E95F"),
-        ("npub", "npub12h8yzvxk9j4e66p69rvqf9fzpez8w6q8jmuutl5ajcxccvxrxcjslx65kl"),
-        ("hex_with_0x", "0x5504598d51f267a0a0a859efc9d424aeeb0fcc5ec78263536fff141123b8e95f"),
+        (
+            "hex_lowercase",
+            "5504598d51f267a0a0a859efc9d424aeeb0fcc5ec78263536fff141123b8e95f",
+        ),
+        (
+            "hex_uppercase",
+            "5504598D51F267A0A0A859EFC9D424AEEB0FCC5EC78263536FFF141123B8E95F",
+        ),
+        (
+            "npub",
+            "npub12h8yzvxk9j4e66p69rvqf9fzpez8w6q8jmuutl5ajcxccvxrxcjslx65kl",
+        ),
+        (
+            "hex_with_0x",
+            "0x5504598d51f267a0a0a859efc9d424aeeb0fcc5ec78263536fff141123b8e95f",
+        ),
     ];
 
     for (name, input) in test_cases {

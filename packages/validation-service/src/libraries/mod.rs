@@ -1,2 +1,1 @@
-pub mod invite_creator;
-pub mod location_check;
+// This module is currently empty - location validation is handled via geohash

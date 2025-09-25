@@ -112,7 +112,7 @@ export function AdminPanel({
 
         if (groupState) {
           // Process members from group state
-          for (const [pubkey, member] of groupState.members) {
+          for (const [pubkey, _member] of groupState.members) {
             memberMap.set(pubkey, {
               pubkey,
               npub: nip19.npubEncode(pubkey),

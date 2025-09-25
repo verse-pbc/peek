@@ -1,10 +1,10 @@
 // Temporary shim for Nostrify until we properly configure JSR packages
 import React from 'react';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-import { bytesToHex, hexToBytes } from '../lib/hex';
+import { bytesToHex } from '../lib/hex';
 import { nip19 } from 'nostr-tools';
 
-export const NostrContext = React.createContext<any>({});
+export const NostrContext = React.createContext<{ nostr?: unknown }>({});
 
 export const NostrLoginProvider: React.FC<{ 
   children: React.ReactNode;
@@ -247,9 +247,9 @@ declare global {
 }
 
 export class NPool {
-  constructor(config: any) {}
+  constructor(_config: unknown) {}
 
-  req(filters: any[]): AsyncIterable<any> {
+  req(_filters: unknown[]): AsyncIterable<unknown> {
     return {
       async *[Symbol.asyncIterator]() {
         // Mock implementation
@@ -258,7 +258,7 @@ export class NPool {
   }
 
   // Add fetchEvents method to match NDK API
-  async fetchEvents(filter: any): Promise<Set<any>> {
+  async fetchEvents(_filter: unknown): Promise<Set<unknown>> {
     // Return empty Set for now since we're mocking
     // In production, this would connect to the relay
     return new Set();
@@ -266,5 +266,5 @@ export class NPool {
 }
 
 export class NRelay1 {
-  constructor(url: string) {}
+  constructor(_url: string) {}
 }

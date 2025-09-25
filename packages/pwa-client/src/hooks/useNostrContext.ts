@@ -1,10 +1,14 @@
 import React from 'react';
-import { NostrContext, useNostrLogin } from '@/lib/nostrify-shim';
+import { NostrContext, useNostrLogin, NPool } from '@/lib/nostrify-shim';
 
 interface NostrUser { pubkey: string }
 
-export function useNostrContext(): { ndk: any | null; user: NostrUser | null } {
-  const ctx = React.useContext(NostrContext) as any;
+interface NostrContextType {
+  nostr: NPool | null;
+}
+
+export function useNostrContext(): { ndk: NPool | null; user: NostrUser | null } {
+  const ctx = React.useContext(NostrContext) as NostrContextType;
   const { pubkey } = useNostrLogin();
   const user = pubkey ? { pubkey } : null;
   return { ndk: ctx?.nostr ?? null, user };

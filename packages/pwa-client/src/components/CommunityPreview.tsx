@@ -34,7 +34,7 @@ interface CommunityPreviewProps {
 }
 
 export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
-  communityId,
+  communityId: _communityId,
   previewData,
   onJoin,
   isJoining = false,

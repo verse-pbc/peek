@@ -277,7 +277,7 @@ export class LocationCapture {
   private getErrorMessage(error: unknown): string {
     // Check if it's a GeolocationPositionError-like object
     if (error && typeof error === 'object' && 'code' in error) {
-      const geoError = error as any;
+      const geoError = error as { code: number; message?: string };
       switch (geoError.code) {
         case 1: // PERMISSION_DENIED
           return 'Location permission denied';

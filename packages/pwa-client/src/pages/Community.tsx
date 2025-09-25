@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SimplePool, type Event, type Filter } from 'nostr-tools';
+import { SimplePool, type Filter } from 'nostr-tools';
 import { CommunityFeed } from '../components/CommunityFeed';
 import { AdminPanel } from '../components/AdminPanel';
 import { Button } from '../components/ui/button';
@@ -37,7 +37,7 @@ const Community = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   const { pubkey } = useNostrLogin();
-  const { toast } = useToast();
+  const { toast: _toast } = useToast();
 
   const [communityData, setCommunityData] = useState<CommunityData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,7 @@ const Community = () => {
 
       // First check if user has joined this community (stored in localStorage)
       const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-      const groupInfo = joinedGroups.find((g: any) => g.communityId === communityId);
+      const groupInfo = joinedGroups.find((g: { communityId: string; isAdmin?: boolean }) => g.communityId === communityId);
 
       if (!groupInfo) {
         // User hasn't joined this community at all
@@ -124,8 +124,8 @@ const Community = () => {
             }
 
             // Extract other metadata
-            const aboutTag = metadata.tags.find(tag => tag[0] === 'about');
-            const pictureTag = metadata.tags.find(tag => tag[0] === 'picture');
+            const _aboutTag = metadata.tags.find(tag => tag[0] === 'about');
+            const _pictureTag = metadata.tags.find(tag => tag[0] === 'picture');
 
             community.createdAt = metadata.created_at;
           }

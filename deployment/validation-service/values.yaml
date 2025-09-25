@@ -1,0 +1,59 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/verse-pbc/peek-validation-service
+  tag: "latest"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3001
+
+ingress:
+  enabled: true
+  className: "nginx"
+  host: "api.peek.verse.app"
+  tls:
+    enabled: true
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+env:
+  PORT: "3001"
+  RUST_LOG: "info"
+  MAX_DISTANCE_METERS: "25"
+  MAX_ACCURACY_METERS: "50"
+  MAX_TIMESTAMP_AGE_SECONDS: "30"
+  INVITE_EXPIRY_SECONDS: "300"
+
+# Nostr configuration - will be replaced with actual values
+nostr:
+  relayUrl: "wss://communities.nos.social"
+  # Private key will be stored in a sealed secret
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3001
+  initialDelaySeconds: 30
+  timeoutSeconds: 5
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3001
+  initialDelaySeconds: 5
+  timeoutSeconds: 3

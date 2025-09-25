@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: peek-validation-service
+  namespace: peek
+  labels:
+    app.kubernetes.io/name: peek-validation-service
+    app.kubernetes.io/part-of: peek
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: peek-validation-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: peek-validation-service
+        app.kubernetes.io/part-of: peek
+        app.kubernetes.io/component: backend
+    spec:
+      containers:
+        - name: validation-service
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "{{ .Values.env.PORT }}"
+            - name: RUST_LOG
+              value: "{{ .Values.env.RUST_LOG }}"
+            - name: RELAY_URL
+              value: "{{ .Values.nostr.relayUrl }}"
+            - name: PUBLIC_RELAY_URL
+              value: "{{ .Values.nostr.relayUrl }}"
+            - name: MAX_DISTANCE_METERS
+              value: "{{ .Values.env.MAX_DISTANCE_METERS }}"
+            - name: MAX_ACCURACY_METERS
+              value: "{{ .Values.env.MAX_ACCURACY_METERS }}"
+            - name: MAX_TIMESTAMP_AGE_SECONDS
+              value: "{{ .Values.env.MAX_TIMESTAMP_AGE_SECONDS }}"
+            - name: INVITE_EXPIRY_SECONDS
+              value: "{{ .Values.env.INVITE_EXPIRY_SECONDS }}"
+            - name: RELAY_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: peek-validation-secret
+                  key: relay-secret-key
+            - name: SERVICE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: peek-validation-secret
+                  key: service-secret-key
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.httpGet.path }}
+              port: {{ .Values.livenessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.httpGet.path }}
+              port: {{ .Values.readinessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

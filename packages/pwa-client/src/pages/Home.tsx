@@ -2,15 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { useNostrContext } from '@/hooks/useNostrContext';
-import { NDKEvent, NDKKind } from '@/lib/ndk-shim';
-import { nip19 } from 'nostr-tools';
+import { NDKKind } from '@/lib/ndk-shim';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   MapPin,
   Users,
@@ -100,7 +98,7 @@ const Home = () => {
         // Extract unique group IDs
         if (memberEvents && memberEvents.size > 0) {
           for (const event of memberEvents) {
-            const hTag = event.tags.find(tag => tag[0] === 'h');
+            const hTag = (event as Event & { tags: string[][] }).tags.find((tag: string[]) => tag[0] === 'h');
             if (hTag && hTag[1]) {
               groupIds.add(hTag[1]);
             }
@@ -128,7 +126,7 @@ const Home = () => {
           const adminEvents = await ndk.fetchEvents(adminFilter);
 
           for (const event of adminEvents) {
-            const permissionTag = event.tags.find(tag => tag[0] === 'permission');
+            const permissionTag = (event as Event & { tags: string[][] }).tags.find((tag: string[]) => tag[0] === 'permission');
             if (permissionTag && permissionTag[1] === 'add-user') {
               community.isAdmin = true;
               break;
@@ -145,7 +143,7 @@ const Home = () => {
           const messageEvents = await ndk.fetchEvents(messagesFilter);
 
           for (const event of messageEvents) {
-            community.lastActivity = event.created_at;
+            community.lastActivity = (event as Event & { created_at: number }).created_at;
             break;
           }
 
@@ -160,7 +158,7 @@ const Home = () => {
           const uniqueMembers = new Set<string>();
 
           for (const event of allMemberEvents) {
-            const pTag = event.tags.find(tag => tag[0] === 'p');
+            const pTag = (event as Event & { tags: string[][] }).tags.find((tag: string[]) => tag[0] === 'p');
             if (pTag && pTag[1]) {
               uniqueMembers.add(pTag[1]);
             }
@@ -219,7 +217,7 @@ const Home = () => {
       isActive = false;
       clearInterval(pollInterval);
     };
-  }, [ndk, user?.pubkey]); // Only depend on user.pubkey, not the whole user object
+  }, [ndk, user, toast]); // Include toast and user as dependencies
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';

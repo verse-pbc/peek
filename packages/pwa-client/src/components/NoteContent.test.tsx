@@ -1,8 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { TestApp } from '@/test/TestApp';
 import { NoteContent } from './NoteContent';
 import type { NostrEvent } from '@nostrify/nostrify';
+
+// Mock the useAuthor hook to avoid NostrProvider dependency issues in tests
+vi.mock('@/hooks/useAuthor', () => ({
+  useAuthor: vi.fn(() => ({
+    data: {
+      metadata: undefined,
+      event: undefined
+    },
+    isLoading: false,
+    error: null
+  }))
+}));
 
 describe('NoteContent', () => {
   it('linkifies URLs in kind 1 events', () => {

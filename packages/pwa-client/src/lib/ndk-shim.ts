@@ -7,8 +7,8 @@ export class NDKEvent {
   tags: string[][] = [];
   created_at?: number;
   pubkey: string = '';
-  private _ndk: any;
-  constructor(ndk: any) {
+  private _ndk: unknown;
+  constructor(ndk: unknown) {
     this._ndk = ndk;
   }
   async publish(): Promise<void> {

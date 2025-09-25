@@ -22,15 +22,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "success": true,
         "name": "Test Community",
         "member_count": 42
-    }).to_string();
+    })
+    .to_string();
 
     let mut rumor = UnsignedEvent::new(
         sender_keys.public_key(),
         Timestamp::from(1700000000), // Fixed timestamp for reproducibility
-        Kind::from(27493), // Response kind
+        Kind::from(27493),           // Response kind
         vec![Tag::custom(
             TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::E)),
-            vec!["test-request-id".to_string()]
+            vec!["test-request-id".to_string()],
         )],
         content.clone(),
     );
@@ -45,11 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Seal created: {}", seal.id);
 
     // Create gift wrap from seal
-    let gift_wrap = EventBuilder::gift_wrap_from_seal(
-        &recipient_keys.public_key(),
-        &seal,
-        vec![]
-    )?;
+    let gift_wrap = EventBuilder::gift_wrap_from_seal(&recipient_keys.public_key(), &seal, vec![])?;
 
     println!("Gift wrap created: {}", gift_wrap.id);
     println!("Gift wrap ephemeral pubkey: {}", gift_wrap.pubkey.to_hex());

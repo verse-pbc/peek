@@ -75,7 +75,7 @@ export function useQRScanner(options: UseQRScannerOptions = {}): UseQRScannerRet
         scannerRef.current.stopScanning();
       }
     };
-  }, [options.continuousScan, options.scanDelay]);
+  }, [options]);
 
   // Request camera permission
   const requestPermission = useCallback(async () => {
@@ -85,7 +85,7 @@ export function useQRScanner(options: UseQRScannerOptions = {}): UseQRScannerRet
       if (!granted) {
         setError('Camera permission denied');
       }
-    } catch (err) {
+    } catch {
       setHasPermission(false);
       setError('Failed to request camera permission');
     }

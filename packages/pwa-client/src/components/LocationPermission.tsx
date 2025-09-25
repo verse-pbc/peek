@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -41,14 +41,23 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
     isCapturing,
     permission: permissionStatus,
     captureLocation,
-    startWatching,
-    stopWatching,
-    isWatching
+    startWatching: _startWatching,
+    stopWatching: _stopWatching,
+    isWatching: _isWatching
   } = useLocationCapture({
     enableHighAccuracy: true,
     timeout: 30000,
     maximumAge: 0
   });
+
+  const handleRequestLocation = useCallback(async () => {
+    setHasStarted(true);
+    await captureLocation();
+  }, [captureLocation]);
+
+  const handleRetry = async () => {
+    await captureLocation();
+  };
 
   // Auto-start if requested
   useEffect(() => {
@@ -56,7 +65,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
       setHasStarted(true);
       handleRequestLocation();
     }
-  }, [autoStart]);
+  }, [autoStart, hasStarted, handleRequestLocation]);
 
   // Handle location capture - only call once when location is first captured
   useEffect(() => {
@@ -68,7 +77,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
         timestamp: location.timestamp
       });
     }
-  }, [location?.timestamp]); // Only trigger when timestamp changes (new capture)
+  }, [location, onLocationCaptured]); // Only trigger when timestamp changes (new capture)
 
   // Handle permission denial
   useEffect(() => {
@@ -76,15 +85,6 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
       onPermissionDenied();
     }
   }, [permissionStatus, onPermissionDenied]);
-
-  const handleRequestLocation = async () => {
-    setHasStarted(true);
-    await captureLocation();
-  };
-
-  const handleRetry = async () => {
-    await captureLocation();
-  };
 
   // Determine accuracy status
   const getAccuracyStatus = (accuracy: number) => {

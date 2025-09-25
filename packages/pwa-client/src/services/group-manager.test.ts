@@ -7,7 +7,7 @@ vi.mock('./relay-manager');
 
 describe('GroupManager', () => {
   let manager: GroupManager;
-  let mockRelayManager: any;
+  let mockRelayManager: RelayManager;
   let secretKey: Uint8Array;
   let pubkey: string;
 
@@ -22,14 +22,14 @@ describe('GroupManager', () => {
       subscribeToGroup: vi.fn(),
       unsubscribeFromGroup: vi.fn(),
       getRecentEventIds: vi.fn().mockReturnValue([])
-    } as any;
+    } as unknown as RelayManager;
 
-    (RelayManager as any).mockImplementation(() => mockRelayManager);
+    (RelayManager as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockRelayManager);
     manager = new GroupManager(mockRelayManager);
 
     secretKey = generateSecretKey();
     pubkey = getPublicKey(secretKey);
-    mockRelayManager.getUserPubkey.mockReturnValue(pubkey);
+    (mockRelayManager.getUserPubkey as ReturnType<typeof vi.fn>).mockReturnValue(pubkey);
   });
 
   afterEach(() => {
@@ -44,7 +44,7 @@ describe('GroupManager', () => {
         kind: 9007
       };
 
-      mockRelayManager.sendCreateGroup.mockResolvedValue(mockEvent);
+      (mockRelayManager.sendCreateGroup as ReturnType<typeof vi.fn>).mockResolvedValue(mockEvent);
 
       const result = await manager.createGroup(secretKey, {
         id: 'test-group',
@@ -82,7 +82,7 @@ describe('GroupManager', () => {
         kind: 9021
       };
 
-      mockRelayManager.sendJoinRequest.mockResolvedValue(mockEvent);
+      (mockRelayManager.sendJoinRequest as ReturnType<typeof vi.fn>).mockResolvedValue(mockEvent);
 
       const result = await manager.joinGroup('test-group', secretKey, {
         reason: 'I want to join',
@@ -105,7 +105,7 @@ describe('GroupManager', () => {
         kind: 9022
       };
 
-      mockRelayManager.sendLeaveRequest.mockResolvedValue(mockEvent);
+      (mockRelayManager.sendLeaveRequest as ReturnType<typeof vi.fn>).mockResolvedValue(mockEvent);
 
       const result = await manager.leaveGroup(
         'test-group',
@@ -130,11 +130,11 @@ describe('GroupManager', () => {
   });
 
   describe('Event Handling', () => {
-    let handlers: Record<string, Function>;
+    let handlers: Record<string, (event: unknown) => void>;
 
     beforeEach(() => {
       handlers = {};
-      mockRelayManager.onEvent.mockImplementation((pattern, handler) => {
+      (mockRelayManager.onEvent as ReturnType<typeof vi.fn>).mockImplementation((pattern: string, handler: (event: unknown) => void) => {
         handlers[pattern] = handler;
         return () => {};
       });
@@ -281,7 +281,7 @@ describe('GroupManager', () => {
 
   describe('Moderation Actions', () => {
     it('should add a user with roles', async () => {
-      mockRelayManager.publishEvent.mockResolvedValue();
+      (mockRelayManager.publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       await manager.addUser(
         'test-group',
@@ -302,7 +302,7 @@ describe('GroupManager', () => {
     });
 
     it('should remove a user', async () => {
-      mockRelayManager.publishEvent.mockResolvedValue();
+      (mockRelayManager.publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       await manager.removeUser(
         'test-group',
@@ -324,7 +324,7 @@ describe('GroupManager', () => {
     });
 
     it('should update group metadata', async () => {
-      mockRelayManager.publishEvent.mockResolvedValue();
+      (mockRelayManager.publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       await manager.updateMetadata(
         'test-group',
@@ -350,7 +350,7 @@ describe('GroupManager', () => {
     });
 
     it('should delete an event', async () => {
-      mockRelayManager.publishEvent.mockResolvedValue();
+      (mockRelayManager.publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       await manager.deleteEvent(
         'test-group',
@@ -372,7 +372,7 @@ describe('GroupManager', () => {
     });
 
     it('should create an invite', async () => {
-      mockRelayManager.publishEvent.mockResolvedValue();
+      (mockRelayManager.publishEvent as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
       const result = await manager.createInvite('test-group', secretKey);
 
@@ -399,8 +399,8 @@ describe('GroupManager', () => {
         ]
       };
 
-      const handlers: Record<string, Function> = {};
-      mockRelayManager.onEvent.mockImplementation((pattern, handler) => {
+      const handlers: Record<string, (event: unknown) => void> = {};
+      (mockRelayManager.onEvent as ReturnType<typeof vi.fn>).mockImplementation((pattern: string, handler: (event: unknown) => void) => {
         handlers[pattern] = handler;
         return () => {};
       });
@@ -424,8 +424,8 @@ describe('GroupManager', () => {
     });
 
     it('should clear cache', () => {
-      const handlers: Record<string, Function> = {};
-      mockRelayManager.onEvent.mockImplementation((pattern, handler) => {
+      const handlers: Record<string, (event: unknown) => void> = {};
+      (mockRelayManager.onEvent as ReturnType<typeof vi.fn>).mockImplementation((pattern: string, handler: (event: unknown) => void) => {
         handlers[pattern] = handler;
         return () => {};
       });

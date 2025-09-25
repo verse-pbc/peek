@@ -4,7 +4,7 @@ use serde::Deserialize;
 pub struct Config {
     #[serde(default = "default_port")]
     pub port: u16,
-    
+
     #[serde(default = "default_relay_url")]
     pub relay_url: String,
 
@@ -14,24 +14,9 @@ pub struct Config {
 
     // Relay's secret key for managing groups and accessing all events
     pub relay_secret_key: String,
-    
-    // Admin private key for creating NIP-29 invites (deprecated, using relay key instead)
-    pub admin_nsec: Option<String>,
 
     // Service private key for NIP-59 gift wrap communication (hex format)
     pub service_secret_key: String,
-
-    #[serde(default = "default_max_distance")]
-    pub max_distance_meters: f64,
-
-    #[serde(default = "default_max_accuracy")]
-    pub max_accuracy_meters: f64,
-
-    #[serde(default = "default_max_timestamp_age")]
-    pub max_timestamp_age_seconds: i64,
-
-    #[serde(default = "default_invite_expiry")]
-    pub invite_expiry_seconds: u64,
 }
 
 impl Config {
@@ -47,12 +32,7 @@ impl Default for Config {
             relay_url: default_relay_url(),
             public_relay_url: default_relay_url(),
             relay_secret_key: String::new(), // Must be provided via environment
-            admin_nsec: None,
             service_secret_key: String::new(), // Must be provided via environment
-            max_distance_meters: default_max_distance(),
-            max_accuracy_meters: default_max_accuracy(),
-            max_timestamp_age_seconds: default_max_timestamp_age(),
-            invite_expiry_seconds: default_invite_expiry(),
         }
     }
 }
@@ -63,20 +43,4 @@ fn default_port() -> u16 {
 
 fn default_relay_url() -> String {
     "wss://communities2.nos.social".to_string()
-}
-
-fn default_max_distance() -> f64 {
-    25.0 // 25 meters
-}
-
-fn default_max_accuracy() -> f64 {
-    50.0 // 50 meters
-}
-
-fn default_max_timestamp_age() -> i64 {
-    30 // 30 seconds
-}
-
-fn default_invite_expiry() -> u64 {
-    300 // 5 minutes
 }

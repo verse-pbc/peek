@@ -70,7 +70,7 @@ export class RelayManager {
   private pool: SimplePool;
   private relayUrl: string;
   private relay?: Relay;
-  private subscriptions: Map<string, any>;
+  private subscriptions: Map<string, unknown>;
   private groupStates: Map<string, GroupState>;
   private eventHandlers: Map<string, Set<EventHandler>>;
   private connectionHandlers: Set<ConnectionHandler>;
@@ -155,10 +155,10 @@ export class RelayManager {
       console.log(`[RelayManager] Connected to ${this.relayUrl}`);
 
       // Handle NIP-42 authentication if the relay sent an AUTH challenge
-      if (this.authHandler && this.relay && (this.relay as any).challenge) {
+      if (this.authHandler && this.relay && (this.relay as unknown as { challenge?: string }).challenge) {
         console.log('[RelayManager] AUTH challenge detected, authenticating...');
         try {
-          await (this.relay as any).auth(this.authHandler);
+          await (this.relay as { auth?: (handler: unknown) => Promise<unknown> }).auth?.(this.authHandler);
           console.log('[RelayManager] Successfully authenticated');
         } catch (error) {
           console.error('[RelayManager] Authentication failed:', error);
@@ -193,7 +193,7 @@ export class RelayManager {
     }
 
     // Close all subscriptions
-    this.subscriptions.forEach(sub => sub.close());
+    this.subscriptions.forEach(sub => (sub as { close?: () => void })?.close?.());
     this.subscriptions.clear();
 
     // Close relay connection
@@ -316,7 +316,7 @@ export class RelayManager {
   unsubscribeFromGroup(groupId: string): void {
     const sub = this.subscriptions.get(`group-${groupId}`);
     if (sub) {
-      sub.close();
+      (sub as { close?: () => void })?.close?.();
       this.subscriptions.delete(`group-${groupId}`);
     }
   }
@@ -465,7 +465,7 @@ export class RelayManager {
   /**
    * Get recent event IDs from a group for timeline references
    */
-  getRecentEventIds(groupId: string, count: number = 3): string[] {
+  getRecentEventIds(groupId: string, _count: number = 3): string[] {
     // This would need to be implemented with actual event tracking
     // For now, return empty array
     return [];
@@ -775,7 +775,7 @@ export class RelayManager {
   unsubscribe(subId: string): void {
     const sub = this.subscriptions.get(subId);
     if (sub) {
-      sub.close();
+      (sub as { close?: () => void })?.close?.();
       this.subscriptions.delete(subId);
       console.log(`[RelayManager] Unsubscribed from ${subId}`);
     }

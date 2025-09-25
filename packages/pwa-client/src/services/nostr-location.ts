@@ -4,12 +4,12 @@ import {
   getPublicKey,
   getEventHash as _getEventHash,
   nip44,
-  nip19,
+  // nip19,  // unused
   type Event,
   type EventTemplate,
   type UnsignedEvent
 } from 'nostr-tools';
-import { bytesToHex, hexToBytes } from '../lib/hex';
+// import { bytesToHex } from '../lib/hex';  // unused
 import type { RelayManager } from './relay-manager';
 
 // Custom event kinds for Peek location validation (ephemeral range)
@@ -21,13 +21,16 @@ const SEAL_KIND = 13;
 const GIFT_WRAP_KIND = 1059;
 
 // Relay configuration - use test relay in test mode, production otherwise
-const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
-  ? [import.meta.env.VITE_RELAY_URL as string]
-  : ['wss://peek.hol.is'];  // Production relay
+// const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
+//   ? [import.meta.env.VITE_RELAY_URL as string]
+//   : ['wss://peek.hol.is'];  // Production relay  // unused
 
-// Validation service public key from environment (required)
-const VALIDATION_SERVICE_PUBKEY = import.meta.env.VITE_VALIDATION_SERVICE_PUBKEY;
-if (!VALIDATION_SERVICE_PUBKEY) {
+// Validation service public key from environment (required in production)
+const VALIDATION_SERVICE_PUBKEY = import.meta.env.VITE_VALIDATION_SERVICE_PUBKEY ||
+  // Default for tests - this is a dummy key, not used in production
+  (import.meta.env.MODE === 'test' ? '829774829a2c9884607fc59f22762de04c1ee2ac36a504228ff1a99d6519fac2' : null);
+
+if (!VALIDATION_SERVICE_PUBKEY && import.meta.env.MODE !== 'test') {
   throw new Error('VITE_VALIDATION_SERVICE_PUBKEY environment variable is required');
 }
 
@@ -136,9 +139,9 @@ function getEventHash(event: UnsignedEvent): string {
 
     try {
       return _getEventHash(normalizedEvent);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If it still fails, compute the hash manually
-      console.warn('Using fallback hash computation:', error.message);
+      console.warn('Using fallback hash computation:', error instanceof Error ? error.message : 'Unknown error');
       const serialized = JSON.stringify([
         0,
         normalizedEvent.pubkey,
@@ -247,9 +250,9 @@ export class NostrLocationService {
       };
 
       return finalizeEvent(seal, secretKey);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If we encounter Uint8Array issues in test mode, try to work around them
-      if (this.isTestMode && error.message?.includes('Uint8Array')) {
+      if (this.isTestMode && (error instanceof Error && error.message?.includes('Uint8Array'))) {
         console.warn('Test mode: Working around Uint8Array issue in seal creation');
         // Create a simple unencrypted seal for testing
         const seal: EventTemplate = {
@@ -278,7 +281,7 @@ export class NostrLocationService {
     try {
       // Generate random ephemeral key for gift wrap
       const randomKey = generateSecretKey();
-      const randomPubkey = getPublicKey(randomKey);
+      const _randomPubkey = getPublicKey(randomKey);
 
       // Ensure randomKey is proper Uint8Array
       const ephemeralKey = this.isTestMode && !ArrayBuffer.isView(randomKey)
@@ -309,9 +312,9 @@ export class NostrLocationService {
       };
 
       return finalizeEvent(giftWrap, ephemeralKey);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If we encounter Uint8Array issues in test mode, try to work around them
-      if (this.isTestMode && error.message?.includes('Uint8Array')) {
+      if (this.isTestMode && (error instanceof Error && error.message?.includes('Uint8Array'))) {
         console.warn('Test mode: Working around Uint8Array issue in gift wrap creation');
         // Create a simple unencrypted gift wrap for testing
         const randomKey = generateSecretKey();
@@ -519,19 +522,10 @@ export class NostrLocationService {
       const startTime = Date.now();
       console.log(`⏱️ [${new Date().toISOString()}] Starting to wait for ${expectedType} response for request ${requestId}`);
 
-      let subId: string;
-      const timeout = setTimeout(() => {
-        if (subId) {
-          this.relayManager.unsubscribe(subId);
-        }
-        console.log(`⏱️ [${new Date().toISOString()}] Timeout after ${Date.now() - startTime}ms waiting for response`);
-        reject(new Error('Response timeout'));
-      }, 30000); // 30 second timeout
-
       // Subscribe to gift wraps for us via RelayManager
       // Use wider time window to account for NIP-59 timestamp randomization (up to 2 days)
       console.log('📡 Subscribing for gift-wrapped events for pubkey:', this.publicKey);
-      subId = this.relayManager.subscribeToGiftWraps(
+      const subId = this.relayManager.subscribeToGiftWraps(
         this.publicKey,
         async (event: Event) => {
             const eventReceivedTime = Date.now();
@@ -583,13 +577,22 @@ export class NostrLocationService {
             }
           }
       );
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        if (subId) {
+          this.relayManager.unsubscribe(subId);
+        }
+        console.log(`⏱️ [${new Date().toISOString()}] Timeout after ${Date.now() - startTime}ms waiting for response`);
+        reject(new Error('Response timeout'));
+      }, 30000); // 30 second timeout
     });
   }
 
   /**
    * Get user's DM relay preferences (NIP-17 kind 10050)
    */
-  async getUserDMRelays(pubkey: string): Promise<string[]> {
+  async getUserDMRelays(_pubkey: string): Promise<string[]> {
     // For now, just return the relay URL from the RelayManager
     // In the future, we could fetch user's preferred relays from kind 10050 events
     return [this.relayManager.url];
@@ -609,10 +612,10 @@ export class NostrLocationService {
  * In production, this could be a separate request or included in validation
  */
 export async function getPreviewData(
-  communityId: string,
-  secretKey: Uint8Array,
-  publicKey: string
-): Promise<any> {
+  _communityId: string,
+  _secretKey: Uint8Array,
+  _publicKey: string
+): Promise<unknown> {
   // For now, return mock data
   // In production, could send a preview request via gift wrap
   return {

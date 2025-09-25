@@ -75,4 +75,6 @@ docker-compose up --build    # Build and run validation service in Docker
 
 ## License
 
-MIT
+MIT# Trigger rebuild
+# Deploy test
+# Force workflow detection

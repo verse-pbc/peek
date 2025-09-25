@@ -30,7 +30,7 @@ export const UserIdentityButton: React.FC = () => {
   const [showLoginOptions, setShowLoginOptions] = useState(false);
 
   const handleCreateNew = () => {
-    const newIdentity = createNewIdentity();
+    const _newIdentity = createNewIdentity();
     // Remove anonymous identity when creating real identity
     localStorage.removeItem('peek_anonymous_identity');
     // Force reload to reconnect with new identity
@@ -38,7 +38,7 @@ export const UserIdentityButton: React.FC = () => {
   };
 
   const handleImport = (nsec: string) => {
-    const imported = importIdentity(nsec);
+    const _imported = importIdentity(nsec);
     // Remove anonymous identity when importing real identity
     localStorage.removeItem('peek_anonymous_identity');
     // Force reload to reconnect with new identity
@@ -48,9 +48,10 @@ export const UserIdentityButton: React.FC = () => {
   const handleLoginWithExtension = async () => {
     try {
       await loginWithExtension();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Extension login failed:', err);
-      alert(err.message || 'Failed to connect to browser extension');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to connect to browser extension';
+      alert(errorMessage);
     }
   };
 
@@ -128,7 +129,7 @@ export const UserIdentityButton: React.FC = () => {
       {(showIdentityModal || showLoginOptions) && (
         <IdentityModal
           open={showIdentityModal || showLoginOptions}
-          onOpenChange={(open) => {
+          onOpenChange={(_open) => {
             setShowIdentityModal(false);
             setShowLoginOptions(false);
           }}

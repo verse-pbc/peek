@@ -27,7 +27,7 @@ mod tests {
         let expected_parts = [
             &format!("\"#h\":[\"{}\"]", group_id),
             "\"kinds\":[39000]",
-            "\"limit\":1"
+            "\"limit\":1",
         ];
 
         for part in expected_parts {
@@ -47,7 +47,7 @@ mod tests {
         // Filter for metadata events (kind 39000) should use d-tag
         let metadata_filter = Filter::new()
             .kind(Kind::from(39000))
-            .identifier(group_id)  // This creates a d-tag filter
+            .identifier(group_id) // This creates a d-tag filter
             .limit(1);
 
         let metadata_json = metadata_filter.as_json();
@@ -59,7 +59,7 @@ mod tests {
 
         // Filter for user events in group should use h-tag
         let user_events_filter = Filter::new()
-            .kinds([Kind::TextNote, Kind::from(1)])  // Regular user events
+            .kinds([Kind::TextNote, Kind::from(1)]) // Regular user events
             .custom_tag(SingleLetterTag::lowercase(Alphabet::H), group_id)
             .limit(50);
 

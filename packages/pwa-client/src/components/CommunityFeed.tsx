@@ -9,8 +9,7 @@ import { Send, Users } from 'lucide-react';
 import { NIP29_KINDS } from '@/services/relay-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
-import { nip19, Event, SimplePool, Filter, finalizeEvent, type VerifiedEvent } from 'nostr-tools';
-import * as nip42 from 'nostr-tools/nip42';
+import { nip19, Event, SimplePool, Filter } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 
 interface Message {

@@ -44,45 +44,6 @@ export function useLocationCapture(
   const captureRef = useRef<LocationCapture | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
-  // Initialize LocationCapture instance
-  useEffect(() => {
-    captureRef.current = new LocationCapture({
-      enableHighAccuracy: options.enableHighAccuracy,
-      timeout: options.timeout,
-      maximumAge: options.maximumAge,
-      requiredAccuracy: options.requiredAccuracy,
-    });
-
-    // Check initial permission state
-    LocationCapture.checkPermission().then(setPermission);
-
-    // Auto-capture if enabled
-    if (options.autoCapture) {
-      captureLocation();
-    }
-
-    // Start watching if enabled
-    if (options.watchMode) {
-      startWatching();
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (watchIdRef.current !== null) {
-        LocationCapture.clearWatch(watchIdRef.current);
-      }
-    };
-  }, []);
-
-  // Update permission state when it changes
-  useEffect(() => {
-    const checkPermissionInterval = setInterval(() => {
-      LocationCapture.checkPermission().then(setPermission);
-    }, 1000);
-
-    return () => clearInterval(checkPermissionInterval);
-  }, []);
-
   // Capture location
   const captureLocation = useCallback(async () => {
     if (!captureRef.current) {
@@ -95,7 +56,7 @@ export function useLocationCapture(
 
     try {
       const result = await captureRef.current.captureLocation();
-      
+
       if (result.success && result.location) {
         setLocation(result.location);
         setError(null);
@@ -140,6 +101,54 @@ export function useLocationCapture(
       setIsWatching(true);
     }
   }, [isWatching, options]);
+
+  // Initialize LocationCapture instance
+  useEffect(() => {
+    captureRef.current = new LocationCapture({
+      enableHighAccuracy: options.enableHighAccuracy,
+      timeout: options.timeout,
+      maximumAge: options.maximumAge,
+      requiredAccuracy: options.requiredAccuracy,
+    });
+
+    // Check initial permission state
+    LocationCapture.checkPermission().then(setPermission);
+
+    // Auto-capture if enabled
+    if (options.autoCapture) {
+      captureLocation();
+    }
+
+    // Start watching if enabled
+    if (options.watchMode) {
+      startWatching();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (watchIdRef.current !== null) {
+        LocationCapture.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [
+    options.enableHighAccuracy,
+    options.timeout,
+    options.maximumAge,
+    options.requiredAccuracy,
+    options.autoCapture,
+    options.watchMode,
+    captureLocation,
+    startWatching,
+  ]);
+
+  // Update permission state when it changes
+  useEffect(() => {
+    const checkPermissionInterval = setInterval(() => {
+      LocationCapture.checkPermission().then(setPermission);
+    }, 1000);
+
+    return () => clearInterval(checkPermissionInterval);
+  }, []);
 
   // Stop watching location
   const stopWatching = useCallback(() => {

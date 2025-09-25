@@ -18,7 +18,8 @@ mod tests {
             "success": true,
             "name": "Test Community",
             "member_count": 42
-        }).to_string();
+        })
+        .to_string();
 
         let rumor = UnsignedEvent::new(
             sender_keys.public_key(),
@@ -26,7 +27,7 @@ mod tests {
             Kind::from(27493), // Response kind
             vec![Tag::custom(
                 TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::E)),
-                vec!["test-request-id".to_string()]
+                vec!["test-request-id".to_string()],
             )],
             content.clone(),
         );
@@ -46,14 +47,15 @@ mod tests {
         println!("Seal created: {:?}", seal.id);
 
         // Create gift wrap from seal
-        let gift_wrap = EventBuilder::gift_wrap_from_seal(
-            &recipient_keys.public_key(),
-            &seal,
-            vec![]
-        ).expect("Failed to create gift wrap from seal");
+        let gift_wrap =
+            EventBuilder::gift_wrap_from_seal(&recipient_keys.public_key(), &seal, vec![])
+                .expect("Failed to create gift wrap from seal");
 
         println!("Gift wrap created: {:?}", gift_wrap.id);
-        println!("Gift wrap pubkey (ephemeral): {}", gift_wrap.pubkey.to_hex());
+        println!(
+            "Gift wrap pubkey (ephemeral): {}",
+            gift_wrap.pubkey.to_hex()
+        );
 
         // Try to unwrap it
         println!("\nAttempting to unwrap gift wrap...");
@@ -65,7 +67,8 @@ mod tests {
             recipient_keys.secret_key(),
             &gift_wrap.pubkey,
             &gift_wrap.content,
-        ).expect("Failed to decrypt gift wrap");
+        )
+        .expect("Failed to decrypt gift wrap");
 
         println!("Successfully decrypted outer layer");
 
@@ -79,12 +82,13 @@ mod tests {
             recipient_keys.secret_key(),
             &seal_from_wrap.pubkey,
             &seal_from_wrap.content,
-        ).expect("Failed to decrypt seal");
+        )
+        .expect("Failed to decrypt seal");
 
         println!("Successfully decrypted seal");
 
-        let rumor_from_seal: UnsignedEvent = serde_json::from_str(&decrypted_rumor_json)
-            .expect("Failed to parse rumor from seal");
+        let rumor_from_seal: UnsignedEvent =
+            serde_json::from_str(&decrypted_rumor_json).expect("Failed to parse rumor from seal");
 
         println!("Extracted rumor content: {}", rumor_from_seal.content);
 
@@ -97,7 +101,10 @@ mod tests {
         let client = Client::new(sender_keys.clone());
 
         // Try the client's gift_wrap method
-        match client.gift_wrap(&recipient_keys.public_key(), rumor.clone(), vec![]).await {
+        match client
+            .gift_wrap(&recipient_keys.public_key(), rumor.clone(), vec![])
+            .await
+        {
             Ok(output) => {
                 println!("✅ Client gift_wrap succeeded: {:?}", output.id());
             }
@@ -137,7 +144,8 @@ mod tests {
             &recipient_keys.public_key(),
             &rumor_json,
             nip44::Version::default(),
-        ).expect("Failed to encrypt rumor");
+        )
+        .expect("Failed to encrypt rumor");
 
         // Create seal event
         let seal = EventBuilder::new(Kind::Seal, encrypted_rumor)
@@ -159,7 +167,8 @@ mod tests {
             &recipient_keys.public_key(),
             &seal_json,
             nip44::Version::default(),
-        ).expect("Failed to encrypt seal");
+        )
+        .expect("Failed to encrypt seal");
 
         // Create gift wrap event
         let gift_wrap = EventBuilder::new(Kind::GiftWrap, encrypted_seal)
@@ -175,7 +184,8 @@ mod tests {
             recipient_keys.secret_key(),
             &gift_wrap.pubkey,
             &gift_wrap.content,
-        ).expect("Failed to decrypt gift wrap");
+        )
+        .expect("Failed to decrypt gift wrap");
 
         let seal_from_wrap: Event = serde_json::from_str(&decrypted_seal_json).unwrap();
 
@@ -183,7 +193,8 @@ mod tests {
             recipient_keys.secret_key(),
             &seal_from_wrap.pubkey,
             &seal_from_wrap.content,
-        ).expect("Failed to decrypt seal");
+        )
+        .expect("Failed to decrypt seal");
 
         let rumor_from_seal: UnsignedEvent = serde_json::from_str(&decrypted_rumor_json).unwrap();
 

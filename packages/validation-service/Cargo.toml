@@ -18,6 +18,7 @@ serde_json = "1.0"
 
 # Geolocation
 geo = "0.28"
+geohash = "0.13"
 
 # Nostr
 nostr-sdk = { version = "0.43", features = ["nip44", "nip59"] }

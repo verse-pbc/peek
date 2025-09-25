@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "type-check": "tsc --noEmit",
     "generate-keypair": "node -e \"const {generateSecretKey, getPublicKey, nip19} = require('nostr-tools'); const sk = generateSecretKey(); const pk = getPublicKey(sk); console.log('Private key (hex):', Buffer.from(sk).toString('hex')); console.log('Public key (hex):', pk); console.log('nsec:', nip19.nsecEncode(sk)); console.log('npub:', nip19.npubEncode(pk));\""
   },
   "dependencies": {

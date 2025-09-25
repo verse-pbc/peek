@@ -1,23 +1,8 @@
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use geohash::{encode, Coord};
 use nostr_sdk::prelude::*;
-use nostr_sdk::nips::nip44;
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-
-/// Metadata stored on relay using NIP-44 encryption
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CommunityMetadata {
-    pub id: Uuid,
-    pub name: String,
-    pub description: Option<String>,
-    pub location: Location,
-    pub created_at: Timestamp,
-    pub creator_pubkey: String,
-    pub member_count: u32,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Location {
@@ -36,16 +21,13 @@ pub struct GroupMetadata {
     pub is_public: bool,
     pub is_open: bool,
     pub created_at: Timestamp,
-    pub location: Option<Location>,
+    pub geohash: Option<String>, // Level 8 geohash for location
 }
 
 /// Service for managing NIP-29 groups on a Nostr relay
 pub struct RelayService {
     client: Client,
-    relay_url: String,
     relay_keys: Keys,
-    // Cache of community metadata fetched from relay
-    metadata_cache: Arc<RwLock<HashMap<Uuid, CommunityMetadata>>>,
 }
 
 impl RelayService {
@@ -77,19 +59,17 @@ impl RelayService {
         // Verify connection
         let relay = client.relay(&relay_url).await?;
         if relay.is_connected() {
-            tracing::info!("✅ Successfully connected and authenticated to relay: {}", relay_url);
+            tracing::info!(
+                "✅ Successfully connected and authenticated to relay: {}",
+                relay_url
+            );
         } else {
             tracing::warn!("⚠️ Relay connection might not be fully established");
         }
 
-        Ok(Self {
-            client,
-            relay_url,
-            relay_keys,
-            metadata_cache: Arc::new(RwLock::new(HashMap::new())),
-        })
+        Ok(Self { client, relay_keys })
     }
-    
+
     /// Create a new NIP-29 group for a community
     pub async fn create_group(
         &self,
@@ -106,21 +86,10 @@ impl RelayService {
         if let Ok(_metadata) = self.get_group_metadata(&group_id).await {
             tracing::info!("Group {} already exists, skipping creation", group_id);
             // Group already exists, just add the creator as a member
-            self.add_group_member(&group_id, &creator_pubkey, false).await?;
+            self.add_group_member(&group_id, &creator_pubkey, false)
+                .await?;
 
-            // Store/update metadata for our tracking
-            let metadata = CommunityMetadata {
-                id: community_id,
-                name: name.clone(),
-                description: Some(format!("Location-based community at {:.4}, {:.4}",
-                    location.latitude, location.longitude)),
-                location,
-                created_at: Timestamp::now(),
-                creator_pubkey: creator_pubkey.clone(),
-                member_count: 1,
-            };
-            self.store_encrypted_metadata(&group_id, &metadata).await?;
-            self.metadata_cache.write().await.insert(community_id, metadata);
+            // Just add creator as member, location is already in group metadata
 
             return Ok(group_id);
         }
@@ -132,11 +101,9 @@ impl RelayService {
         // Step 1: Create NIP-29 group creation event (kind 9007)
         let group_creation = EventBuilder::new(
             Kind::from(9007),
-            "",  // Empty content per NIP-29
+            "", // Empty content per NIP-29
         )
-        .tags([
-            Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
-        ]);
+        .tags([Tag::custom(TagKind::Custom("h".into()), [group_id.clone()])]);
 
         // Send the group creation event with a shorter timeout
         let start = std::time::Instant::now();
@@ -150,31 +117,46 @@ impl RelayService {
         // Try to send the event but handle timeout/error gracefully
         match tokio::time::timeout(
             Duration::from_secs(2), // 2 second timeout instead of 10
-            self.client.send_event(&event)
-        ).await {
-            Ok(Ok(output)) => {
-                tracing::info!("⏱️ Kind 9007 sent successfully in {:?}ms", send_start.elapsed().as_millis());
-            },
+            self.client.send_event(&event),
+        )
+        .await
+        {
+            Ok(Ok(_output)) => {
+                tracing::info!(
+                    "⏱️ Kind 9007 sent successfully in {:?}ms",
+                    send_start.elapsed().as_millis()
+                );
+            }
             Ok(Err(e)) => {
-                tracing::warn!("⏱️ Kind 9007 send failed after {:?}ms: {}", send_start.elapsed().as_millis(), e);
+                tracing::warn!(
+                    "⏱️ Kind 9007 send failed after {:?}ms: {}",
+                    send_start.elapsed().as_millis(),
+                    e
+                );
                 // Continue anyway - the group might have been created
-            },
+            }
             Err(_) => {
                 tracing::warn!("⏱️ Kind 9007 send timed out after 2 seconds");
                 // Continue anyway - the group might have been created
             }
         }
-        tracing::info!("⏱️ Kind 9007 processing took {:?}ms total", send_start.elapsed().as_millis());
+        tracing::info!(
+            "⏱️ Kind 9007 processing took {:?}ms total",
+            send_start.elapsed().as_millis()
+        );
 
         // Step 2: Add creator as admin (kind 9000 with admin role)
         // Per NIP-29, roles are added as additional values in the p tag
         let add_admin = EventBuilder::new(
-            Kind::from(9000),  // put-user event
-            "",  // Empty content per NIP-29
+            Kind::from(9000), // put-user event
+            "",               // Empty content per NIP-29
         )
         .tags([
             Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
-            Tag::custom(TagKind::Custom("p".into()), [creator_pk.to_string(), "admin".to_string()]),
+            Tag::custom(
+                TagKind::Custom("p".into()),
+                [creator_pk.to_string(), "admin".to_string()],
+            ),
         ]);
 
         let admin_start = std::time::Instant::now();
@@ -186,16 +168,16 @@ impl RelayService {
         tracing::info!("⏱️ Sending kind 9000 (put-user with admin role)...");
 
         // Send with timeout
-        match tokio::time::timeout(
-            Duration::from_secs(2),
-            self.client.send_event(&event)
-        ).await {
+        match tokio::time::timeout(Duration::from_secs(2), self.client.send_event(&event)).await {
             Ok(Ok(_)) => {
-                tracing::info!("⏱️ Kind 9000 sent successfully in {:?}ms", send_start.elapsed().as_millis());
-            },
+                tracing::info!(
+                    "⏱️ Kind 9000 sent successfully in {:?}ms",
+                    send_start.elapsed().as_millis()
+                );
+            }
             Ok(Err(e)) => {
                 tracing::warn!("⏱️ Kind 9000 send failed: {}", e);
-            },
+            }
             Err(_) => {
                 tracing::warn!("⏱️ Kind 9000 send timed out after 2 seconds");
             }
@@ -205,29 +187,32 @@ impl RelayService {
         // The relay key automatically becomes admin when creating the group,
         // but we want the creator to be the sole admin
         let remove_relay = EventBuilder::new(
-            Kind::from(9001),  // remove-user event
-            "",  // Empty content per NIP-29
+            Kind::from(9001), // remove-user event
+            "",               // Empty content per NIP-29
         )
-        .allow_self_tagging()  // Allow removing ourselves from the group
+        .allow_self_tagging() // Allow removing ourselves from the group
         .tags([
             Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
-            Tag::custom(TagKind::Custom("p".into()), [self.relay_keys.public_key().to_string()]),
+            Tag::custom(
+                TagKind::Custom("p".into()),
+                [self.relay_keys.public_key().to_string()],
+            ),
         ]);
 
         let remove_start = std::time::Instant::now();
         tracing::info!("⏱️ Removing relay key from group admins...");
         let event = self.client.sign_event_builder(remove_relay).await?;
 
-        match tokio::time::timeout(
-            Duration::from_secs(2),
-            self.client.send_event(&event)
-        ).await {
+        match tokio::time::timeout(Duration::from_secs(2), self.client.send_event(&event)).await {
             Ok(Ok(_)) => {
-                tracing::info!("⏱️ Kind 9001 sent successfully in {:?}ms", remove_start.elapsed().as_millis());
-            },
+                tracing::info!(
+                    "⏱️ Kind 9001 sent successfully in {:?}ms",
+                    remove_start.elapsed().as_millis()
+                );
+            }
             Ok(Err(e)) => {
                 tracing::warn!("⏱️ Kind 9001 send failed: {}", e);
-            },
+            }
             Err(_) => {
                 tracing::warn!("⏱️ Kind 9001 send timed out after 2 seconds");
             }
@@ -236,70 +221,66 @@ impl RelayService {
         // Step 4: Add creator as first member (kind 9000)
         let member_start = std::time::Instant::now();
         tracing::info!("⏱️ Adding creator as member...");
-        self.add_group_member(&group_id, &creator_pubkey, true).await?;
-        tracing::info!("⏱️ Added member in {:?}ms", member_start.elapsed().as_millis());
+        self.add_group_member(&group_id, &creator_pubkey, true)
+            .await?;
+        tracing::info!(
+            "⏱️ Added member in {:?}ms",
+            member_start.elapsed().as_millis()
+        );
 
         // Step 5: Set group metadata with location (kind 9002)
         let metadata_event = EventBuilder::new(
             Kind::from(9002),
-            "",  // Empty content per NIP-29
+            "", // Empty content per NIP-29
         )
         .tags([
             Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
             Tag::custom(TagKind::Custom("name".into()), [name.clone()]),
-            Tag::custom(TagKind::Custom("about".into()), [format!("Location-based community")]),
+            Tag::custom(
+                TagKind::Custom("about".into()),
+                ["Location-based community".to_string()],
+            ),
             Tag::custom(TagKind::Custom("picture".into()), [String::new()]), // Empty for now
             Tag::custom(TagKind::Custom("private".into()), Vec::<String>::new()), // Private group
             Tag::custom(TagKind::Custom("open".into()), Vec::<String>::new()), // Open to join with location proof
-            // Add custom location tag
-            Tag::custom(TagKind::Custom("location".into()), [
-                format!("{},{}", location.latitude, location.longitude)
-            ]),
+            // Store location as geohash for privacy and efficient matching
+            Tag::custom(
+                TagKind::Custom("g".into()),
+                [encode(
+                    Coord {
+                        x: location.longitude,
+                        y: location.latitude,
+                    },
+                    8,
+                )
+                .map_err(|e| RelayError::Other(format!("Failed to encode location: {}", e)))?],
+            ),
         ]);
 
         let metadata_start = std::time::Instant::now();
         tracing::info!("⏱️ Setting group metadata with location...");
         let event = self.client.sign_event_builder(metadata_event).await?;
 
-        match tokio::time::timeout(
-            Duration::from_secs(2),
-            self.client.send_event(&event)
-        ).await {
+        match tokio::time::timeout(Duration::from_secs(2), self.client.send_event(&event)).await {
             Ok(Ok(_)) => {
-                tracing::info!("⏱️ Kind 9002 (metadata) sent successfully in {:?}ms", metadata_start.elapsed().as_millis());
-            },
+                tracing::info!(
+                    "⏱️ Kind 9002 (metadata) sent successfully in {:?}ms",
+                    metadata_start.elapsed().as_millis()
+                );
+            }
             Ok(Err(e)) => {
                 tracing::warn!("⏱️ Kind 9002 send failed: {}", e);
-            },
+            }
             Err(_) => {
                 tracing::warn!("⏱️ Kind 9002 send timed out after 2 seconds");
             }
         }
 
-        // Store metadata for caching locally
-        let metadata = CommunityMetadata {
-            id: community_id,
-            name: name.clone(),
-            description: Some(format!("Location-based community at {:.4}, {:.4}",
-                location.latitude, location.longitude)),
-            location,
-            created_at: Timestamp::now(),
-            creator_pubkey: creator_pubkey.clone(),
-            member_count: 1,
-        };
-
-        // Store encrypted metadata for our own tracking (not as NIP-29 metadata)
-        let metadata_start = std::time::Instant::now();
-        tracing::info!("⏱️ Storing encrypted metadata...");
-        self.store_encrypted_metadata(&group_id, &metadata).await?;
-        tracing::info!("⏱️ Metadata stored in {:?}ms", metadata_start.elapsed().as_millis());
-
-        // Cache the metadata
-        self.metadata_cache.write().await.insert(community_id, metadata);
+        // Location is now stored in the NIP-29 group metadata, no need for separate storage
 
         Ok(group_id)
     }
-    
+
     /// Add a user to a group (wrapper for add_group_member)
     pub async fn add_user_to_group(
         &self,
@@ -318,123 +299,31 @@ impl RelayService {
         is_admin: bool,
     ) -> Result<()> {
         // Parse user's public key
-        let pubkey = PublicKey::from_bech32(user_pubkey)
-            .or_else(|_| PublicKey::from_hex(user_pubkey))?;
+        let pubkey =
+            PublicKey::from_bech32(user_pubkey).or_else(|_| PublicKey::from_hex(user_pubkey))?;
 
         // Create NIP-29 add user event (kind 9000)
         // Per NIP-29, roles are added as additional values in the p tag
-        let mut p_tag_values = vec![pubkey.to_string()];
-
-        // Add admin role if requested
-        if is_admin {
-            p_tag_values.push("admin".to_string());
-        }
+        let role = if is_admin { "admin" } else { "member" };
 
         let add_user = EventBuilder::new(
             Kind::from(9000),
-            "",  // Empty content per NIP-29
+            "", // Empty content per NIP-29
         )
         .tags([
             Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
-            Tag::custom(TagKind::Custom("p".into()), p_tag_values),
+            Tag::custom(
+                TagKind::Custom("p".into()),
+                [pubkey.to_string(), role.to_string()],
+            ),
         ]);
 
         let event = self.client.sign_event_builder(add_user).await?;
         self.client.send_event(&event).await?;
 
-        // Update member count in metadata
-        if let Some(community_id) = group_id.strip_prefix("peek-")
-            .and_then(|id| Uuid::parse_str(id).ok()) {
-            if let Some(mut metadata) = self.metadata_cache.write().await.get_mut(&community_id) {
-                metadata.member_count += 1;
-                // Update on relay
-                self.store_encrypted_metadata(group_id, &metadata).await?;
-            }
-        }
+        // Member count is tracked by NIP-29 group metadata, no need for separate tracking
 
         Ok(())
-    }
-    
-    /// Store encrypted community metadata on relay
-    async fn store_encrypted_metadata(
-        &self,
-        group_id: &str,
-        metadata: &CommunityMetadata,
-    ) -> Result<()> {
-        // Serialize metadata to JSON
-        let metadata_json = serde_json::to_string(metadata)?;
-        
-        // Encrypt using NIP-44 with relay's own key (self-encryption for storage)
-        let encrypted = nip44::encrypt(
-            self.relay_keys.secret_key(),
-            &self.relay_keys.public_key(),
-            &metadata_json,
-            nip44::Version::V2,
-        )?;
-        
-        // Create kind 30078 event for replaceable encrypted storage
-        let storage_event = EventBuilder::new(
-            Kind::from(30078),
-            encrypted,
-        )
-        .tags([
-            Tag::custom(TagKind::Custom("d".into()), [group_id.to_string()]),
-            Tag::custom(TagKind::Custom("type".into()), ["community-metadata".to_string()]),
-        ]);
-        
-        let event = self.client.sign_event_builder(storage_event).await?;
-        self.client.send_event(&event).await?;
-        
-        Ok(())
-    }
-    
-    /// Fetch community metadata from relay
-    pub async fn get_community_metadata(&self, community_id: Uuid) -> Result<Option<CommunityMetadata>> {
-        // Check cache first
-        if let Some(metadata) = self.metadata_cache.read().await.get(&community_id) {
-            return Ok(Some(metadata.clone()));
-        }
-        
-        let group_id = format!("peek-{}", community_id);
-        
-        // Create filter for kind 30078 with our d-tag
-        let filter = Filter::new()
-            .kind(Kind::from(30078))
-            .custom_tag(
-                SingleLetterTag::lowercase(Alphabet::D),
-                group_id.clone()
-            )
-            .author(self.relay_keys.public_key());
-        
-        // Query relay
-        let events = self.client.fetch_events(
-            filter,
-            Duration::from_secs(10),
-        ).await?;
-        
-        if let Some(event) = events.first() {
-            // Decrypt content
-            let decrypted = nip44::decrypt(
-                self.relay_keys.secret_key(),
-                &self.relay_keys.public_key(),
-                &event.content,
-            )?;
-            
-            // Parse metadata
-            let metadata: CommunityMetadata = serde_json::from_str(&decrypted)?;
-            
-            // Update cache
-            self.metadata_cache.write().await.insert(community_id, metadata.clone());
-            
-            return Ok(Some(metadata));
-        }
-        
-        Ok(None)
-    }
-    
-    /// Check if a community exists
-    pub async fn community_exists(&self, community_id: Uuid) -> Result<bool> {
-        Ok(self.get_community_metadata(community_id).await?.is_some())
     }
 
     /// Get the member count for a NIP-29 group
@@ -443,13 +332,13 @@ impl RelayService {
         // NIP-29 metadata events use d-tag, not h-tag
         let members_filter = Filter::new()
             .kind(Kind::from(39002))
-            .identifier(group_id)  // This creates a d-tag filter
+            .identifier(group_id) // This creates a d-tag filter
             .limit(1);
 
-        let members_events = self.client.fetch_events(
-            members_filter,
-            Duration::from_secs(5),
-        ).await?;
+        let members_events = self
+            .client
+            .fetch_events(members_filter, Duration::from_secs(5))
+            .await?;
 
         if let Some(event) = members_events.first() {
             // Count p-tags which represent members
@@ -471,16 +360,16 @@ impl RelayService {
         // NIP-29 metadata events (39000, 39001, 39002) use d-tag for group ID
         let metadata_filter = Filter::new()
             .kind(Kind::from(39000))
-            .identifier(group_id)  // This creates a d-tag filter
+            .identifier(group_id) // This creates a d-tag filter
             .limit(1);
 
         // Debug: Log the filter to see what it generates
         tracing::debug!("Filter JSON: {:?}", serde_json::to_string(&metadata_filter));
 
-        let metadata_events = self.client.fetch_events(
-            metadata_filter,
-            Duration::from_secs(5),
-        ).await?;
+        let metadata_events = self
+            .client
+            .fetch_events(metadata_filter, Duration::from_secs(5))
+            .await?;
 
         if let Some(event) = metadata_events.first() {
             // Parse tags for metadata fields
@@ -489,44 +378,37 @@ impl RelayService {
             let mut about = None;
             let mut is_public = false;
             let mut is_open = false;
-            let mut location = None;
+            let mut geohash = None;
 
             for tag in event.tags.iter() {
-                match tag.kind() {
-                    TagKind::Custom(tag_name) => {
-                        match tag_name.as_ref() {
-                            "name" => {
-                                if let Some(content) = tag.content() {
-                                    name = content.to_string();
-                                }
-                            },
-                            "picture" => {
-                                picture = tag.content().map(|s| s.to_string());
-                            },
-                            "about" => {
-                                about = tag.content().map(|s| s.to_string());
-                            },
-                            "location" => {
-                                // Parse location from "lat,lon" format
-                                if let Some(content) = tag.content() {
-                                    if let Some((lat_str, lon_str)) = content.split_once(',') {
-                                        if let (Ok(lat), Ok(lon)) = (lat_str.parse::<f64>(), lon_str.parse::<f64>()) {
-                                            location = Some(Location {
-                                                latitude: lat,
-                                                longitude: lon,
-                                            });
-                                        }
-                                    }
-                                }
-                            },
-                            "public" => is_public = true,
-                            "private" => is_public = false,
-                            "open" => is_open = true,
-                            "closed" => is_open = false,
-                            _ => {}
+                if let TagKind::Custom(tag_name) = tag.kind() {
+                    match tag_name.as_ref() {
+                        "name" => {
+                            if let Some(content) = tag.content() {
+                                name = content.to_string();
+                            }
                         }
+                        "picture" => {
+                            picture = tag.content().map(|s| s.to_string());
+                        }
+                        "about" => {
+                            about = tag.content().map(|s| s.to_string());
+                        }
+                        "g" => {
+                            // Parse geohash location tag
+                            if let Some(content) = tag.content() {
+                                // Validate it's a level 8 geohash
+                                if content.len() == 8 {
+                                    geohash = Some(content.to_string());
+                                }
+                            }
+                        }
+                        "public" => is_public = true,
+                        "private" => is_public = false,
+                        "open" => is_open = true,
+                        "closed" => is_open = false,
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
 
@@ -543,7 +425,7 @@ impl RelayService {
                 is_public,
                 is_open,
                 created_at: event.created_at,
-                location,
+                geohash,
             })
         } else {
             Err(RelayError::GroupNotFound(group_id.to_string()))
@@ -556,36 +438,16 @@ impl RelayService {
         let filter = Filter::new()
             .kind(Kind::from(30078))
             .author(self.relay_keys.public_key());
-        
+
         // Query relay
-        let events = self.client.fetch_events(
-            filter,
-            Duration::from_secs(10),
-        ).await?;
-        
-        let mut cache = self.metadata_cache.write().await;
-        
-        for event in events {
-            // Get group_id from d-tag
-            if let Some(group_id) = event.tags.iter()
-                .find(|t| matches!(t.kind(), TagKind::Custom(name) if name == "d"))
-                .and_then(|t| t.content())
-            {
-                // Decrypt content
-                if let Ok(decrypted) = nip44::decrypt(
-                    self.relay_keys.secret_key(),
-                    &self.relay_keys.public_key(),
-                    &event.content,
-                ) {
-                    // Parse metadata
-                    if let Ok(metadata) = serde_json::from_str::<CommunityMetadata>(&decrypted) {
-                        cache.insert(metadata.id, metadata);
-                    }
-                }
-            }
-        }
-        
-        tracing::info!("Loaded {} communities from relay", cache.len());
+        let _events = self
+            .client
+            .fetch_events(filter, Duration::from_secs(10))
+            .await?;
+
+        // Communities are now tracked entirely through NIP-29 group metadata
+        // No need to load encrypted metadata
+        tracing::info!("Communities are now loaded directly from NIP-29 groups");
         Ok(())
     }
 }
@@ -606,6 +468,9 @@ pub enum RelayError {
 
     #[error("Group not found: {0}")]
     GroupNotFound(String),
+
+    #[error("{0}")]
+    Other(String),
 }
 
 type Result<T> = std::result::Result<T, RelayError>;

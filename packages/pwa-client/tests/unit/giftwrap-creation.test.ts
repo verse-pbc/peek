@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  SimplePool,
   generateSecretKey,
   getPublicKey,
   finalizeEvent,
@@ -14,10 +13,8 @@ const VALIDATION_SERVICE_PUBKEY = process.env.VITE_VALIDATION_SERVICE_PUBKEY ||
   '829774829a2c9884607fc59f22762de04c1ee2ac36a504228ff1a99d6519fac2';
 const LOCATION_VALIDATION_REQUEST_KIND = 27492;
 
-describe('Proper Gift Wrap Test', () => {
-  it('should send properly encrypted gift wrap that validation service can decrypt', async () => {
-    const relay = 'ws://localhost:8090';
-    const pool = new SimplePool();
+describe('Gift Wrap Creation Unit Test', () => {
+  it('should create properly formatted NIP-59 gift wrap event', () => {
 
     // Create user keys
     const userSecretKey = generateSecretKey();
@@ -77,29 +74,30 @@ describe('Proper Gift Wrap Test', () => {
 
     const signedGiftWrap = finalizeEvent(giftWrap, ephemeralKey);
 
-    console.log('Sending properly encrypted gift wrap:', signedGiftWrap.id);
-    console.log('Ephemeral pubkey:', ephemeralPubkey);
+    // Verify the gift wrap structure
+    expect(signedGiftWrap.kind).toBe(1059);
+    expect(signedGiftWrap.tags).toContainEqual(['p', VALIDATION_SERVICE_PUBKEY]);
+    expect(signedGiftWrap.content).toBeTruthy();
+    expect(signedGiftWrap.pubkey).toBe(ephemeralPubkey);
+    expect(signedGiftWrap.sig).toBeTruthy();
+    expect(signedGiftWrap.id).toBeTruthy();
 
-    // Send the gift wrap
-    await pool.publish([relay], signedGiftWrap);
-    console.log('Gift wrap sent');
+    // Verify the seal can be decrypted from the gift wrap
+    const decryptedSeal = JSON.parse(
+      nip44.decrypt(signedGiftWrap.content, giftConversationKey)
+    );
+    expect(decryptedSeal.kind).toBe(13);
+    expect(decryptedSeal.pubkey).toBe(userPublicKey);
 
-    // Wait a bit for processing
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Verify the rumor can be decrypted from the seal
+    const decryptedRumor = JSON.parse(
+      nip44.decrypt(decryptedSeal.content, conversationKey)
+    );
+    expect(decryptedRumor.kind).toBe(LOCATION_VALIDATION_REQUEST_KIND);
+    expect(decryptedRumor.pubkey).toBe(userPublicKey);
 
-    // Verify it was stored
-    const events = await pool.querySync([relay], {
-      kinds: [1059],
-      '#p': [VALIDATION_SERVICE_PUBKEY],
-      ids: [signedGiftWrap.id],
-      limit: 1
-    });
-
-    expect(events.length).toBe(1);
-    expect(events[0].id).toBe(signedGiftWrap.id);
-
-    console.log('Gift wrap verified on relay');
-
-    pool.close([relay]);
-  }, 30000);
+    const content = JSON.parse(decryptedRumor.content);
+    expect(content.community_id).toBe('test-community-proper');
+    expect(content.location.latitude).toBe(37.7749);
+  });
 });

@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import WebSocket from 'isomorphic-ws';
+
+// Make WebSocket globally available for happy-dom environment
+(global as { WebSocket?: typeof WebSocket }).WebSocket = WebSocket;
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {

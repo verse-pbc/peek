@@ -1,15 +1,14 @@
+use geohash::{encode, neighbors, Coord};
 use nostr_sdk::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::RwLock;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
 use crate::{
     config::Config,
-    libraries::location_check::{LocationCheckConfig, LocationChecker},
-    models::{LocationPoint, LocationProof},
+    models::LocationPoint,
     services::{community::CommunityService, gift_wrap::GiftWrapService, relay::RelayService},
 };
 
@@ -529,40 +528,10 @@ impl NostrValidationHandler {
             }
         };
 
-        // If not a new community, validate location
+        // If not a new community, validate location using geohash
         if !is_new {
-            let checker = LocationChecker::with_config(LocationCheckConfig {
-                max_distance_meters: self.config.max_distance_meters,
-                max_accuracy_meters: self.config.max_accuracy_meters,
-                max_timestamp_age: self.config.max_timestamp_age_seconds,
-            });
-
-            let proof = LocationProof {
-                coordinates: user_location.clone(),
-                accuracy: location.accuracy,
-                timestamp: location.timestamp,
-                heading: None,
-                speed: None,
-                altitude: None,
-                altitude_accuracy: None,
-            };
-
-            let check_result = checker.validate_location(&proof, &community.location);
-
-            if !check_result.passed {
-                let error_msg = if let Some(ref error) = check_result.error {
-                    error.to_string()
-                } else if check_result.accuracy > self.config.max_accuracy_meters {
-                    format!(
-                        "GPS accuracy too poor: {:.0}m (max: {}m)",
-                        check_result.accuracy, self.config.max_accuracy_meters
-                    )
-                } else if check_result.distance > self.config.max_distance_meters {
-                    format!("Too far from location: {:.0}m away", check_result.distance)
-                } else {
-                    "Location validation failed".to_string()
-                };
-
+            // Validate user is within the geohash area (includes neighbors)
+            if !validate_geohash_location(&user_location, &community.geohash) {
                 return LocationValidationResponse {
                     response_type: Some("location_validation_response".to_string()),
                     success: false,
@@ -570,57 +539,21 @@ impl NostrValidationHandler {
                     relay_url: None,
                     is_admin: None,
                     is_member: None,
-                    error: Some(error_msg),
+                    error: Some("Location outside community area".to_string()),
                     error_code: Some("LOCATION_INVALID".to_string()),
                 };
             }
+
+            // Note: We no longer check GPS accuracy server-side since it's self-reported
+            // and can be spoofed via Nostr messages. The geohash matching provides
+            // the actual security.
         }
 
-        // Create or join group
+        // The group was already created in get_or_create
         let group_id = format!("peek-{}", community_uuid);
 
-        // If this is a new community, create the group first
-        if is_new {
-            let create_group_start = std::time::Instant::now();
-            info!("⏱️ Creating new group at {:?}", create_group_start);
-            match self
-                .relay_service
-                .write()
-                .await
-                .create_group(
-                    community_uuid,
-                    community.name.clone(),
-                    sender_pubkey.to_hex(),
-                    crate::services::relay::Location {
-                        latitude: community.location.latitude,
-                        longitude: community.location.longitude,
-                    },
-                )
-                .await
-            {
-                Ok(_) => {
-                    let create_duration = create_group_start.elapsed();
-                    info!(
-                        "⏱️ Created new group {} with admin {} in {:?}ms",
-                        group_id,
-                        sender_pubkey.to_hex(),
-                        create_duration.as_millis()
-                    );
-                }
-                Err(e) => {
-                    return LocationValidationResponse {
-                        response_type: Some("location_validation_response".to_string()),
-                        success: false,
-                        group_id: None,
-                        relay_url: None,
-                        is_admin: None,
-                        is_member: None,
-                        error: Some(format!("Failed to create group: {}", e)),
-                        error_code: Some("GROUP_CREATE_FAILED".to_string()),
-                    };
-                }
-            }
-        } else {
+        // If not a new community (user is joining existing), add them as a member
+        if !is_new {
             // For existing groups, just add the user
             let add_user_start = std::time::Instant::now();
             info!("⏱️ Adding user to existing group at {:?}", add_user_start);
@@ -797,5 +730,45 @@ impl NostrValidationHandler {
         );
 
         Ok(())
+    }
+}
+
+/// Validate location using geohash neighbor matching
+fn validate_geohash_location(user_location: &LocationPoint, community_geohash: &str) -> bool {
+    // Ensure the community geohash is level 8
+    if community_geohash.len() != 8 {
+        return false;
+    }
+
+    // Encode user location to level 8
+    let user_geohash = match encode(
+        Coord {
+            x: user_location.longitude,
+            y: user_location.latitude,
+        },
+        8,
+    ) {
+        Ok(hash) => hash,
+        Err(_) => return false,
+    };
+
+    // Check if user is in same cell
+    if user_geohash == community_geohash {
+        return true;
+    }
+
+    // Check all 8 neighboring cells
+    match neighbors(community_geohash) {
+        Ok(neighbor_set) => {
+            user_geohash == neighbor_set.n
+                || user_geohash == neighbor_set.ne
+                || user_geohash == neighbor_set.e
+                || user_geohash == neighbor_set.se
+                || user_geohash == neighbor_set.s
+                || user_geohash == neighbor_set.sw
+                || user_geohash == neighbor_set.w
+                || user_geohash == neighbor_set.nw
+        }
+        Err(_) => false,
     }
 }

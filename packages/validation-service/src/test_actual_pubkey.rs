@@ -12,7 +12,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Recipient (client): {}", recipient_pubkey_hex);
 
     // Create Keys for sender (service)
-    let sender_keys = Keys::parse("0000000000000000000000000000000000000000000000000000000000000001")?;
+    let sender_keys =
+        Keys::parse("0000000000000000000000000000000000000000000000000000000000000001")?;
 
     // Verify sender pubkey matches
     assert_eq!(sender_keys.public_key().to_hex(), sender_pubkey_hex);
@@ -20,7 +21,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Parse recipient pubkey
     let recipient_pubkey = PublicKey::from_hex(recipient_pubkey_hex)?;
-    println!("✓ Recipient pubkey parsed successfully: {}", recipient_pubkey.to_hex());
+    println!(
+        "✓ Recipient pubkey parsed successfully: {}",
+        recipient_pubkey.to_hex()
+    );
 
     // Create a rumor
     let content = json!({
@@ -35,7 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "is_open": true,
         "created_at": 1758224477,
         "error": null
-    }).to_string();
+    })
+    .to_string();
 
     let rumor = UnsignedEvent::new(
         sender_keys.public_key(),
@@ -43,7 +48,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Kind::from(27493),
         vec![Tag::custom(
             TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::E)),
-            vec!["8562ea0730d33860330aadaf2c795ec4dd56300a25b7b07de88a7beb3642b6c7".to_string()]
+            vec!["8562ea0730d33860330aadaf2c795ec4dd56300a25b7b07de88a7beb3642b6c7".to_string()],
         )],
         content.clone(),
     );
@@ -69,13 +74,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("✅ SUCCESS: Gift wrap created!");
                     println!("   Gift wrap ID: {}", gift_wrap.id);
                     println!("   Ephemeral pubkey: {}", gift_wrap.pubkey.to_hex());
-                },
+                }
                 Err(e) => {
                     println!("❌ FAILED at gift_wrap_from_seal: {:?}", e);
                     println!("   Error type: {}", e);
                 }
             }
-        },
+        }
         Err(e) => {
             println!("❌ FAILED at EventBuilder::seal: {:?}", e);
             println!("   Error type: {}", e);
@@ -108,10 +113,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         sender_keys.secret_key(),
                         &recipient_pubkey,
                         "test",
-                        nip44::Version::default()
+                        nip44::Version::default(),
                     ) {
                         Ok(_) => println!("   ✓ NIP-44 encryption works"),
-                        Err(e) => println!("   ❌ NIP-44 encryption failed: {}", e)
+                        Err(e) => println!("   ❌ NIP-44 encryption failed: {}", e),
                     }
                 }
             }

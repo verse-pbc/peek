@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { LocationPermission } from '../components/LocationPermission';
 import { CommunityPreview } from '../components/CommunityPreview';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { IdentityModal } from '../components/IdentityModal';
-import { NostrLocationService, type LocationValidationResponse, type CommunityPreviewResponse } from '../services/nostr-location';
+import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
 import { hexToBytes, bytesToHex } from '../lib/hex';
 import { getPublicKey, generateSecretKey } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
@@ -58,7 +58,6 @@ interface JoinFlowError {
 
 export const JoinFlow: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { pubkey, npub, login, createNewIdentity, importIdentity, showIdentityModal, setShowIdentityModal, identity } = useNostrLogin();
   const { toast } = useToast();
@@ -95,22 +94,7 @@ export const JoinFlow: React.FC = () => {
     }
   }, [pubkey, currentStep]);
 
-  // Initial load - fetch preview data with a test location
-  useEffect(() => {
-    if (communityId && currentStep === JoinStep.LOADING && relayManager && connected) {
-      fetchPreview();
-    }
-  }, [communityId, relayManager, connected]);
-
-  // Handle transition to location step after login
-  useEffect(() => {
-    if (waitingForLogin && pubkey && currentStep === JoinStep.PREVIEW) {
-      setWaitingForLogin(false);
-      setCurrentStep(JoinStep.LOCATION);
-    }
-  }, [waitingForLogin, pubkey, currentStep]);
-
-  const fetchPreview = async () => {
+  const fetchPreview = useCallback(async () => {
     if (!communityId) return;
 
     try {
@@ -126,7 +110,7 @@ export const JoinFlow: React.FC = () => {
       } else {
         // User is not logged in, use the same anonymous identity as RelayContext
         const ANON_KEY = 'peek_anonymous_identity';
-        let anonIdentity = localStorage.getItem(ANON_KEY);
+        const anonIdentity = localStorage.getItem(ANON_KEY);
 
         if (!anonIdentity) {
           // Generate new anonymous identity (matching RelayContext)
@@ -208,7 +192,22 @@ export const JoinFlow: React.FC = () => {
       });
       setCurrentStep(JoinStep.ERROR);
     }
-  };
+  }, [communityId, identity?.secretKey, pubkey, relayManager]);
+
+  // Initial load - fetch preview data with a test location
+  useEffect(() => {
+    if (communityId && currentStep === JoinStep.LOADING && relayManager && connected) {
+      fetchPreview();
+    }
+  }, [communityId, currentStep, relayManager, connected, fetchPreview]);
+
+  // Handle transition to location step after login
+  useEffect(() => {
+    if (waitingForLogin && pubkey && currentStep === JoinStep.PREVIEW) {
+      setWaitingForLogin(false);
+      setCurrentStep(JoinStep.LOCATION);
+    }
+  }, [waitingForLogin, pubkey, currentStep]);
 
   const handleJoinClick = async () => {
     if (!pubkey) {
@@ -222,41 +221,7 @@ export const JoinFlow: React.FC = () => {
     setCurrentStep(JoinStep.LOCATION);
   };
 
-  const handleLocationCaptured = useCallback(async (location: {
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-    timestamp: number;
-  }) => {
-    setCapturedLocation(location);
-
-    // Show location capture success
-    toast({
-      title: "Location captured",
-      description: `GPS accuracy: ${location.accuracy.toFixed(1)}m`,
-    });
-
-    setCurrentStep(JoinStep.VALIDATING);
-
-    // Wait for relay connection if not already connected
-    try {
-      await waitForConnection();
-      console.log('Relay connection confirmed, proceeding with validation');
-
-      // Validate location with the server
-      await validateLocation(location);
-    } catch (err) {
-      console.error('Failed to establish relay connection:', err);
-      setError({
-        message: 'Connection failed. Please check your internet and try again.',
-        code: 'CONNECTION_FAILED',
-        canRetry: true
-      });
-      setCurrentStep(JoinStep.ERROR);
-    }
-  }, [communityId, pubkey, toast, waitForConnection]);
-
-  const validateLocation = async (location: {
+  const validateLocation = useCallback(async (location: {
     latitude: number;
     longitude: number;
     accuracy: number;
@@ -282,7 +247,7 @@ export const JoinFlow: React.FC = () => {
     } else {
       // User is not logged in, use the same anonymous identity as RelayContext
       const ANON_KEY = 'peek_anonymous_identity';
-      let anonIdentity = localStorage.getItem(ANON_KEY);
+      const anonIdentity = localStorage.getItem(ANON_KEY);
 
       if (!anonIdentity) {
         // Generate new anonymous identity (matching RelayContext)
@@ -399,11 +364,11 @@ export const JoinFlow: React.FC = () => {
         });
         setCurrentStep(JoinStep.ERROR);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Location validation error:', err);
 
       // Check for relay connection issues
-      if (err.message?.includes('not initialized') || err.message?.includes('not connected')) {
+      if ((err as Error).message?.includes('not initialized') || (err as Error).message?.includes('not connected')) {
         setError({
           message: 'Connection issue. Please wait a moment and try again.',
           code: 'NETWORK_ERROR',
@@ -414,7 +379,7 @@ export const JoinFlow: React.FC = () => {
       }
 
       // Check for timeout
-      if (err.message?.includes('timeout') || err.message?.includes('Validation timeout')) {
+      if ((err as Error).message?.includes('timeout') || (err as Error).message?.includes('Validation timeout')) {
         setError({
           message: 'Validation timed out. The service may be unavailable.',
           code: 'TIMEOUT',
@@ -429,7 +394,41 @@ export const JoinFlow: React.FC = () => {
       }
       setCurrentStep(JoinStep.ERROR);
     }
-  };
+  }, [communityId, identity?.secretKey, pubkey, relayManager, toast]);
+
+  const handleLocationCaptured = useCallback(async (location: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    timestamp: number;
+  }) => {
+    setCapturedLocation(location);
+
+    // Show location capture success
+    toast({
+      title: "Location captured",
+      description: `GPS accuracy: ${location.accuracy.toFixed(1)}m`,
+    });
+
+    setCurrentStep(JoinStep.VALIDATING);
+
+    // Wait for relay connection if not already connected
+    try {
+      await waitForConnection();
+      console.log('Relay connection confirmed, proceeding with validation');
+
+      // Validate location with the server
+      await validateLocation(location);
+    } catch (err) {
+      console.error('Failed to establish relay connection:', err);
+      setError({
+        message: 'Connection failed. Please check your internet and try again.',
+        code: 'CONNECTION_FAILED',
+        canRetry: true
+      });
+      setCurrentStep(JoinStep.ERROR);
+    }
+  }, [toast, waitForConnection, validateLocation]);
 
   const handleLocationDenied = useCallback(() => {
     setError({

@@ -55,7 +55,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
       onOpenChange(false);
       setNsecInput('');
       setError(null);
-    } catch (err) {
+    } catch {
       setError('Invalid nsec key - please check and try again');
     }
   };

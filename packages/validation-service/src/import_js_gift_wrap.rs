@@ -1,5 +1,5 @@
 use nostr_sdk::prelude::*;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::fs;
 
 #[tokio::main]
@@ -20,10 +20,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let recipient_secret = js_data["recipient_secret"].as_str().unwrap();
     let recipient_keys = Keys::parse(recipient_secret)?;
 
-    println!("\nRecipient pubkey from keys: {}", recipient_keys.public_key().to_hex());
+    println!(
+        "\nRecipient pubkey from keys: {}",
+        recipient_keys.public_key().to_hex()
+    );
 
     // Reconstruct the gift wrap event
-    let gift_wrap = Event::from_json(&js_data["gift_wrap"].to_string())?;
+    let gift_wrap = Event::from_json(js_data["gift_wrap"].to_string())?;
 
     println!("\n=== Attempting decryption ===");
 
@@ -49,11 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n2. Decrypting inner layer (seal)...");
     println!("   Using seal pubkey: {}", seal.pubkey.to_hex());
 
-    let decrypted_rumor_json = nip44::decrypt(
-        recipient_keys.secret_key(),
-        &seal.pubkey,
-        &seal.content,
-    )?;
+    let decrypted_rumor_json =
+        nip44::decrypt(recipient_keys.secret_key(), &seal.pubkey, &seal.content)?;
 
     println!("   ✓ Successfully decrypted seal");
 

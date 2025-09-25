@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   MapPin,
@@ -18,10 +17,8 @@ import {
   Coffee,
   AlertCircle,
   CheckCircle,
-  Flame,
   Star,
-  Clock,
-  ArrowRight
+  Clock
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 
