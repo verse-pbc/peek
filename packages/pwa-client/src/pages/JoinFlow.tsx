@@ -316,9 +316,17 @@ export const JoinFlow: React.FC = () => {
         // Success! User has been added to (or is already in) the NIP-29 group
         setCurrentStep(JoinStep.SUCCESS);
 
+        // Check if this is a re-validation (user already in localStorage)
+        const existingGroups = JSON.parse(
+          localStorage.getItem('joinedGroups') || '[]'
+        );
+        const wasAlreadyMember = existingGroups.some(
+          (g: { communityId: string }) => g.communityId === communityId
+        );
+
         // Show appropriate toast message
-        if (response.is_member && !response.is_admin) {
-          // Already a member (re-validation after initial join)
+        if (wasAlreadyMember && !response.is_admin) {
+          // Re-validation of existing member
           toast({
             title: "Welcome Back! 👋",
             description: "You're already a member of this community.",
