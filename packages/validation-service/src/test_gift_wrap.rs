@@ -202,3 +202,7 @@ mod tests {
         println!("✅ Manual gift wrap roundtrip successful!");
     }
 }
+
+fn main() {
+    println!("This is a test binary. Run with `cargo test --bin test_gift_wrap`");
+}
