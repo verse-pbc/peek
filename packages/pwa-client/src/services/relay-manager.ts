@@ -30,7 +30,7 @@ export const NIP29_KINDS = {
   GROUP_ROLES: 39003,
 
   // Content events
-  CHAT_MESSAGE: 1,  // Use kind 1 (text note) for NIP-29 messages
+  CHAT_MESSAGE: 9,  // Use kind 9 for NIP-29 group chat messages
   CHANNEL_MESSAGE: 42,
 } as const;
 
