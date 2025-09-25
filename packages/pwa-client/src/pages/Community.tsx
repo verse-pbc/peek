@@ -69,34 +69,100 @@ const Community = () => {
       setLoading(true);
       setError(null);
 
-      // First check if user has joined this community (stored in localStorage)
+      // First check localStorage for cached membership (for quick loading)
       const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-      const groupInfo = joinedGroups.find((g: { communityId: string; isAdmin?: boolean }) => g.communityId === communityId);
+      const cachedGroupInfo = joinedGroups.find((g: { communityId: string; isAdmin?: boolean }) => g.communityId === communityId);
 
-      if (!groupInfo) {
-        // User hasn't joined this community at all
-        setError('You are not a member of this community. Please scan the QR code at the physical location to join.');
+      // Always use the configured relay URL
+      const relayUrl = getRelayUrl();
+      console.log('Connecting to relay:', relayUrl, 'for group:', groupId);
+
+      // Verify actual membership status from relay (NIP-29 spec)
+      // Check for kind:9000 (put-user) and kind:9001 (remove-user) events
+      let isMemberOnRelay = false;
+      let wasRemoved = false;
+
+      try {
+        // Query for membership events for this user
+        const membershipFilter: Filter = {
+          kinds: [9000, 9001], // put-user and remove-user events
+          '#h': [groupId],
+          '#p': [pubkey],
+          limit: 10 // Get recent events to find the latest status
+        };
+
+        const membershipEvents = await pool.querySync([relayUrl], membershipFilter);
+
+        // Find the most recent event to determine current membership status
+        if (membershipEvents.length > 0) {
+          // Sort by created_at to find the latest event
+          membershipEvents.sort((a, b) => b.created_at - a.created_at);
+          const latestEvent = membershipEvents[0];
+
+          if (latestEvent.kind === 9000) {
+            // User was added to the group
+            isMemberOnRelay = true;
+            console.log('User is a member according to kind:9000 event');
+          } else if (latestEvent.kind === 9001) {
+            // User was removed from the group
+            wasRemoved = true;
+            console.log('User was removed according to kind:9001 event');
+          }
+        } else {
+          // No membership events found - check if group is unmanaged
+          // For now, we'll treat no events as not being a member
+          console.log('No membership events found for user');
+        }
+      } catch (err) {
+        console.warn('Could not verify membership status:', err);
+        // If we can't verify, fall back to localStorage but show a warning
+        if (cachedGroupInfo) {
+          isMemberOnRelay = true; // Assume cached data is valid if relay is unreachable
+        }
+      }
+
+      // Handle membership verification results
+      if (!isMemberOnRelay) {
+        // User is not a member according to relay
+
+        // Clear stale localStorage entry if it exists
+        if (cachedGroupInfo) {
+          const filtered = joinedGroups.filter((g: { communityId: string }) => g.communityId !== communityId);
+          localStorage.setItem('joinedGroups', JSON.stringify(filtered));
+        }
+
+        const message = wasRemoved
+          ? 'You have been removed from this community. Please contact an admin or scan the QR code again to rejoin.'
+          : 'You are not a member of this community. Please scan the QR code at the physical location to join.';
+
+        setError(message);
         setLoading(false);
 
-        // Clean up and redirect to home with message
+        // Redirect to home with appropriate message
         navigate('/', {
-          state: {
-            message: 'You need to scan the QR code at the location to join this community'
-          }
+          state: { message }
         });
         return;
       }
 
-      // User has joined, verify they still have access
-      // Always use the configured relay URL (ignore old localStorage values)
-      const relayUrl = getRelayUrl();
-      console.log('Connecting to relay:', relayUrl, 'for group:', groupId);
+      // User is a member - update localStorage if needed
+      if (!cachedGroupInfo) {
+        // User is a member but not in localStorage, add them
+        const newGroupInfo = {
+          communityId,
+          groupId,
+          relayUrl,
+          joinedAt: Date.now()
+        };
+        joinedGroups.push(newGroupInfo);
+        localStorage.setItem('joinedGroups', JSON.stringify(joinedGroups));
+      }
+
+      // Continue with loading community data
+      const groupInfo = cachedGroupInfo || { isAdmin: false };
 
       try {
-        // For NIP-29 groups, membership is tracked in kind 39002 events
-        // But these require authentication to view
-        // Since the user has joined (per localStorage), we trust that
-        // and proceed to fetch community data
+        // User's membership is verified, proceed to fetch community data
 
         // User is a member, fetch community data
         const community: CommunityData = {
