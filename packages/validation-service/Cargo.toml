@@ -55,6 +55,10 @@ name = "test_gift_wrap"
 path = "src/test_gift_wrap.rs"
 
 [[bin]]
+name = "test_tag_parsing"
+path = "src/test_tag_parsing.rs"
+
+[[bin]]
 name = "export_gift_wrap"
 path = "src/export_gift_wrap.rs"
 

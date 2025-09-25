@@ -352,39 +352,44 @@ impl RelayService {
 
     /// Get the member count for a NIP-29 group
     async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
-        // Fetch kind 39002 (group members list) using d-tag
-        // NIP-29 metadata events use d-tag, not h-tag
+        // Count kind 9000 (put-user) events with h-tag for this group
+        // This gives us the actual member additions
         let members_filter = Filter::new()
-            .kind(Kind::from(39002))
-            .identifier(group_id) // This creates a d-tag filter
-            .limit(1);
+            .kind(Kind::from(9000))
+            .custom_tag(SingleLetterTag::lowercase(Alphabet::H), [group_id])
+            .limit(100);
 
         let members_events = self
             .client
             .fetch_events(members_filter, Duration::from_secs(5))
             .await?;
 
-        if let Some(event) = members_events.first() {
-            // Count p-tags which represent members
-            let member_count = event.tags.iter()
-                .filter(|tag| matches!(tag.kind(), TagKind::SingleLetter(single_letter) if single_letter.character == Alphabet::P))
-                .count() as u32;
-
-            tracing::info!("Found {} members in group {}", member_count, group_id);
-            Ok(member_count)
-        } else {
-            tracing::warn!("No member list found for group {}", group_id);
-            Ok(0)
+        // Count unique pubkeys from p-tags
+        let mut unique_members = std::collections::HashSet::new();
+        for event in members_events {
+            for tag in event.tags.iter() {
+                if let TagKind::SingleLetter(single_letter) = tag.kind() {
+                    if single_letter.character == Alphabet::P {
+                        if let Some(pubkey) = tag.content() {
+                            unique_members.insert(pubkey.to_string());
+                        }
+                    }
+                }
+            }
         }
+
+        let member_count = unique_members.len() as u32;
+        tracing::info!("Found {} members in group {}", member_count, group_id);
+        Ok(member_count)
     }
 
     /// Get NIP-29 group metadata from relay
     pub async fn get_group_metadata(&self, group_id: &str) -> Result<GroupMetadata> {
-        // Fetch kind 39000 (group metadata) using d-tag
-        // NIP-29 metadata events (39000, 39001, 39002) use d-tag for group ID
+        // Fetch kind 9002 (edit-metadata) events using h-tag
+        // These are the actual metadata events with name, about, etc.
         let metadata_filter = Filter::new()
-            .kind(Kind::from(39000))
-            .identifier(group_id) // This creates a d-tag filter
+            .kind(Kind::from(9002))
+            .custom_tag(SingleLetterTag::lowercase(Alphabet::H), [group_id])
             .limit(1);
 
         // Debug: Log the filter to see what it generates
