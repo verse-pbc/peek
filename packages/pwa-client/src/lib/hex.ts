@@ -10,13 +10,24 @@ export function bytesToHex(bytes: Uint8Array): string {
 
 export function hexToBytes(hex: string): Uint8Array {
   if (typeof hex !== 'string') throw new Error('hex string expected');
+
+  // Remove any '0x' prefix if present
+  if (hex.startsWith('0x')) {
+    hex = hex.slice(2);
+  }
+
+  // Pad with leading zero if odd length
+  if (hex.length % 2 !== 0) {
+    console.warn(`hexToBytes: Padding odd-length hex string: ${hex.slice(0, 8)}...`);
+    hex = '0' + hex;
+  }
+
   const len = hex.length;
-  if (len % 2 !== 0) throw new Error('padded hex string expected');
   const out = new Uint8Array(len / 2);
   for (let i = 0; i < out.length; i++) {
     const j = i * 2;
     const byte = Number.parseInt(hex.slice(j, j + 2), 16);
-    if (Number.isNaN(byte)) throw new Error('invalid hex byte');
+    if (Number.isNaN(byte)) throw new Error(`invalid hex byte at position ${j}: ${hex.slice(j, j + 2)}`);
     out[i] = byte;
   }
   return out;
