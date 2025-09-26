@@ -61,7 +61,6 @@ export type ServiceResponse =
   | {
       type: 'location_validation_response';
       success: boolean;
-      invite_code?: string;
       group_id?: string;
       relay_url?: string;
       is_admin?: boolean;
@@ -93,7 +92,6 @@ export interface LocationValidationRequest {
 export interface LocationValidationResponse {
   type?: 'location_validation_response';
   success: boolean;
-  invite_code?: string;
   group_id?: string;
   relay_url?: string;
   is_admin?: boolean;

@@ -501,6 +501,34 @@ export class GroupManager {
     return this.groupCache.get(groupId)?.myMembership || 'none';
   }
 
+  /**
+   * Check membership status directly from the relay (bypasses cache)
+   * This is the authoritative way to check if a user is a member
+   */
+  async checkMembershipDirectly(groupId: string, pubkey?: string): Promise<boolean> {
+    const targetPubkey = pubkey || this.relayManager.getUserPubkey();
+    if (!targetPubkey) return false;
+
+    const latestEvent = await this.relayManager.queryMembershipEvents(groupId, targetPubkey);
+
+    if (!latestEvent) {
+      // No membership events found - user was never added
+      return false;
+    }
+
+    // Check if the latest event is an add (9000) or remove (9001)
+    if (latestEvent.kind === 9000) {
+      // User was added - they are a member
+      return true;
+    } else if (latestEvent.kind === 9001) {
+      // User was removed - they are not a member
+      return false;
+    }
+
+    // Shouldn't reach here, but default to not a member
+    return false;
+  }
+
   getAllGroups(): Map<string, GroupMetadata> {
     const groups = new Map<string, GroupMetadata>();
 

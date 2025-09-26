@@ -41,35 +41,32 @@ interface Community {
 - `non-existent` → `active` (first QR scan)
 - `active` → `archived` (admin action)
 
-### NIP-29 Invite Creation (kind:9009)
-Validation service creates invite events directly on the relay using admin privileges.
+### NIP-29 User Addition (kind:9000)
+Validation service directly adds users to groups using admin privileges.
 
 ```typescript
 // Event created by validation service on relay
-interface InviteCreationEvent {
-  kind: 9009;              // NIP-29 create-invite
+interface UserAdditionEvent {
+  kind: 9000;              // NIP-29 put-user (add member)
   pubkey: string;          // Admin pubkey (validation service)
-  content: string;         // Invite code
+  content: string;         // Optional reason/message
   tags: [
     ["h", string],         // Group ID
-    ["expiration", string], // Unix timestamp (created + 300s)
-    ["uses", "1"],         // Single use
-    ["for", string]        // Target user pubkey (optional)
+    ["p", string]          // User pubkey being added
   ];
 }
 ```
 
 **Flow**:
 1. User passes location validation
-2. Validation service creates kind:9009 event on relay
-3. Service returns invite code to user
-4. User sends kind:9021 with code to relay
-5. Relay validates against stored kind:9009 event
+2. Validation service directly adds user via kind:9000 event
+3. Service returns success confirmation
+4. User is immediately a member
 
 **Benefits**:
 - No external storage needed (no Redis)
-- Relay handles expiry and single-use logic
-- Invites hidden from non-admin users
+- No intermediate tokens or invite codes
+- Immediate membership
 - Native NIP-29 implementation
 
 ### LocationProof
@@ -152,14 +149,14 @@ interface Member {
 }
 ```
 
-### Join Request Event (NIP-29)
+### User Addition Event (NIP-29)
 ```json
 {
-  "kind": 9021,
-  "content": "",
+  "kind": 9000,
+  "content": "User joined via location validation",
   "tags": [
     ["h", "group-id"],
-    ["code", "invite-code-from-validation-service"]
+    ["p", "user-pubkey-being-added"]
   ]
 }
 ```
@@ -193,7 +190,7 @@ interface Member {
 
 ### Relay Storage (Primary)
 - All community data persisted in NIP-29 events
-- Invite codes stored as kind:9009 events
+- User memberships tracked via kind:9000 events
 - Messages stored as standard Nostr events
 - Membership tracked by relay access control
 - Expiry and single-use enforced by relay

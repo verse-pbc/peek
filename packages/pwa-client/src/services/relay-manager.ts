@@ -130,6 +130,52 @@ export class RelayManager {
   }
 
   /**
+   * Query membership events directly from the relay
+   * Returns the most recent event to determine current membership status
+   */
+  async queryMembershipEvents(groupId: string, pubkey: string): Promise<Event | null> {
+    if (!this.relay || !this.relay.connected) {
+      console.warn('[RelayManager] Cannot query events: not connected');
+      return null;
+    }
+
+    try {
+      // Query for both add-user (9000) and remove-user (9001) events
+      const filter: Filter = {
+        kinds: [9000, 9001],
+        '#h': [groupId],
+        '#p': [pubkey],
+        limit: 10
+      };
+
+      console.log('[RelayManager] Querying membership events:', { groupId, pubkey });
+
+      // Use pool.querySync to get events directly
+      const events = await this.pool.querySync([this.relayUrl], filter);
+
+      if (events.length === 0) {
+        console.log('[RelayManager] No membership events found');
+        return null;
+      }
+
+      // Sort by created_at to find the most recent event
+      events.sort((a, b) => b.created_at - a.created_at);
+      const latestEvent = events[0];
+
+      console.log('[RelayManager] Latest membership event:', {
+        kind: latestEvent.kind,
+        created_at: latestEvent.created_at,
+        isAddUser: latestEvent.kind === 9000
+      });
+
+      return latestEvent;
+    } catch (error) {
+      console.error('[RelayManager] Error querying membership events:', error);
+      return null;
+    }
+  }
+
+  /**
    * Connect to the relay
    */
   async connect(): Promise<void> {

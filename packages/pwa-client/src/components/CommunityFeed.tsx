@@ -78,6 +78,15 @@ export function CommunityFeed({
     // Subscribe to this group
     relayManager.subscribeToGroup(groupId);
 
+    // Initialize members with current user's pubkey (we know they're a member if they're viewing this)
+    const userPubkey = relayManager.getUserPubkey() || identity?.publicKey;
+    if (userPubkey) {
+      setMembers(new Set([userPubkey]));
+    } else {
+      // Fallback: at least count 1 member since someone must be viewing this
+      setMembers(new Set(['placeholder']));
+    }
+
     // Listen for chat messages
     const unsubscribeMessages = relayManager.onEvent(`kind-${NIP29_KINDS.CHAT_MESSAGE}`, async (event: Event) => {
       // Check if message is for this group
@@ -151,7 +160,7 @@ export function CommunityFeed({
       unsubscribeMembers();
       relayManager.unsubscribeFromGroup(groupId);
     };
-  }, [relayManager, groupId]);
+  }, [relayManager, groupId, identity]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {

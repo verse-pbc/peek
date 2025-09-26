@@ -59,6 +59,16 @@ const Community = () => {
       // Subscribe to the group to get updates
       if (groupId) {
         relayManager.subscribeToGroup(groupId);
+
+        // Listen for group metadata updates to update member count
+        const unsubscribe = relayManager.onEvent(`group-metadata-${groupId}`, (event) => {
+          if (event.kind === 39002) { // GROUP_MEMBERS event
+            const memberCount = event.tags.filter(t => t[0] === 'p').length;
+            setCommunityData(prev => prev ? { ...prev, memberCount } : prev);
+          }
+        });
+
+        return () => unsubscribe();
       }
     }
   }, [relayManager, connected, groupId]);
@@ -81,21 +91,28 @@ const Community = () => {
       // Wait for connection to be established
       await waitForConnection();
 
-      // Give the GroupManager a moment to receive membership events
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Check membership using GroupManager (which uses cached events from relay)
-      const isMember = groupManager.isGroupMember(groupId);
+      // First check cache for fast initial display
+      let isMember = groupManager.isGroupMember(groupId);
       const isAdmin = groupManager.isGroupAdmin(groupId);
-      const membership = groupManager.getMyMembership(groupId);
 
-      console.log('Membership check:', {
+      console.log('Initial cache check:', {
         groupId,
         isMember,
         isAdmin,
-        membership,
         userPubkey: pubkey
       });
+
+      // If not in cache, do authoritative check directly from relay
+      if (!isMember) {
+        console.log('Member not in cache, checking relay directly...');
+        isMember = await groupManager.checkMembershipDirectly(groupId);
+
+        console.log('Direct relay check result:', {
+          groupId,
+          isMember,
+          userPubkey: pubkey
+        });
+      }
 
       // Handle membership verification results
       if (!isMember) {
@@ -118,10 +135,14 @@ const Community = () => {
         const metadata = groupManager.getGroupMetadata(groupId);
         const members = groupManager.getGroupMembers(groupId);
 
+        // If members list is empty, we might not have synced yet
+        // In that case, at least count ourselves
+        const memberCount = members.length > 0 ? members.length : 1;
+
         const community: CommunityData = {
           groupId,
           name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
-          memberCount: members.length,
+          memberCount,
           isAdmin,
           isMember: true
         };
