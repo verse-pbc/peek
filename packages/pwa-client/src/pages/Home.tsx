@@ -43,7 +43,7 @@ interface Community {
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { ndk, user } = useNostrContext();
+  const { ndk: _ndk, user } = useNostrContext();
   const { pubkey, npub, logout, login } = useNostrLogin();
   const { toast } = useToast();
   const { relayManager, connected } = useRelayManager();
