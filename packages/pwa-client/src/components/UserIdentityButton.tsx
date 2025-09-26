@@ -60,14 +60,20 @@ export const UserIdentityButton: React.FC = () => {
       const oldPubkey = identity.publicKey;
       const newPubkey = newIdentity.publicKey;
 
-      // Create NostrLocationService
-      const secretKey = newIdentity.secretKey === 'NIP07_EXTENSION'
+      // Get the new identity's secret key for signing the proof
+      const newSecretKey = newIdentity.secretKey === 'NIP07_EXTENSION'
         ? undefined
         : hexToBytes(newIdentity.secretKey);
 
+      // Get the old identity's secret key for the NostrLocationService
+      const oldSecretKey = identity.secretKey === 'NIP07_EXTENSION'
+        ? new Uint8Array(32) // Dummy key for NIP-07
+        : hexToBytes(identity.secretKey);
+
+      // Create NostrLocationService with OLD identity to send/receive the swap request
       const nostrService = new NostrLocationService(
-        secretKey || new Uint8Array(32), // Dummy key for NIP-07
-        newPubkey,
+        oldSecretKey,
+        oldPubkey,
         relayManager
       );
 
@@ -77,7 +83,7 @@ export const UserIdentityButton: React.FC = () => {
           oldPubkey,
           newPubkey,
           group.groupId,
-          secretKey
+          newSecretKey  // Pass new identity's secret key for signing the proof
         );
 
         if (!response.success) {
