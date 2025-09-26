@@ -24,7 +24,6 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
-import { GroupManager } from '../services/group-manager';
 
 interface Community {
   groupId: string;
@@ -43,11 +42,10 @@ interface Community {
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { ndk, user } = useNostrContext();
+  const { user } = useNostrContext();
   const { pubkey, npub, logout, login } = useNostrLogin();
   const { toast } = useToast();
-  const { relayManager, connected } = useRelayManager();
-  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
+  const { groupManager } = useRelayManager();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('communities');
@@ -67,13 +65,10 @@ const Home = () => {
     }
   }, [location.state]);
 
-  // Initialize GroupManager when relay is connected
-  useEffect(() => {
-    if (relayManager && connected) {
-      const gm = new GroupManager(relayManager);
-      setGroupManager(gm);
-    }
-  }, [relayManager, connected]);
+  // GroupManager is now provided by RelayContext - no need to create new instance
+
+  // Note: Group subscriptions are handled by individual components (CommunityFeed, etc.)
+  // that need the data, not at the Home page level
 
   // Fetch user's communities from localStorage and enrich with relay data
   useEffect(() => {
@@ -108,11 +103,6 @@ const Home = () => {
           const communityId = groupInfo.communityId;
           const groupId = communityId; // Use the community ID directly for navigation
           const fullGroupId = `peek-${communityId}`;
-
-          // Subscribe to the group to get metadata
-          if (relayManager && connected) {
-            relayManager.subscribeToGroup(fullGroupId);
-          }
 
           // Get metadata from GroupManager if available
           let name = `Community ${communityId.slice(0, 8)}`; // Default name
@@ -182,7 +172,7 @@ const Home = () => {
       isActive = false;
       clearInterval(pollInterval);
     };
-  }, [ndk, toast, groupManager, relayManager, connected]); // Include all dependencies
+  }, [groupManager, toast]); // Minimal dependencies to avoid recreating interval
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';

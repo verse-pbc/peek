@@ -75,7 +75,7 @@ export function CommunityFeed({
     setLoading(true);
     const authorMetadataCache = new Map<string, { name?: string; picture?: string; npub: string }>();
 
-    // Subscribe to this group
+    // Subscribe to this group (Community page already subscribes, but this is safe as RelayManager should handle duplicates)
     relayManager.subscribeToGroup(groupId);
 
     // Initialize members with current user's pubkey (we know they're a member if they're viewing this)
@@ -88,10 +88,15 @@ export function CommunityFeed({
     }
 
     // Listen for chat messages
+    console.log(`[CommunityFeed] Registering for events: kind-${NIP29_KINDS.CHAT_MESSAGE} (kind-9)`);
     const unsubscribeMessages = relayManager.onEvent(`kind-${NIP29_KINDS.CHAT_MESSAGE}`, async (event: Event) => {
+      console.log(`[CommunityFeed] Received chat message event:`, event.id, event.content);
       // Check if message is for this group
       const hTag = event.tags.find(t => t[0] === 'h');
-      if (hTag?.[1] !== groupId) return;
+      if (hTag?.[1] !== groupId) {
+        console.log(`[CommunityFeed] Message not for this group: ${hTag?.[1]} vs ${groupId}`);
+        return;
+      }
 
       const message: Message = {
         id: event.id,
@@ -133,10 +138,14 @@ export function CommunityFeed({
       setMessages(prev => {
         const exists = prev.find(m => m.id === message.id);
         if (!exists) {
+          console.log(`[CommunityFeed] Adding new message to UI:`, message.content);
           const updated = [...prev, message].sort((a, b) => a.created_at - b.created_at);
+          console.log(`[CommunityFeed] Total messages now:`, updated.length);
           return updated.slice(-100); // Keep last 100 messages
+        } else {
+          console.log(`[CommunityFeed] Duplicate message, skipping:`, message.id);
+          return prev;
         }
-        return prev;
       });
 
       // Track members
@@ -160,7 +169,7 @@ export function CommunityFeed({
       unsubscribeMembers();
       relayManager.unsubscribeFromGroup(groupId);
     };
-  }, [relayManager, groupId, identity]);
+  }, [relayManager, groupId]); // Removed 'identity' dependency to prevent infinite loops
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -221,8 +230,8 @@ export function CommunityFeed({
   }, {} as Record<string, Message[]>);
 
   return (
-    <Card className="flex flex-col h-[600px]">
-      <CardHeader className="pb-3">
+    <Card className="flex flex-col h-[600px] overflow-hidden">
+      <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl">{communityName}</CardTitle>
           <div className="flex items-center gap-2">
@@ -235,8 +244,8 @@ export function CommunityFeed({
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 p-0 flex flex-col">
-        <ScrollArea ref={scrollRef} className="flex-1 px-4">
+      <CardContent className="flex-1 p-0 flex flex-col min-h-0">
+        <ScrollArea ref={scrollRef} className="flex-1 px-4 overflow-x-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               Loading messages...
@@ -266,7 +275,7 @@ export function CommunityFeed({
                     return (
                       <div
                         key={message.id}
-                        className={`flex items-start gap-3 mb-4 ${
+                        className={`flex items-start gap-3 mb-4 overflow-hidden ${
                           isOwnMessage ? 'flex-row-reverse' : ''
                         }`}
                       >
@@ -282,17 +291,17 @@ export function CommunityFeed({
                           </AvatarFallback>
                         </Avatar>
 
-                        <div className={`flex-1 ${isOwnMessage ? 'text-right' : ''}`}>
+                        <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
                           <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
-                            <span className="text-sm font-medium">
+                            <span className="text-sm font-medium truncate max-w-[150px]">
                               {message.author?.name || message.author?.npub?.slice(0, 8) || 'Anonymous'}
                             </span>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-muted-foreground flex-shrink-0">
                               {formatTime(message.created_at)}
                             </span>
                           </div>
 
-                          <div className={`inline-block rounded-lg px-3 py-2 ${
+                          <div className={`rounded-lg px-3 py-2 max-w-[280px] ${
                             isOwnMessage
                               ? 'bg-primary text-primary-foreground'
                               : 'bg-muted'
@@ -309,7 +318,7 @@ export function CommunityFeed({
           )}
         </ScrollArea>
 
-        <div className="p-4 border-t">
+        <div className="p-4 border-t flex-shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();

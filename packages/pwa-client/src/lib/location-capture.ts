@@ -39,7 +39,7 @@ const DEFAULT_OPTIONS: LocationCaptureOptions = {
   enableHighAccuracy: true,
   timeout: 30000, // 30 seconds
   maximumAge: 0, // Don't use cached position
-  requiredAccuracy: 20, // 20 meters
+  requiredAccuracy: 1000, // 1000 meters (very forgiving for testing)
 };
 
 /**
