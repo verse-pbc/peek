@@ -325,14 +325,12 @@ export class RelayManager {
 
     console.log(`[RelayManager] Subscribing to group ${groupId} with auth handler:`, !!this.authHandler);
 
-    // Subscribe to h-tagged events (content and moderation)
+    // Subscribe to h-tagged events (content only - membership is in 39xxx events)
     const hFilter: Filter = {
       '#h': [groupId],
       kinds: [
         NIP29_KINDS.CHAT_MESSAGE,
         NIP29_KINDS.CHANNEL_MESSAGE,
-        NIP29_KINDS.PUT_USER,
-        NIP29_KINDS.REMOVE_USER,
         NIP29_KINDS.DELETE_EVENT,
         NIP29_KINDS.CREATE_INVITE,
         NIP29_KINDS.JOIN_REQUEST,
@@ -578,35 +576,8 @@ export class RelayManager {
     const state = this.groupStates.get(groupId);
     if (!state) return;
 
-    // Handle moderation events that affect membership
-    switch (event.kind) {
-      case NIP29_KINDS.PUT_USER: {
-        const pubkey = event.tags.find(t => t[0] === 'p')?.[1];
-        if (pubkey) {
-          const roles = event.tags
-            .filter(t => t[0] === 'p' && t[1] === pubkey)
-            .flatMap(t => t.slice(2));
-
-          state.members.set(pubkey, { pubkey, roles });
-
-          if (pubkey === this.userPubkey) {
-            state.myMembership = { pubkey, roles };
-          }
-        }
-        break;
-      }
-
-      case NIP29_KINDS.REMOVE_USER: {
-        const pubkey = event.tags.find(t => t[0] === 'p')?.[1];
-        if (pubkey) {
-          state.members.delete(pubkey);
-          if (pubkey === this.userPubkey) {
-            state.myMembership = undefined;
-          }
-        }
-        break;
-      }
-    }
+    // Note: Membership is tracked via 39xxx replaceable events
+    // We don't need to handle individual PUT_USER/REMOVE_USER events
 
     // Notify handlers for this event type
     this.notifyEventHandlers(`group-${groupId}`, event);
