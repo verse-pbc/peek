@@ -315,6 +315,12 @@ export class RelayManager {
       return;
     }
 
+    // Check if already subscribed to this group
+    if (this.subscriptions.has(`group-${groupId}`)) {
+      console.log(`[RelayManager] Already subscribed to group ${groupId}`);
+      return;
+    }
+
     // Ensure we have a state for this group
     if (!this.groupStates.has(groupId)) {
       this.groupStates.set(groupId, {

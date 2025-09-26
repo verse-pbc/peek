@@ -19,9 +19,8 @@ export function AppRouter() {
         <Routes>
           <Route path="/" element={<Index />} />
           {/* Peek-specific routes */}
-          <Route path="/join/:communityId" element={<JoinFlow />} />
           <Route path="/c/join-community" element={<JoinCommunityMock />} /> {/* Mock page for local dev only */}
-          <Route path="/c/:communityId" element={<JoinFlow />} /> {/* Alternative path for QR codes */}
+          <Route path="/c/:communityId" element={<JoinFlow />} /> {/* QR code path for joining communities */}
           <Route path="/community/:communityId" element={<Community />} /> {/* Community page after validation */}
           <Route path="/test-location" element={<TestLocationPage />} />
           <Route path="/test-preview" element={<TestCommunityPreviewPage />} />

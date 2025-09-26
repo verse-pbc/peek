@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { RelayManager } from '@/services/relay-manager';
+import { GroupManager } from '@/services/group-manager';
 import { finalizeEvent, type EventTemplate, type VerifiedEvent } from 'nostr-tools';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { hexToBytes, bytesToHex } from '@/lib/hex';
@@ -7,6 +8,7 @@ import { useNostrLogin } from '@/lib/nostrify-shim';
 
 interface RelayContextType {
   relayManager: RelayManager | null;
+  groupManager: GroupManager | null;
   connected: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -29,11 +31,19 @@ interface RelayProviderProps {
 
 export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
+  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
   const [connected, setConnected] = useState(false);
   const managerRef = useRef<RelayManager | null>(null);
+  const groupManagerRef = useRef<GroupManager | null>(null);
   const connectionPromiseRef = useRef<Promise<void> | null>(null);
   const connectionResolveRef = useRef<(() => void) | null>(null);
   const { identity } = useNostrLogin();
+  const identityRef = useRef(identity);
+
+  // Keep identity ref up to date
+  useEffect(() => {
+    identityRef.current = identity;
+  }, [identity]);
 
   useEffect(() => {
     // Initialize relay manager
@@ -116,14 +126,36 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       // Use local key for signing
       manager.setAuthHandler(async (authEvent: EventTemplate) => {
         console.log('[RelayContext] Signing auth event for NIP-42');
-        const signedEvent = finalizeEvent(authEvent, secretKeyBytes!) as VerifiedEvent;
+        const currentIdentity = identityRef.current;
+
+        // Get the current secret key
+        let currentSecretKey: Uint8Array;
+        if (currentIdentity?.secretKey && currentIdentity.secretKey !== 'NIP07_EXTENSION') {
+          currentSecretKey = hexToBytes(currentIdentity.secretKey);
+        } else {
+          // Fallback to the original secretKeyBytes if identity not available
+          currentSecretKey = secretKeyBytes!;
+        }
+
+        const signedEvent = finalizeEvent(authEvent, currentSecretKey) as VerifiedEvent;
         return signedEvent;
       });
 
       // Set event signer for local keys
       manager.setEventSigner(async (event: EventTemplate) => {
         console.log('[RelayContext] Signing event with local key');
-        const signedEvent = finalizeEvent(event, secretKeyBytes!) as VerifiedEvent;
+        const currentIdentity = identityRef.current;
+
+        // Get the current secret key
+        let currentSecretKey: Uint8Array;
+        if (currentIdentity?.secretKey && currentIdentity.secretKey !== 'NIP07_EXTENSION') {
+          currentSecretKey = hexToBytes(currentIdentity.secretKey);
+        } else {
+          // Fallback to the original secretKeyBytes if identity not available
+          currentSecretKey = secretKeyBytes!;
+        }
+
+        const signedEvent = finalizeEvent(event, currentSecretKey) as VerifiedEvent;
         return signedEvent;
       });
     }
@@ -151,12 +183,18 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     managerRef.current = manager;
     setRelayManager(manager);
 
+    // Create shared GroupManager instance
+    const gm = new GroupManager(manager);
+    groupManagerRef.current = gm;
+    setGroupManager(gm);
+
     // Cleanup on unmount
     return () => {
-      console.log('[RelayContext] Disposing relay manager');
+      console.log('[RelayContext] Disposing relay and group managers');
+      gm.dispose();
       manager.dispose();
     };
-  }, [identity?.secretKey, identity?.publicKey]);
+  }, []); // Only create RelayManager once - use identityRef for dynamic identity access
 
   const connect = async () => {
     if (managerRef.current) {
@@ -185,6 +223,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   return (
     <RelayContext.Provider value={{
       relayManager,
+      groupManager,
       connected,
       connect,
       disconnect,

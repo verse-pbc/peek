@@ -44,32 +44,26 @@ const Community = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const { relayManager, connected, waitForConnection } = useRelayManager();
-  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
+  const { relayManager, groupManager, connected, waitForConnection } = useRelayManager();
 
   // The group ID format for NIP-29
   const groupId = communityId ? `peek-${communityId}` : null;
 
-  // Initialize GroupManager when relay is connected
+  // Subscribe to group updates when connected
   useEffect(() => {
-    if (relayManager && connected) {
-      const gm = new GroupManager(relayManager);
-      setGroupManager(gm);
-
+    if (relayManager && connected && groupId) {
       // Subscribe to the group to get updates
-      if (groupId) {
-        relayManager.subscribeToGroup(groupId);
+      relayManager.subscribeToGroup(groupId);
 
-        // Listen for group metadata updates to update member count
-        const unsubscribe = relayManager.onEvent(`group-metadata-${groupId}`, (event) => {
-          if (event.kind === 39002) { // GROUP_MEMBERS event
-            const memberCount = event.tags.filter(t => t[0] === 'p').length;
-            setCommunityData(prev => prev ? { ...prev, memberCount } : prev);
-          }
-        });
+      // Listen for group metadata updates to update member count
+      const unsubscribe = relayManager.onEvent(`group-metadata-${groupId}`, (event) => {
+        if (event.kind === 39002) { // GROUP_MEMBERS event
+          const memberCount = event.tags.filter(t => t[0] === 'p').length;
+          setCommunityData(prev => prev ? { ...prev, memberCount } : prev);
+        }
+      });
 
-        return () => unsubscribe();
-      }
+      return () => unsubscribe();
     }
   }, [relayManager, connected, groupId]);
 

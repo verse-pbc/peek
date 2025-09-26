@@ -46,8 +46,7 @@ const Home = () => {
   const { user } = useNostrContext();
   const { pubkey, npub, logout, login } = useNostrLogin();
   const { toast } = useToast();
-  const { relayManager, connected } = useRelayManager();
-  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
+  const { relayManager, groupManager, connected } = useRelayManager();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('communities');
@@ -67,34 +66,10 @@ const Home = () => {
     }
   }, [location.state]);
 
-  // Initialize GroupManager when relay is connected
-  useEffect(() => {
-    if (relayManager && connected) {
-      const gm = new GroupManager(relayManager);
-      setGroupManager(gm);
-    }
-  }, [relayManager, connected]);
+  // GroupManager is now provided by RelayContext - no need to create new instance
 
-  // Subscribe to groups once when relay is connected
-  useEffect(() => {
-    if (!relayManager || !connected) return;
-
-    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-
-    // Subscribe to each group only once
-    for (const groupInfo of joinedGroups) {
-      const fullGroupId = `peek-${groupInfo.communityId}`;
-      relayManager.subscribeToGroup(fullGroupId);
-    }
-
-    // Cleanup: unsubscribe when component unmounts
-    return () => {
-      for (const groupInfo of joinedGroups) {
-        const fullGroupId = `peek-${groupInfo.communityId}`;
-        relayManager.unsubscribeFromGroup(fullGroupId);
-      }
-    };
-  }, [relayManager, connected]); // Only resubscribe if relay connection changes
+  // Note: Group subscriptions are handled by individual components (CommunityFeed, etc.)
+  // that need the data, not at the Home page level
 
   // Fetch user's communities from localStorage and enrich with relay data
   useEffect(() => {
