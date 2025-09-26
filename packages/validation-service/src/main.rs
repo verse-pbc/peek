@@ -15,6 +15,10 @@ mod test_gift_wrap;
 #[cfg(test)]
 mod test_h_tag_filter;
 
+#[cfg(test)]
+#[path = "tests/identity_swap_test.rs"]
+mod identity_swap_test;
+
 use handlers::{health, NostrValidationHandler};
 use services::{community::CommunityService, relay::RelayService};
 

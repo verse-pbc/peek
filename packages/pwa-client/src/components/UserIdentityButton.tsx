@@ -10,8 +10,12 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, LogIn, LogOut, Shield, UserPlus, Zap } from 'lucide-react';
+import { User, LogIn, LogOut, Shield, UserPlus, Zap, RefreshCw } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { useRelayManager } from '@/contexts/RelayContext';
+import { NostrLocationService } from '@/services/nostr-location';
+import { hexToBytes } from '@/lib/hex';
+import { useToast } from '@/hooks/useToast';
 
 export const UserIdentityButton: React.FC = () => {
   const {
@@ -25,24 +29,111 @@ export const UserIdentityButton: React.FC = () => {
     hasExtension,
     showIdentityModal,
     setShowIdentityModal,
+    identity,
   } = useNostrLogin();
+  const { relayManager } = useRelayManager();
+  const { toast } = useToast();
 
   const [showLoginOptions, setShowLoginOptions] = useState(false);
+  const [isSwapping, setIsSwapping] = useState(false);
 
-  const handleCreateNew = () => {
-    const _newIdentity = createNewIdentity();
-    // Remove anonymous identity when creating real identity
-    localStorage.removeItem('peek_anonymous_identity');
-    // Force reload to reconnect with new identity
-    window.location.reload();
+  const handleIdentitySwap = async (newIdentity: { publicKey: string; secretKey: string }) => {
+    if (!identity || !relayManager) return;
+
+    setIsSwapping(true);
+    try {
+      // Get all joined groups
+      const joinedGroups = JSON.parse(
+        localStorage.getItem('joinedGroups') || '[]'
+      );
+
+      if (joinedGroups.length === 0) {
+        toast({
+          title: "No communities joined",
+          description: "Join a community first before switching identity",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const oldPubkey = identity.publicKey;
+      const newPubkey = newIdentity.publicKey;
+
+      // Create NostrLocationService
+      const secretKey = newIdentity.secretKey === 'NIP07_EXTENSION'
+        ? undefined
+        : hexToBytes(newIdentity.secretKey);
+
+      const nostrService = new NostrLocationService(
+        secretKey || new Uint8Array(32), // Dummy key for NIP-07
+        newPubkey,
+        relayManager
+      );
+
+      // Swap identity in each group
+      for (const group of joinedGroups) {
+        const response = await nostrService.swapIdentity(
+          oldPubkey,
+          newPubkey,
+          group.groupId,
+          secretKey
+        );
+
+        if (!response.success) {
+          throw new Error(response.error || 'Swap failed');
+        }
+      }
+
+      // Store migration mapping
+      const migrations = JSON.parse(
+        localStorage.getItem('identity_migrations') || '{}'
+      );
+      migrations[oldPubkey] = newPubkey;
+      localStorage.setItem('identity_migrations', JSON.stringify(migrations));
+
+      // Switch to new identity
+      localStorage.setItem('peek_nostr_identity', JSON.stringify(newIdentity));
+      localStorage.removeItem('peek_anonymous_identity');
+
+      toast({
+        title: "Identity switched successfully",
+        description: "Your identity has been updated across all communities",
+      });
+
+      // Reload to reconnect with new identity
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (error) {
+      console.error('Identity swap failed:', error);
+      toast({
+        title: "Switch failed",
+        description: error instanceof Error ? error.message : "Failed to switch identity",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSwapping(false);
+    }
   };
 
-  const handleImport = (nsec: string) => {
-    const _imported = importIdentity(nsec);
-    // Remove anonymous identity when importing real identity
-    localStorage.removeItem('peek_anonymous_identity');
-    // Force reload to reconnect with new identity
-    window.location.reload();
+  const handleCreateNew = async () => {
+    const newIdentity = createNewIdentity();
+    if (isAnonymous && relayManager) {
+      await handleIdentitySwap(newIdentity);
+    } else {
+      // First time login - no swap needed
+      localStorage.removeItem('peek_anonymous_identity');
+      window.location.reload();
+    }
+  };
+
+  const handleImport = async (nsec: string) => {
+    const newIdentity = importIdentity(nsec);
+    if (isAnonymous && relayManager) {
+      await handleIdentitySwap(newIdentity);
+    } else {
+      // First time login - no swap needed
+      localStorage.removeItem('peek_anonymous_identity');
+      window.location.reload();
+    }
   };
 
   const handleLoginWithExtension = async () => {
@@ -105,9 +196,9 @@ export const UserIdentityButton: React.FC = () => {
                   Connect Browser Extension
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => setShowIdentityModal(true)}>
+              <DropdownMenuItem onClick={() => setShowIdentityModal(true)} disabled={isSwapping}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                Create/Import Identity
+                {isSwapping ? 'Switching...' : 'Switch to Real Identity'}
               </DropdownMenuItem>
             </>
           ) : (
@@ -116,9 +207,9 @@ export const UserIdentityButton: React.FC = () => {
                 <LogOut className="mr-2 h-4 w-4" />
                 Switch to Anonymous
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowIdentityModal(true)}>
-                <User className="mr-2 h-4 w-4" />
-                Switch Identity
+              <DropdownMenuItem onClick={() => setShowIdentityModal(true)} disabled={isSwapping}>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {isSwapping ? 'Switching...' : 'Switch Identity'}
               </DropdownMenuItem>
             </>
           )}

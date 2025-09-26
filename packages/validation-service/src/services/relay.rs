@@ -350,6 +350,35 @@ impl RelayService {
         }
     }
 
+    /// Remove a member from a NIP-29 group
+    pub async fn remove_group_member(&self, group_id: &str, user_pubkey: &str) -> Result<()> {
+        // Parse user's public key
+        let pubkey =
+            PublicKey::from_bech32(user_pubkey).or_else(|_| PublicKey::from_hex(user_pubkey))?;
+
+        // Create NIP-29 remove user event (kind 9001)
+        let remove_user = EventBuilder::new(
+            Kind::from(9001), // NIP-29 remove-user event
+            "",               // Empty content per NIP-29
+        )
+        .tags([
+            Tag::custom(TagKind::Custom("h".into()), [group_id.to_string()]),
+            Tag::custom(TagKind::Custom("p".into()), [pubkey.to_string()]),
+        ]);
+
+        let event = self.client.sign_event_builder(remove_user).await?;
+
+        // Send the event
+        self.client.send_event(&event).await?;
+
+        tracing::info!(
+            "Successfully removed user {} from group {}",
+            pubkey.to_string(),
+            group_id
+        );
+        Ok(())
+    }
+
     /// Get the member count for a NIP-29 group
     async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
         // Fetch kind 39002 (group members) event using d-tag
