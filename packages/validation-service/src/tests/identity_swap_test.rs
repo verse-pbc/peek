@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use nostr_sdk::{EventBuilder, Keys, Kind};
     use crate::handlers::nostr_validation::{ServiceRequest, ServiceResponse};
+    use nostr_sdk::{EventBuilder, Keys, Kind};
 
     #[tokio::test]
     async fn test_identity_swap_with_valid_proof() {
@@ -15,13 +15,10 @@ mod tests {
             old_keys.public_key().to_hex()
         );
 
-        let proof_event = EventBuilder::new(
-            Kind::TextNote,
-            proof_content.clone()
-        )
-        .sign(&new_keys)
-        .await
-        .unwrap();
+        let proof_event = EventBuilder::new(Kind::TextNote, proof_content.clone())
+            .sign(&new_keys)
+            .await
+            .unwrap();
 
         // Create swap request
         let _request = ServiceRequest::IdentitySwap {
@@ -33,7 +30,9 @@ mod tests {
 
         // Verify the proof validation logic
         assert_eq!(proof_event.pubkey.to_hex(), new_keys.public_key().to_hex());
-        assert!(proof_event.content.contains(&old_keys.public_key().to_hex()));
+        assert!(proof_event
+            .content
+            .contains(&old_keys.public_key().to_hex()));
     }
 
     #[tokio::test]
@@ -49,13 +48,10 @@ mod tests {
             old_keys.public_key().to_hex()
         );
 
-        let proof_event = EventBuilder::new(
-            Kind::TextNote,
-            proof_content
-        )
-        .sign(&wrong_keys)
-        .await
-        .unwrap();
+        let proof_event = EventBuilder::new(Kind::TextNote, proof_content)
+            .sign(&wrong_keys)
+            .await
+            .unwrap();
 
         // Create swap request with mismatched keys
         let _request = ServiceRequest::IdentitySwap {
@@ -78,16 +74,15 @@ mod tests {
         // Create proof event without old pubkey in content
         let proof_content = "Swapping identity to new one".to_string();
 
-        let proof_event = EventBuilder::new(
-            Kind::TextNote,
-            proof_content.clone()
-        )
-        .sign(&new_keys)
-        .await
-        .unwrap();
+        let proof_event = EventBuilder::new(Kind::TextNote, proof_content.clone())
+            .sign(&new_keys)
+            .await
+            .unwrap();
 
         // Verify proof doesn't contain old pubkey
-        assert!(!proof_event.content.contains(&old_keys.public_key().to_hex()));
+        assert!(!proof_event
+            .content
+            .contains(&old_keys.public_key().to_hex()));
     }
 
     #[tokio::test]
@@ -100,7 +95,11 @@ mod tests {
         };
 
         match response {
-            ServiceResponse::IdentitySwap { success, swapped, error } => {
+            ServiceResponse::IdentitySwap {
+                success,
+                swapped,
+                error,
+            } => {
                 assert!(success);
                 assert!(swapped);
                 assert!(error.is_none());
@@ -119,7 +118,11 @@ mod tests {
         };
 
         match response {
-            ServiceResponse::IdentitySwap { success, swapped, error } => {
+            ServiceResponse::IdentitySwap {
+                success,
+                swapped,
+                error,
+            } => {
                 assert!(!success);
                 assert!(!swapped);
                 assert!(error.is_some());

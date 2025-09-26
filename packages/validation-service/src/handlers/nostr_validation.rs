@@ -371,26 +371,45 @@ impl NostrValidationHandler {
                                 }
                             } else {
                                 // Verify the proof claims the correct swap
-                                match serde_json::from_str::<serde_json::Value>(&proof_event.content) {
+                                match serde_json::from_str::<serde_json::Value>(
+                                    &proof_event.content,
+                                ) {
                                     Ok(proof_content) => {
                                         // Check the proof content matches
-                                        if proof_content["old"] != old_pubkey || proof_content["new"] != new_pubkey {
+                                        if proof_content["old"] != old_pubkey
+                                            || proof_content["new"] != new_pubkey
+                                        {
                                             ServiceResponse::IdentitySwap {
                                                 success: false,
                                                 swapped: false,
-                                                error: Some("Proof content doesn't match request".to_string()),
+                                                error: Some(
+                                                    "Proof content doesn't match request"
+                                                        .to_string(),
+                                                ),
                                             }
                                         } else if proof_event.pubkey.to_hex() != new_pubkey {
                                             ServiceResponse::IdentitySwap {
                                                 success: false,
                                                 swapped: false,
-                                                error: Some("Proof not signed by new pubkey".to_string()),
+                                                error: Some(
+                                                    "Proof not signed by new pubkey".to_string(),
+                                                ),
                                             }
                                         } else {
                                             // Valid proof - perform the swap
-                                            match self.process_identity_swap(&group_id, &old_pubkey, &new_pubkey).await {
+                                            match self
+                                                .process_identity_swap(
+                                                    &group_id,
+                                                    &old_pubkey,
+                                                    &new_pubkey,
+                                                )
+                                                .await
+                                            {
                                                 Ok(_) => {
-                                                    info!("✅ Identity swap successful for group {}", group_id);
+                                                    info!(
+                                                        "✅ Identity swap successful for group {}",
+                                                        group_id
+                                                    );
                                                     ServiceResponse::IdentitySwap {
                                                         success: true,
                                                         swapped: true,
@@ -408,23 +427,19 @@ impl NostrValidationHandler {
                                             }
                                         }
                                     }
-                                    Err(e) => {
-                                        ServiceResponse::IdentitySwap {
-                                            success: false,
-                                            swapped: false,
-                                            error: Some(format!("Invalid proof content: {}", e)),
-                                        }
-                                    }
+                                    Err(e) => ServiceResponse::IdentitySwap {
+                                        success: false,
+                                        swapped: false,
+                                        error: Some(format!("Invalid proof content: {}", e)),
+                                    },
                                 }
                             }
                         }
-                        Err(e) => {
-                            ServiceResponse::IdentitySwap {
-                                success: false,
-                                swapped: false,
-                                error: Some(format!("Invalid proof event: {}", e)),
-                            }
-                        }
+                        Err(e) => ServiceResponse::IdentitySwap {
+                            success: false,
+                            swapped: false,
+                            error: Some(format!("Invalid proof event: {}", e)),
+                        },
                     }
                 }
             }
@@ -725,12 +740,19 @@ impl NostrValidationHandler {
         let relay_service = self.relay_service.write().await;
 
         // First add the new pubkey
-        relay_service.add_group_member(group_id, new_pubkey, false).await?;
+        relay_service
+            .add_group_member(group_id, new_pubkey, false)
+            .await?;
 
         // Then remove the old pubkey
-        relay_service.remove_group_member(group_id, old_pubkey).await?;
+        relay_service
+            .remove_group_member(group_id, old_pubkey)
+            .await?;
 
-        info!("✅ Successfully swapped {} to {} in group {}", old_pubkey, new_pubkey, group_id);
+        info!(
+            "✅ Successfully swapped {} to {} in group {}",
+            old_pubkey, new_pubkey, group_id
+        );
         Ok(())
     }
 
