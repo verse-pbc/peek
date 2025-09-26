@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { useNostrContext } from '@/hooks/useNostrContext';
-import { NDKKind } from '@/lib/ndk-shim';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
+import { useRelayManager } from '../contexts/RelayContext';
+import { GroupManager } from '../services/group-manager';
 
 interface Community {
   groupId: string;
@@ -45,6 +46,8 @@ const Home = () => {
   const { ndk, user } = useNostrContext();
   const { pubkey, npub, logout, login } = useNostrLogin();
   const { toast } = useToast();
+  const { relayManager, connected } = useRelayManager();
+  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('communities');
@@ -63,6 +66,14 @@ const Home = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  // Initialize GroupManager when relay is connected
+  useEffect(() => {
+    if (relayManager && connected) {
+      const gm = new GroupManager(relayManager);
+      setGroupManager(gm);
+    }
+  }, [relayManager, connected]);
 
   // Fetch user's communities from localStorage and enrich with relay data
   useEffect(() => {
@@ -96,82 +107,39 @@ const Home = () => {
         for (const groupInfo of joinedGroups) {
           const communityId = groupInfo.communityId;
           const groupId = communityId; // Use the community ID directly for navigation
+          const fullGroupId = `peek-${communityId}`;
+
+          // Subscribe to the group to get metadata
+          if (relayManager && connected) {
+            relayManager.subscribeToGroup(fullGroupId);
+          }
+
+          // Get metadata from GroupManager if available
+          let name = `Community ${communityId.slice(0, 8)}`; // Default name
+          let memberCount = 1; // Default to at least 1
+
+          if (groupManager) {
+            const metadata = groupManager.getGroupMetadata(fullGroupId);
+            const members = groupManager.getGroupMembers(fullGroupId);
+
+            if (metadata?.name) {
+              name = metadata.name;
+            }
+            if (members.length > 0) {
+              memberCount = members.length;
+            }
+          }
 
           const community: Community = {
             groupId,
-            name: `Community ${communityId.slice(0, 8)}`, // Default name
-            memberCount: 0,
+            name,
+            memberCount,
             isAdmin: groupInfo.isAdmin || false, // Get admin status from localStorage
             joinedAt: groupInfo.joinedAt || Date.now() / 1000,
             location: groupInfo.location // Include location if stored
           };
 
-          // Try to fetch metadata from relay if ndk is available
-          if (ndk && ndk.fetchEvents) {
-            try {
-              // Fetch group metadata (kind 39000)
-              const metadataFilter = {
-                kinds: [39000 as NDKKind],
-                '#d': [`peek-${communityId}`], // Use full group ID for relay queries
-                limit: 1
-              };
-
-              const metadataEvents = await ndk.fetchEvents(metadataFilter);
-
-              if (metadataEvents && metadataEvents.size > 0) {
-                const metadataEvent = Array.from(metadataEvents)[0];
-                // Extract name from tags
-                const nameTag = (metadataEvent as Event & { tags: string[][] }).tags.find(
-                  (tag: string[]) => tag[0] === 'name'
-                );
-                if (nameTag && nameTag[1]) {
-                  community.name = nameTag[1];
-                }
-              }
-            } catch (error) {
-              console.warn('Failed to fetch metadata for', communityId, error);
-            }
-
-            // Try to fetch recent activity and member count
-            if (ndk && ndk.fetchEvents) {
-              try {
-                // Fetch recent activity (last message in group)
-                const messagesFilter = {
-                  kinds: [9 as NDKKind],
-                  '#h': [`peek-${communityId}`],
-                  limit: 1
-                };
-
-                const messageEvents = await ndk.fetchEvents(messagesFilter);
-
-                for (const event of messageEvents) {
-                  community.lastActivity = (event as Event & { created_at: number }).created_at;
-                  break;
-                }
-
-                // Count members from the kind 39002 event
-                const memberListFilter = {
-                  kinds: [39002 as NDKKind],
-                  '#d': [`peek-${communityId}`],
-                  limit: 1
-                };
-
-                const memberListEvents = await ndk.fetchEvents(memberListFilter);
-
-                if (memberListEvents && memberListEvents.size > 0) {
-                  const memberListEvent = Array.from(memberListEvents)[0];
-                  // Count p-tags to get member count
-                  const pTags = (memberListEvent as Event & { tags: string[][] }).tags.filter(
-                    (tag: string[]) => tag[0] === 'p'
-                  );
-                  community.memberCount = pTags.length;
-                }
-              } catch (error) {
-                console.warn('Failed to fetch activity/members for', communityId, error);
-              }
-            }
-
-          }
+          // TODO: Get last activity timestamp from relay events if needed
 
           userCommunities.push(community);
         }
@@ -214,7 +182,7 @@ const Home = () => {
       isActive = false;
       clearInterval(pollInterval);
     };
-  }, [ndk, toast]); // Include toast and ndk as dependencies
+  }, [ndk, toast, groupManager, relayManager, connected]); // Include all dependencies
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';
@@ -436,6 +404,7 @@ const Home = () => {
                           variant="ghost"
                           className="w-full justify-between"
                           size="sm"
+                          onClick={() => navigate(`/community/${community.groupId}`)}
                         >
                           <span className="flex items-center gap-2">
                             <MessageSquare className="h-4 w-4" />
