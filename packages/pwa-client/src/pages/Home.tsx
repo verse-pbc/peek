@@ -75,6 +75,27 @@ const Home = () => {
     }
   }, [relayManager, connected]);
 
+  // Subscribe to groups once when relay is connected
+  useEffect(() => {
+    if (!relayManager || !connected) return;
+
+    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+
+    // Subscribe to each group only once
+    for (const groupInfo of joinedGroups) {
+      const fullGroupId = `peek-${groupInfo.communityId}`;
+      relayManager.subscribeToGroup(fullGroupId);
+    }
+
+    // Cleanup: unsubscribe when component unmounts
+    return () => {
+      for (const groupInfo of joinedGroups) {
+        const fullGroupId = `peek-${groupInfo.communityId}`;
+        relayManager.unsubscribeFromGroup(fullGroupId);
+      }
+    };
+  }, [relayManager, connected]); // Only resubscribe if relay connection changes
+
   // Fetch user's communities from localStorage and enrich with relay data
   useEffect(() => {
     let isActive = true;
@@ -108,11 +129,6 @@ const Home = () => {
           const communityId = groupInfo.communityId;
           const groupId = communityId; // Use the community ID directly for navigation
           const fullGroupId = `peek-${communityId}`;
-
-          // Subscribe to the group to get metadata
-          if (relayManager && connected) {
-            relayManager.subscribeToGroup(fullGroupId);
-          }
 
           // Get metadata from GroupManager if available
           let name = `Community ${communityId.slice(0, 8)}`; // Default name
@@ -182,7 +198,7 @@ const Home = () => {
       isActive = false;
       clearInterval(pollInterval);
     };
-  }, [ndk, toast, groupManager, relayManager, connected]); // Include all dependencies
+  }, [groupManager, toast]); // Minimal dependencies to avoid recreating interval
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';
