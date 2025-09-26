@@ -23,6 +23,6 @@ describe('Nostr Event Creation Test', () => {
     expect(signedEvent.pubkey).toBe(_publicKey);
     expect(signedEvent.sig).toBeTruthy();
     expect(signedEvent.id).toBeTruthy();
-    expect(signedEvent.created_at).toBeCloseTo(Math.floor(Date.now() / 1000), 5);
+    expect(signedEvent.created_at).toBeCloseTo(Math.floor(Date.now() / 1000), 0);
   });
 });

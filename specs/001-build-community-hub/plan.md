@@ -29,7 +29,7 @@ Build a location-based community platform where physical QR codes at venues crea
 ## Technical Context
 **Language/Version**: TypeScript 5.0+ (PWA), Rust 1.75+ (validation service)  
 **Primary Dependencies**: MKStack (React 18, TypeScript, Tailwind, shadcn/ui, Nostrify, Vite), Axum, @zxing/library, geo crate, nostr-sdk  
-**Storage**: verse-pbc/groups_relay for all data (communities, invites, messages)  
+**Storage**: verse-pbc/groups_relay for all data (communities, members, messages)  
 **Testing**: Vitest for frontend, cargo test for Rust, Playwright for E2E  
 **Target Platform**: Progressive Web App (iOS/Android/Desktop browsers)
 **Project Type**: web - PWA client (MKStack-scaffolded) + Rust validation service  
@@ -50,7 +50,7 @@ Build a location-based community platform where physical QR codes at venues crea
 - EVERY feature as library? Yes (location-check, group-manager, qr-scanner)
 - Libraries listed:
   - location-check: Validates GPS coordinates within radius (Rust)
-  - group-manager: Directly adds users to NIP-29 groups using relay's secret key (Rust)
+  - group-manager: Directly adds users to NIP-29 groups via kind:9000 events (Rust)
   - qr-scanner: Decodes QR codes and extracts community ID from URL (TS)
   - peek-nostr: Extends Nostrify for Peek-specific NIP-29 operations (TS)
 - CLI per library: Rust crates expose CLI bins, TS libs have CLI wrappers
@@ -120,7 +120,7 @@ shared/
    - NIP-29 relay integration with groups_relay
    - Photo verification approaches (MVP deferred)
    - Geolocation API accuracy handling
-   - Direct group membership from Rust service (no invite codes)
+   - Direct group membership from Rust service via kind:9000 events
    - Using relay's secret key for NIP-29 group management
    - Storing community metadata as NIP-44 encrypted events
 
@@ -147,7 +147,7 @@ shared/
    - CommunityPreview (name, description, member_count - returned after validation)
 
 2. **Generate API contracts** from functional requirements:
-   - POST /api/validate-location - Submit location and get direct group membership (no invite codes)
+   - POST /api/validate-location - Submit location for direct group membership via kind:9000
      * Returns community preview info only after successful validation
      * Validation service uses relay's secret key for direct NIP-29 group addition
 

@@ -7,7 +7,7 @@ Peek is a location-based community platform where physical QR codes create hyper
 - **Frontend**: MKStack (Vite, React, TypeScript, Tailwind CSS)
 - **Backend**: Rust (Axum web framework)
 - **Relay**: wss://peek.hol.is (verse-pbc/groups_relay) - stores all data
-- **Protocol**: Nostr (NIP-29 groups with kind:9009 invitations)
+- **Protocol**: Nostr (NIP-29 groups)
 - **Libraries**: nostr-tools, @zxing/library (JS), geo crate, nostr-sdk (Rust)
 
 ## Project Structure
@@ -25,8 +25,8 @@ packages/
     │   ├── handlers/    # Axum route handlers
     │   ├── services/    # Business logic
     │   ├── models/      # Data structures
-    │   ├── lib/         # location-check, invite-creator
-    │   └── nostr/       # Relay client for creating invites
+    │   ├── lib/         # location-check, geohash validation
+    │   └── nostr/       # Relay client for group management
     ├── tests/
     └── Cargo.toml
 ```
@@ -39,24 +39,23 @@ packages/
 5. **Persistent Access**: Members keep access after leaving location
 
 ## API Endpoints
-- `POST /api/validate-location` - Verify physical presence, get NIP-29 invite code
+- `POST /api/validate-location` - Verify physical presence, add user to NIP-29 group
 - `GET /api/community/{id}/preview` - Public community info
 
 ## Join Flow
 1. User proves location to validation service
-2. Service creates kind:9009 invite event on wss://peek.hol.is (using admin key)
-3. Service returns invite code to user
-4. Client sends kind:9021 with invite code to relay
-5. Relay validates against stored kind:9009 and adds user to group
+2. Service directly adds user to group via kind:9000 event on wss://peek.hol.is (using admin key)
+3. Service returns success confirmation to user
+4. User is now a member and can access the community
 
 ## Key Design Decisions
 - **No Redis**: All state stored in relay as NIP-29 events
-- **Direct invite creation**: Validation service has admin keypair for relay
+- **Direct group addition**: Validation service has admin keypair for relay
 - **Single source of truth**: Relay handles all data persistence and expiry
 
 ## Core Constraints
 - Location validation: 25m radius, 20m GPS accuracy (hardcoded)
-- Invite code expiry: 5 minutes
+- Location validation timeout: 30 seconds
 - No global search/directory (physical discovery only)
 - Live connection required for joining
 
