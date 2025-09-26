@@ -12,6 +12,7 @@ import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
 import { User, LogIn, LogOut, Shield, UserPlus, Zap, RefreshCw } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { NostrLocationService } from '@/services/nostr-location';
 import { hexToBytes } from '@/lib/hex';
@@ -147,18 +148,28 @@ export const UserIdentityButton: React.FC = () => {
   };
 
   const displayName = npub ? `${npub.slice(0, 8)}...${npub.slice(-4)}` : 'Not logged in';
+  const userPubkey = identity?.publicKey;
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 px-2">
             {isAnonymous ? (
               <>
                 <Shield className="h-4 w-4" />
                 <span className="hidden sm:inline">Anonymous</span>
                 <Badge variant="secondary" className="ml-1">Temp</Badge>
               </>
+            ) : userPubkey ? (
+              <UserProfile
+                pubkey={userPubkey}
+                size="sm"
+                showName={true}
+                compact={true}
+                className="max-w-[200px]"
+                nameClassName="hidden sm:inline"
+              />
             ) : (
               <>
                 <User className="h-4 w-4" />

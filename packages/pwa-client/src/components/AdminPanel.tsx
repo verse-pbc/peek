@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -41,15 +40,15 @@ import { NIP29_KINDS } from '@/services/relay-manager';
 import { GroupManager } from '@/services/group-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
-import { nip19, SimplePool, Filter, finalizeEvent, EventTemplate, type VerifiedEvent } from 'nostr-tools';
+import { nip19, finalizeEvent, EventTemplate, type VerifiedEvent } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
+import { UserProfile } from '@/components/UserProfile';
+import { useBatchProfiles } from '@/contexts/ProfileContext';
 
 interface Member {
   pubkey: string;
   npub: string;
-  name?: string;
-  picture?: string;
   isAdmin: boolean;
   isMuted: boolean;
   joinedAt?: number;
@@ -78,6 +77,11 @@ export function AdminPanel({
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
+
+  // Batch fetch profiles for all members (handled by UserProfile component)
+  // This preloads the profiles for better performance
+  const memberPubkeys = members.map(m => m.pubkey);
+  useBatchProfiles(memberPubkeys);
 
   // Initialize group manager with shared relay manager
   useEffect(() => {
@@ -141,34 +145,8 @@ export function AdminPanel({
           }
         }
 
-        // Fetch user metadata for each member using a metadata pool
-        const metadataPool = new SimplePool();
-        const metadataRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
+        // Members will be fetched without metadata initially
         const memberList = Array.from(memberMap.values());
-
-        // Batch fetch metadata for all members
-        if (memberList.length > 0) {
-          const metadataFilter: Filter = {
-            kinds: [0],
-            authors: memberList.map(m => m.pubkey),
-            limit: memberList.length
-          };
-
-          const metadataEvents = await metadataPool.querySync(metadataRelays, metadataFilter);
-
-          for (const event of metadataEvents) {
-            const member = memberMap.get(event.pubkey);
-            if (member) {
-              try {
-                const metadata = JSON.parse(event.content);
-                member.name = metadata.name || metadata.display_name;
-                member.picture = metadata.picture;
-              } catch (error) {
-                console.error('Error parsing metadata for', event.pubkey, error);
-              }
-            }
-          }
-        }
 
         setMembers(memberList.sort((a, b) => {
           // Sort admins first, then by join date
@@ -503,21 +481,14 @@ export function AdminPanel({
                         <TableRow key={member.pubkey}>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8">
-                                {member.picture && <AvatarImage src={member.picture} />}
-                                <AvatarFallback>
-                                  {member.name?.[0]?.toUpperCase() || 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {member.name || member.npub.slice(0, 8)}
-                                  {isCurrentUser && ' (You)'}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {member.npub.slice(0, 8)}...
-                                </p>
-                              </div>
+                              <UserProfile
+                                pubkey={member.pubkey}
+                                size="sm"
+                                showName={true}
+                              />
+                              {isCurrentUser && (
+                                <span className="text-sm text-muted-foreground">(You)</span>
+                              )}
                             </div>
                           </TableCell>
 
