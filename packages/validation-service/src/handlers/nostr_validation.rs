@@ -35,6 +35,13 @@ pub enum ServiceRequest {
     },
     #[serde(rename = "preview_request")]
     PreviewRequest { community_id: String },
+    #[serde(rename = "identity_swap")]
+    IdentitySwap {
+        old_pubkey: String,
+        new_pubkey: String,
+        group_id: String,
+        signature_proof: String,
+    },
 }
 
 // Unified response types using serde's tag attribute
@@ -62,6 +69,12 @@ pub enum ServiceResponse {
         is_public: Option<bool>,
         is_open: Option<bool>,
         created_at: Option<u64>,
+        error: Option<String>,
+    },
+    #[serde(rename = "identity_swap_response")]
+    IdentitySwap {
+        success: bool,
+        swapped: bool,
         error: Option<String>,
     },
 }
@@ -334,6 +347,101 @@ impl NostrValidationHandler {
                         error: result.9,
                     }
                 }
+                ServiceRequest::IdentitySwap {
+                    old_pubkey,
+                    new_pubkey,
+                    group_id,
+                    signature_proof,
+                } => {
+                    info!(
+                        "🔄 Identity swap request for group: {} from {} to {}",
+                        group_id, old_pubkey, new_pubkey
+                    );
+
+                    // Parse and verify the signature proof
+                    match serde_json::from_str::<Event>(&signature_proof) {
+                        Ok(proof_event) => {
+                            // Verify the signature
+                            if let Err(e) = proof_event.verify() {
+                                error!("Invalid proof signature: {}", e);
+                                ServiceResponse::IdentitySwap {
+                                    success: false,
+                                    swapped: false,
+                                    error: Some(format!("Invalid proof signature: {}", e)),
+                                }
+                            } else {
+                                // Verify the proof claims the correct swap
+                                match serde_json::from_str::<serde_json::Value>(
+                                    &proof_event.content,
+                                ) {
+                                    Ok(proof_content) => {
+                                        // Check the proof content matches
+                                        if proof_content["old"] != old_pubkey
+                                            || proof_content["new"] != new_pubkey
+                                        {
+                                            ServiceResponse::IdentitySwap {
+                                                success: false,
+                                                swapped: false,
+                                                error: Some(
+                                                    "Proof content doesn't match request"
+                                                        .to_string(),
+                                                ),
+                                            }
+                                        } else if proof_event.pubkey.to_hex() != new_pubkey {
+                                            ServiceResponse::IdentitySwap {
+                                                success: false,
+                                                swapped: false,
+                                                error: Some(
+                                                    "Proof not signed by new pubkey".to_string(),
+                                                ),
+                                            }
+                                        } else {
+                                            // Valid proof - perform the swap
+                                            match self
+                                                .process_identity_swap(
+                                                    &group_id,
+                                                    &old_pubkey,
+                                                    &new_pubkey,
+                                                )
+                                                .await
+                                            {
+                                                Ok(_) => {
+                                                    info!(
+                                                        "✅ Identity swap successful for group {}",
+                                                        group_id
+                                                    );
+                                                    ServiceResponse::IdentitySwap {
+                                                        success: true,
+                                                        swapped: true,
+                                                        error: None,
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    error!("Identity swap failed: {}", e);
+                                                    ServiceResponse::IdentitySwap {
+                                                        success: false,
+                                                        swapped: false,
+                                                        error: Some(format!("Swap failed: {}", e)),
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Err(e) => ServiceResponse::IdentitySwap {
+                                        success: false,
+                                        swapped: false,
+                                        error: Some(format!("Invalid proof content: {}", e)),
+                                    },
+                                }
+                            }
+                        }
+                        Err(e) => ServiceResponse::IdentitySwap {
+                            success: false,
+                            swapped: false,
+                            error: Some(format!("Invalid proof event: {}", e)),
+                        },
+                    }
+                }
             }
         } else if let Ok(legacy_request) =
             serde_json::from_str::<LocationValidationRequest>(&rumor.content)
@@ -394,6 +502,19 @@ impl NostrValidationHandler {
                 info!(
                     "✅ Preview complete - success: {}, name: {:?}, members: {:?}",
                     success, name, member_count
+                );
+                if let Some(ref err) = error {
+                    info!("   Error: {}", err);
+                }
+            }
+            ServiceResponse::IdentitySwap {
+                success,
+                swapped,
+                error,
+            } => {
+                info!(
+                    "✅ Identity swap complete - success: {}, swapped: {}",
+                    success, swapped
                 );
                 if let Some(ref err) = error {
                     info!("   Error: {}", err);
@@ -604,6 +725,35 @@ impl NostrValidationHandler {
             error: None,
             error_code: None,
         }
+    }
+
+    /// Process an identity swap request
+    async fn process_identity_swap(
+        &self,
+        group_id: &str,
+        old_pubkey: &str,
+        new_pubkey: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        info!("🔄 Processing identity swap for group {}", group_id);
+
+        // Use the relay service to perform the swap
+        let relay_service = self.relay_service.write().await;
+
+        // First add the new pubkey
+        relay_service
+            .add_group_member(group_id, new_pubkey, false)
+            .await?;
+
+        // Then remove the old pubkey
+        relay_service
+            .remove_group_member(group_id, old_pubkey)
+            .await?;
+
+        info!(
+            "✅ Successfully swapped {} to {} in group {}",
+            old_pubkey, new_pubkey, group_id
+        );
+        Ok(())
     }
 
     /// Process a community preview request

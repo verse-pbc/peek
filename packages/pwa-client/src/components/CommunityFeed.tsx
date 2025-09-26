@@ -256,7 +256,12 @@ export function CommunityFeed({
                   </div>
 
                   {dateMessages.map((message) => {
-                    const isOwnMessage = identity?.publicKey === message.pubkey;
+                    // Check if message is from us (including migrated identities)
+                    const migrations = JSON.parse(
+                      localStorage.getItem('identity_migrations') || '{}'
+                    );
+                    const isOwnMessage = identity?.publicKey === message.pubkey ||
+                      migrations[message.pubkey] === identity?.publicKey;
 
                     return (
                       <div
