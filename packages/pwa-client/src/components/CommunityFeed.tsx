@@ -3,25 +3,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Send, Users } from 'lucide-react';
 import { NIP29_KINDS } from '@/services/relay-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
-import { nip19, Event, SimplePool, Filter } from 'nostr-tools';
+import { Event } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
+import { UserProfile } from '@/components/UserProfile';
 
 interface Message {
   id: string;
   pubkey: string;
   content: string;
   created_at: number;
-  author?: {
-    name?: string;
-    picture?: string;
-    npub: string;
-  };
 }
 
 interface CommunityFeedProps {
@@ -46,17 +41,6 @@ export function CommunityFeed({
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const metadataPoolRef = useRef<SimplePool | null>(null);
-
-  // Initialize metadata pool
-  useEffect(() => {
-    // Initialize metadata pool for fetching profiles
-    metadataPoolRef.current = new SimplePool();
-
-    return () => {
-      metadataPoolRef.current = null;
-    };
-  }, [identity]);
 
   // Subscribe to connection status from context
   useEffect(() => {
@@ -73,7 +57,6 @@ export function CommunityFeed({
 
     // Try to subscribe even if auth fails - we might still get public messages
     setLoading(true);
-    const authorMetadataCache = new Map<string, { name?: string; picture?: string; npub: string }>();
 
     // Subscribe to this group (Community page already subscribes, but this is safe as RelayManager should handle duplicates)
     relayManager.subscribeToGroup(groupId);
@@ -104,36 +87,6 @@ export function CommunityFeed({
         content: event.content,
         created_at: event.created_at
       };
-
-      // Fetch author metadata if not cached
-      if (!authorMetadataCache.has(event.pubkey) && metadataPoolRef.current) {
-        try {
-          const metadataRelays = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
-          const metadataFilter: Filter = {
-            kinds: [0],
-            authors: [event.pubkey],
-            limit: 1
-          };
-
-          const metadataEvents = await metadataPoolRef.current.querySync(metadataRelays, metadataFilter);
-          const metadataEvent = metadataEvents[0];
-
-          if (metadataEvent) {
-            const metadata = JSON.parse(metadataEvent.content);
-            const author = {
-              name: metadata.name || metadata.display_name,
-              picture: metadata.picture,
-              npub: nip19.npubEncode(event.pubkey)
-            };
-            authorMetadataCache.set(event.pubkey, author);
-            message.author = author;
-          }
-        } catch (error) {
-          console.error('Error fetching author metadata:', error);
-        }
-      } else if (authorMetadataCache.has(event.pubkey)) {
-        message.author = authorMetadataCache.get(event.pubkey);
-      }
 
       setMessages(prev => {
         const exists = prev.find(m => m.id === message.id);
@@ -279,23 +232,23 @@ export function CommunityFeed({
                           isOwnMessage ? 'flex-row-reverse' : ''
                         }`}
                       >
-                        <Avatar
-                          className="h-8 w-8 cursor-pointer"
+                        <UserProfile
+                          pubkey={message.pubkey}
+                          size="sm"
+                          showName={false}
                           onClick={() => onMemberClick?.(message.pubkey)}
-                        >
-                          {message.author?.picture && (
-                            <AvatarImage src={message.author.picture} />
-                          )}
-                          <AvatarFallback>
-                            {message.author?.name?.[0]?.toUpperCase() || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
+                        />
 
                         <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
                           <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
-                            <span className="text-sm font-medium truncate max-w-[150px]">
-                              {message.author?.name || message.author?.npub?.slice(0, 8) || 'Anonymous'}
-                            </span>
+                            <UserProfile
+                              pubkey={message.pubkey}
+                              size="sm"
+                              showName={true}
+                              showAvatar={false}
+                              className="inline-flex"
+                              nameClassName="text-sm font-medium truncate max-w-[150px]"
+                            />
                             <span className="text-xs text-muted-foreground flex-shrink-0">
                               {formatTime(message.created_at)}
                             </span>
