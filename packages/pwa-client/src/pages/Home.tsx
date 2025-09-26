@@ -24,7 +24,6 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
-import { GroupManager } from '../services/group-manager';
 
 interface Community {
   groupId: string;
@@ -46,7 +45,7 @@ const Home = () => {
   const { user } = useNostrContext();
   const { pubkey, npub, logout, login } = useNostrLogin();
   const { toast } = useToast();
-  const { relayManager, groupManager, connected } = useRelayManager();
+  const { groupManager } = useRelayManager();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('communities');

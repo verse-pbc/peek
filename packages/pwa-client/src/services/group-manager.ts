@@ -512,7 +512,7 @@ export class GroupManager {
     // TEMPORARY: For development testing, check localStorage first
     const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
     const communityId = groupId.replace('peek-', '');
-    const isInLocalStorage = joinedGroups.some((g: any) => g.communityId === communityId);
+    const isInLocalStorage = joinedGroups.some((g: { communityId: string }) => g.communityId === communityId);
 
     if (isInLocalStorage) {
       console.log(`[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`);

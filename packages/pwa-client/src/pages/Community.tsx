@@ -19,7 +19,6 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
-import { GroupManager } from '../services/group-manager';
 
 interface CommunityData {
   groupId: string;
