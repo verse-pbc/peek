@@ -14,9 +14,9 @@ import { User, LogIn, LogOut, Shield, UserPlus, Zap, RefreshCw } from 'lucide-re
 import { Badge } from './ui/badge';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
-import { NostrLocationService } from '@/services/nostr-location';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
+import { IdentityMigrationService } from '@/services/identity-migration';
 
 export const UserIdentityButton: React.FC = () => {
   const {
@@ -43,55 +43,45 @@ export const UserIdentityButton: React.FC = () => {
 
     setIsSwapping(true);
     try {
-      // Get all joined groups
-      const joinedGroups = JSON.parse(
-        localStorage.getItem('joinedGroups') || '[]'
-      );
+      const oldPubkey = identity.publicKey;
+      const newPubkey = newIdentity.publicKey;
 
-      if (joinedGroups.length === 0) {
+      // Get the old identity's secret key
+      if (identity.secretKey === 'NIP07_EXTENSION') {
         toast({
-          title: "No communities joined",
-          description: "Join a community first before switching identity",
+          title: "Cannot migrate from extension",
+          description: "Migration from NIP-07 extension identities is not supported",
           variant: "destructive"
         });
         return;
       }
 
-      const oldPubkey = identity.publicKey;
-      const newPubkey = newIdentity.publicKey;
+      const oldSecretKey = hexToBytes(identity.secretKey);
 
-      // Get the new identity's secret key for signing the proof
-      const newSecretKey = newIdentity.secretKey === 'NIP07_EXTENSION'
-        ? undefined
-        : hexToBytes(newIdentity.secretKey);
+      // Create migration service
+      const migrationService = new IdentityMigrationService(relayManager);
 
-      // Get the old identity's secret key for the NostrLocationService
-      const oldSecretKey = identity.secretKey === 'NIP07_EXTENSION'
-        ? new Uint8Array(32) // Dummy key for NIP-07
-        : hexToBytes(identity.secretKey);
-
-      // Create NostrLocationService with OLD identity to send/receive the swap request
-      const nostrService = new NostrLocationService(
-        oldSecretKey,
-        oldPubkey,
-        relayManager
-      );
-
-      // Swap identity in each group
-      for (const group of joinedGroups) {
-        const response = await nostrService.swapIdentity(
-          oldPubkey,
-          newPubkey,
-          group.groupId,
-          newSecretKey  // Pass new identity's secret key for signing the proof
+      // Create and publish migration event
+      let migrationEvent;
+      if (newIdentity.secretKey === 'NIP07_EXTENSION') {
+        // New identity uses extension
+        migrationEvent = await migrationService.createMigrationEventWithExtension(
+          oldSecretKey,
+          newPubkey
         );
-
-        if (!response.success) {
-          throw new Error(response.error || 'Swap failed');
-        }
+      } else {
+        // New identity has secret key
+        const newSecretKey = hexToBytes(newIdentity.secretKey);
+        migrationEvent = await migrationService.createMigrationEvent(
+          oldSecretKey,
+          newSecretKey
+        );
       }
 
-      // Store migration mapping
+      // Publish migration event to relay
+      await migrationService.publishMigrationEvent(migrationEvent);
+
+      // Store migration mapping locally for immediate use
       const migrations = JSON.parse(
         localStorage.getItem('identity_migrations') || '{}'
       );
@@ -103,17 +93,17 @@ export const UserIdentityButton: React.FC = () => {
       localStorage.removeItem('peek_anonymous_identity');
 
       toast({
-        title: "Identity switched successfully",
-        description: "Your identity has been updated across all communities",
+        title: "Identity migration published",
+        description: "Your identity migration has been published. Groups will update automatically.",
       });
 
       // Reload to reconnect with new identity
-      setTimeout(() => window.location.reload(), 1000);
+      setTimeout(() => window.location.reload(), 1500);
     } catch (error) {
-      console.error('Identity swap failed:', error);
+      console.error('Identity migration failed:', error);
       toast({
-        title: "Switch failed",
-        description: error instanceof Error ? error.message : "Failed to switch identity",
+        title: "Migration failed",
+        description: error instanceof Error ? error.message : "Failed to migrate identity",
         variant: "destructive"
       });
     } finally {

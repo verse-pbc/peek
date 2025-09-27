@@ -26,6 +26,30 @@ interface CommunityFeedProps {
   onMemberClick?: (pubkey: string) => void;
 }
 
+// Helper function to resolve identity through migration chain
+function resolveIdentity(pubkey: string): string {
+  const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
+  let current = pubkey;
+  const visited = new Set<string>();
+  const maxDepth = 10;
+
+  for (let i = 0; i < maxDepth; i++) {
+    if (visited.has(current)) {
+      // Circular reference detected
+      break;
+    }
+    visited.add(current);
+
+    const next = migrations[current];
+    if (!next) {
+      break;
+    }
+    current = next;
+  }
+
+  return current;
+}
+
 export function CommunityFeed({
   groupId,
   communityName = 'Community',
@@ -219,11 +243,8 @@ export function CommunityFeed({
 
                   {dateMessages.map((message) => {
                     // Check if message is from us (including migrated identities)
-                    const migrations = JSON.parse(
-                      localStorage.getItem('identity_migrations') || '{}'
-                    );
-                    const isOwnMessage = identity?.publicKey === message.pubkey ||
-                      migrations[message.pubkey] === identity?.publicKey;
+                    const resolvedPubkey = resolveIdentity(message.pubkey);
+                    const isOwnMessage = identity?.publicKey === resolvedPubkey;
 
                     return (
                       <div

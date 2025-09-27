@@ -9,12 +9,16 @@ use uuid::Uuid;
 use crate::{
     config::Config,
     models::LocationPoint,
-    services::{community::CommunityService, gift_wrap::GiftWrapService, relay::RelayService},
+    services::{
+        community::CommunityService, gift_wrap::GiftWrapService,
+        migration_monitor::MigrationMonitor, relay::RelayService,
+    },
 };
 
 // Custom event kinds for Peek location validation (ephemeral range)
 const LOCATION_VALIDATION_REQUEST_KIND: Kind = Kind::Custom(27492);
 const LOCATION_VALIDATION_RESPONSE_KIND: Kind = Kind::Custom(27493);
+const MIGRATION_KIND: Kind = Kind::Custom(1776);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LocationData {
@@ -35,13 +39,6 @@ pub enum ServiceRequest {
     },
     #[serde(rename = "preview_request")]
     PreviewRequest { community_id: String },
-    #[serde(rename = "identity_swap")]
-    IdentitySwap {
-        old_pubkey: String,
-        new_pubkey: String,
-        group_id: String,
-        signature_proof: String,
-    },
 }
 
 // Unified response types using serde's tag attribute
@@ -69,12 +66,6 @@ pub enum ServiceResponse {
         is_public: Option<bool>,
         is_open: Option<bool>,
         created_at: Option<u64>,
-        error: Option<String>,
-    },
-    #[serde(rename = "identity_swap_response")]
-    IdentitySwap {
-        success: bool,
-        swapped: bool,
         error: Option<String>,
     },
 }
@@ -109,6 +100,7 @@ pub struct NostrValidationHandler {
     relay_service: Arc<RwLock<RelayService>>,
     config: Config,
     gift_wrap_service: Arc<GiftWrapService>,
+    migration_monitor: Arc<MigrationMonitor>,
 }
 
 impl NostrValidationHandler {
@@ -157,6 +149,10 @@ impl NostrValidationHandler {
         // Create gift wrap service
         let gift_wrap_service = Arc::new(GiftWrapService::new(service_keys.clone()));
 
+        // Create migration monitor
+        let migration_monitor =
+            Arc::new(MigrationMonitor::new(client.clone(), relay_service.clone()));
+
         Ok(Self {
             client,
             service_keys,
@@ -164,12 +160,16 @@ impl NostrValidationHandler {
             relay_service,
             config,
             gift_wrap_service,
+            migration_monitor,
         })
     }
 
     /// Start listening for gift wrap events
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
-        info!("Starting NIP-59 gift wrap listener");
+        info!("Starting NIP-59 gift wrap listener and migration monitor");
+
+        // Start migration monitor
+        self.migration_monitor.start_monitoring().await?;
 
         // Subscribe to gift wraps for our service pubkey using limit(0) like the bot example
         // Gift wraps are tagged with #p for the recipient
@@ -189,7 +189,7 @@ impl NostrValidationHandler {
         // Subscribe to the filter
         self.client.subscribe(filter, None).await?;
 
-        info!("Starting notification handler, waiting for gift wraps...");
+        info!("Starting notification handler, waiting for gift wraps and migrations...");
 
         // Clone self for use in the async closure
         let handler = self.clone();
@@ -220,11 +220,27 @@ impl NostrValidationHandler {
                             if let Err(e) = handler.handle_gift_wrap(gift_wrap).await {
                                 error!("❌ Failed to handle gift wrap: {}", e);
                             }
-                        } else {
-                            debug!(
-                                "⏩ Ignoring non-gift-wrap event kind {}",
-                                event.kind.as_u16()
+                        } else if event.kind == MIGRATION_KIND {
+                            info!(
+                                "🔄 Received migration event from {} via {} (event: {})",
+                                event
+                                    .pubkey
+                                    .to_bech32()
+                                    .unwrap_or_else(|_| event.pubkey.to_hex()),
+                                relay_url,
+                                event.id.to_hex()
                             );
+
+                            // Process migration event
+                            if let Err(e) = handler
+                                .migration_monitor
+                                .handle_migration_event(event.as_ref().clone())
+                                .await
+                            {
+                                error!("❌ Failed to handle migration event: {}", e);
+                            }
+                        } else {
+                            debug!("⏩ Ignoring event kind {}", event.kind.as_u16());
                         }
                     } else {
                         debug!("📋 Received non-event notification: {:?}", notification);
@@ -347,101 +363,6 @@ impl NostrValidationHandler {
                         error: result.9,
                     }
                 }
-                ServiceRequest::IdentitySwap {
-                    old_pubkey,
-                    new_pubkey,
-                    group_id,
-                    signature_proof,
-                } => {
-                    info!(
-                        "🔄 Identity swap request for group: {} from {} to {}",
-                        group_id, old_pubkey, new_pubkey
-                    );
-
-                    // Parse and verify the signature proof
-                    match serde_json::from_str::<Event>(&signature_proof) {
-                        Ok(proof_event) => {
-                            // Verify the signature
-                            if let Err(e) = proof_event.verify() {
-                                error!("Invalid proof signature: {}", e);
-                                ServiceResponse::IdentitySwap {
-                                    success: false,
-                                    swapped: false,
-                                    error: Some(format!("Invalid proof signature: {}", e)),
-                                }
-                            } else {
-                                // Verify the proof claims the correct swap
-                                match serde_json::from_str::<serde_json::Value>(
-                                    &proof_event.content,
-                                ) {
-                                    Ok(proof_content) => {
-                                        // Check the proof content matches
-                                        if proof_content["old"] != old_pubkey
-                                            || proof_content["new"] != new_pubkey
-                                        {
-                                            ServiceResponse::IdentitySwap {
-                                                success: false,
-                                                swapped: false,
-                                                error: Some(
-                                                    "Proof content doesn't match request"
-                                                        .to_string(),
-                                                ),
-                                            }
-                                        } else if proof_event.pubkey.to_hex() != new_pubkey {
-                                            ServiceResponse::IdentitySwap {
-                                                success: false,
-                                                swapped: false,
-                                                error: Some(
-                                                    "Proof not signed by new pubkey".to_string(),
-                                                ),
-                                            }
-                                        } else {
-                                            // Valid proof - perform the swap
-                                            match self
-                                                .process_identity_swap(
-                                                    &group_id,
-                                                    &old_pubkey,
-                                                    &new_pubkey,
-                                                )
-                                                .await
-                                            {
-                                                Ok(_) => {
-                                                    info!(
-                                                        "✅ Identity swap successful for group {}",
-                                                        group_id
-                                                    );
-                                                    ServiceResponse::IdentitySwap {
-                                                        success: true,
-                                                        swapped: true,
-                                                        error: None,
-                                                    }
-                                                }
-                                                Err(e) => {
-                                                    error!("Identity swap failed: {}", e);
-                                                    ServiceResponse::IdentitySwap {
-                                                        success: false,
-                                                        swapped: false,
-                                                        error: Some(format!("Swap failed: {}", e)),
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    Err(e) => ServiceResponse::IdentitySwap {
-                                        success: false,
-                                        swapped: false,
-                                        error: Some(format!("Invalid proof content: {}", e)),
-                                    },
-                                }
-                            }
-                        }
-                        Err(e) => ServiceResponse::IdentitySwap {
-                            success: false,
-                            swapped: false,
-                            error: Some(format!("Invalid proof event: {}", e)),
-                        },
-                    }
-                }
             }
         } else if let Ok(legacy_request) =
             serde_json::from_str::<LocationValidationRequest>(&rumor.content)
@@ -502,19 +423,6 @@ impl NostrValidationHandler {
                 info!(
                     "✅ Preview complete - success: {}, name: {:?}, members: {:?}",
                     success, name, member_count
-                );
-                if let Some(ref err) = error {
-                    info!("   Error: {}", err);
-                }
-            }
-            ServiceResponse::IdentitySwap {
-                success,
-                swapped,
-                error,
-            } => {
-                info!(
-                    "✅ Identity swap complete - success: {}, swapped: {}",
-                    success, swapped
                 );
                 if let Some(ref err) = error {
                     info!("   Error: {}", err);
@@ -725,35 +633,6 @@ impl NostrValidationHandler {
             error: None,
             error_code: None,
         }
-    }
-
-    /// Process an identity swap request
-    async fn process_identity_swap(
-        &self,
-        group_id: &str,
-        old_pubkey: &str,
-        new_pubkey: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        info!("🔄 Processing identity swap for group {}", group_id);
-
-        // Use the relay service to perform the swap
-        let relay_service = self.relay_service.write().await;
-
-        // First add the new pubkey
-        relay_service
-            .add_group_member(group_id, new_pubkey, false)
-            .await?;
-
-        // Then remove the old pubkey
-        relay_service
-            .remove_group_member(group_id, old_pubkey)
-            .await?;
-
-        info!(
-            "✅ Successfully swapped {} to {} in group {}",
-            old_pubkey, new_pubkey, group_id
-        );
-        Ok(())
     }
 
     /// Process a community preview request
