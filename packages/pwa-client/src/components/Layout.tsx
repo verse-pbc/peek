@@ -15,7 +15,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <UserIdentityButton />
         </div>
       )}
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 right-4 z-[200] isolate">
         <ThemeToggle />
       </div>
     </div>
