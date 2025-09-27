@@ -10,7 +10,7 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, LogIn, LogOut, Shield, UserPlus, Zap, RefreshCw } from 'lucide-react';
+import { User, LogOut, Shield, UserPlus } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -21,13 +21,9 @@ import { IdentityMigrationService } from '@/services/identity-migration';
 export const UserIdentityButton: React.FC = () => {
   const {
     npub,
-    userIdentity,
     isAnonymous,
-    logout,
-    createNewIdentity,
     importIdentity,
     loginWithExtension,
-    hasExtension,
     showIdentityModal,
     setShowIdentityModal,
     identity,

@@ -12,7 +12,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Key, Copy, AlertCircle, CheckCircle, Zap } from 'lucide-react';
+import { AlertCircle, Zap } from 'lucide-react';
 
 interface IdentityModalProps {
   open: boolean;

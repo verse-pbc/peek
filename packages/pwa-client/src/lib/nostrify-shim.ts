@@ -105,7 +105,7 @@ export const useNostrLogin = () => {
       // SECURITY: Only log public key, never secret key
       console.log('Imported Nostr identity:', npub);
       return newIdentity;
-    } catch (err) {
+    } catch {
       // SECURITY: Don't log the actual error which might contain nsec
       console.error('Failed to import identity');
       throw new Error('Invalid nsec key');
