@@ -13,15 +13,13 @@ const MAX_MIGRATION_DEPTH: usize = 10;
 
 /// Service for monitoring and processing identity migrations (NIP-XX/kind 1776)
 pub struct MigrationMonitor {
-    client: Client,
     relay_service: Arc<RwLock<RelayService>>,
     migration_cache: Arc<RwLock<HashMap<String, String>>>, // old_pubkey -> new_pubkey
 }
 
 impl MigrationMonitor {
-    pub fn new(client: Client, relay_service: Arc<RwLock<RelayService>>) -> Self {
+    pub fn new(relay_service: Arc<RwLock<RelayService>>) -> Self {
         Self {
-            client,
             relay_service,
             migration_cache: Arc::new(RwLock::new(HashMap::new())),
         }
@@ -37,7 +35,8 @@ impl MigrationMonitor {
         // Subscribe to all migration events
         let filter = Filter::new().kind(Kind::Custom(MIGRATION_KIND)).limit(0); // Get all events
 
-        self.client.subscribe(filter, None).await?;
+        let relay_service = self.relay_service.read().await;
+        relay_service.client().subscribe(filter, None).await?;
 
         info!("Subscribed to migration events (kind {})", MIGRATION_KIND);
         Ok(())
@@ -194,8 +193,9 @@ impl MigrationMonitor {
             .custom_tag(SingleLetterTag::lowercase(Alphabet::P), pubkey.to_string());
 
         use std::time::Duration;
-        let events = self
-            .client
+        let relay_service = self.relay_service.read().await;
+        let events = relay_service
+            .client()
             .fetch_events(filter, Duration::from_secs(5))
             .await?;
 

@@ -11,7 +11,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="relative min-h-screen">
       {children}
       {showIdentityButton && (
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-4 right-4 z-[100]">
           <UserIdentityButton />
         </div>
       )}

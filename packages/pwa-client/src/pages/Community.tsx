@@ -274,7 +274,7 @@ const Community = () => {
               </div>
             </div>
             {communityData.isAdmin && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mr-36">
                 <Badge variant="secondary" className="gap-1">
                   <Shield className="h-3 w-3" />
                   Admin
