@@ -98,6 +98,11 @@ export class GroupManager {
     this.relayManager.onEvent('kind:9001', (event) => {
       this.handleUserRemoved(event);
     });
+
+    // Listen for migration events
+    this.relayManager.onEvent('kind:1776', (event) => {
+      this.handleMigrationEvent(event);
+    });
   }
 
   private handleMetadataEvent(event: Event) {
@@ -221,6 +226,24 @@ export class GroupManager {
 
     this.updateMyMembership(groupId);
     cache.lastUpdated = Date.now();
+  }
+
+  private handleMigrationEvent(event: Event) {
+    const oldPubkey = event.pubkey;
+    const newPubkey = event.tags.find(t => t[0] === 'p')?.[1];
+
+    if (!newPubkey) return;
+
+    console.log(`Processing migration event: ${oldPubkey} -> ${newPubkey}`);
+
+    // Store migration for message resolution
+    const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
+    migrations[oldPubkey] = newPubkey;
+    localStorage.setItem('identity_migrations', JSON.stringify(migrations));
+
+    // Update cache if old pubkey was in any groups
+    // The validation service will send kind 9000/9001 events to update memberships
+    // We don't need to manually update here, just store the migration
   }
 
   private getOrCreateCache(groupId: string) {

@@ -55,13 +55,7 @@ export type ServiceRequest =
       type: 'preview_request';
       community_id: string;
     }
-  | {
-      type: 'identity_swap';
-      old_pubkey: string;
-      new_pubkey: string;
-      group_id: string;
-      signature_proof: string;
-    };
+;
 
 // Unified response types using discriminated union
 export type ServiceResponse =
@@ -88,11 +82,7 @@ export type ServiceResponse =
       created_at?: number;
       error?: string;
     }
-  | {
-      type: 'identity_swap_response';
-      success: boolean;
-      error?: string;
-    };
+;
 
 // Legacy interfaces for backwards compatibility
 export interface LocationValidationRequest {
@@ -608,96 +598,6 @@ export class NostrLocationService {
     return [this.relayManager.url];
   }
 
-  /**
-   * Swap identity from old pubkey to new pubkey for a group
-   */
-  async swapIdentity(
-    oldPubkey: string,
-    newPubkey: string,
-    groupId: string,
-    newIdentitySecretKey?: Uint8Array // Optional, not used for NIP-07
-  ): Promise<ServiceResponse> {
-    try {
-      // Create proof message
-      const proofContent = JSON.stringify({
-        action: "identity_swap",
-        old: oldPubkey,
-        new: newPubkey,
-        group: groupId,
-        timestamp: Date.now()
-      });
-
-      // Sign proof with new identity
-      let signedProof: Event;
-
-      // Check if using NIP-07 browser extension
-      if (typeof window !== 'undefined' && window.nostr && !newIdentitySecretKey) {
-        // Use browser extension to sign
-        const unsignedEvent = {
-          kind: 1,
-          content: proofContent,
-          tags: [['p', oldPubkey]],
-          created_at: Math.floor(Date.now() / 1000)
-        };
-        signedProof = await window.nostr.signEvent(unsignedEvent);
-      } else if (newIdentitySecretKey) {
-        // Sign with provided secret key
-        const eventTemplate: EventTemplate = {
-          kind: 1,
-          content: proofContent,
-          tags: [['p', oldPubkey]],
-          created_at: Math.floor(Date.now() / 1000)
-        };
-        signedProof = finalizeEvent(eventTemplate, newIdentitySecretKey);
-      } else {
-        throw new Error('No signing method available');
-      }
-
-      // Create swap request
-      const request: ServiceRequest = {
-        type: 'identity_swap',
-        old_pubkey: oldPubkey,
-        new_pubkey: newPubkey,
-        group_id: groupId,
-        signature_proof: JSON.stringify(signedProof)
-      };
-
-      // Generate request ID
-      const requestId = generateSecretKey().slice(0, 16).reduce((acc, byte) =>
-        acc + byte.toString(16).padStart(2, '0'), '');
-
-      // Wait for response
-      const responsePromise = this.waitForServiceResponse(requestId, 'identity_swap_response');
-
-      // Create and send gift wrap with request
-      const rumor = this.createRumor(
-        LOCATION_VALIDATION_REQUEST_KIND,
-        JSON.stringify(request),
-        [['e', requestId, '', 'request-id']]
-      );
-      const seal = this.createSeal(rumor, VALIDATION_SERVICE_PUBKEY);
-      const giftWrap = this.createGiftWrap(seal, VALIDATION_SERVICE_PUBKEY);
-
-      console.log('Sending identity swap request:', {
-        rumorId: rumor.id,
-        giftWrapId: giftWrap.id
-      });
-
-      // Publish gift wrap
-      await this.relayManager.publishGiftWrap(giftWrap);
-
-      // Wait for response
-      const response = await responsePromise;
-      return response;
-    } catch (error) {
-      console.error('Identity swap error:', error);
-      return {
-        type: 'identity_swap_response',
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
 
   /**
    * Close all relay connections

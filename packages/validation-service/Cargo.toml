@@ -31,6 +31,9 @@ envy = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# Error handling
+anyhow = "1.0"
+
 # UUID
 uuid = { version = "1.10", features = ["v4", "serde"] }
 
