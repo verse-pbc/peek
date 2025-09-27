@@ -58,18 +58,24 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     let usingExtension = false;
 
     // Set up NIP-42 authentication
-    if (identity?.secretKey && identity?.publicKey) {
+    // First check if we have a stored personal identity (in case hook hasn't loaded yet)
+    const STORAGE_KEY = 'peek_nostr_identity';
+    const storedIdentity = localStorage.getItem(STORAGE_KEY);
+    const personalIdentity = storedIdentity ? JSON.parse(storedIdentity) : null;
+
+    if ((identity?.secretKey && identity?.publicKey) || (personalIdentity?.secretKey && personalIdentity?.publicKey)) {
+      const authIdentity = identity || personalIdentity;
       // Check if using NIP-07 extension
-      if (identity.secretKey === 'NIP07_EXTENSION') {
+      if (authIdentity.secretKey === 'NIP07_EXTENSION') {
         // Using browser extension for signing
         usingExtension = true;
-        publicKeyHex = identity.publicKey;
+        publicKeyHex = authIdentity.publicKey;
         console.log('[RelayContext] Using NIP-07 browser extension for auth');
       } else {
         // Use existing user identity
         console.log('[RelayContext] Using existing user identity for auth');
-        secretKeyBytes = hexToBytes(identity.secretKey);
-        publicKeyHex = identity.publicKey;
+        secretKeyBytes = hexToBytes(authIdentity.secretKey);
+        publicKeyHex = authIdentity.publicKey;
       }
     } else {
       // Generate anonymous identity for new users

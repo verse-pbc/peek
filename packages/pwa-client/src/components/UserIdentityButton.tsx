@@ -107,13 +107,23 @@ export const UserIdentityButton: React.FC = () => {
   };
 
   const handleImport = async (nsec: string) => {
-    const newIdentity = importIdentity(nsec);
-    if (isAnonymous && relayManager) {
-      await handleIdentitySwap(newIdentity);
-    } else {
-      // Should not happen - only anonymous users can upgrade
-      localStorage.removeItem('peek_anonymous_identity');
-      window.location.reload();
+    console.log('[UserIdentityButton] handleImport called');
+    try {
+      const newIdentity = importIdentity(nsec);
+      console.log('[UserIdentityButton] New identity:', newIdentity);
+
+      if (isAnonymous && relayManager) {
+        console.log('[UserIdentityButton] Calling handleIdentitySwap...');
+        await handleIdentitySwap(newIdentity);
+      } else {
+        console.log('[UserIdentityButton] Not anonymous or no relay manager, reloading...');
+        // Should not happen - only anonymous users can upgrade
+        localStorage.removeItem('peek_anonymous_identity');
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('[UserIdentityButton] handleImport error:', error);
+      throw error; // Re-throw so IdentityModal can catch it
     }
   };
 
