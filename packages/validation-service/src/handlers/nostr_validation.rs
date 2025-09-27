@@ -10,10 +10,8 @@ use crate::{
     config::Config,
     models::LocationPoint,
     services::{
-        community::CommunityService,
-        gift_wrap::GiftWrapService,
-        migration_monitor::MigrationMonitor,
-        relay::RelayService,
+        community::CommunityService, gift_wrap::GiftWrapService,
+        migration_monitor::MigrationMonitor, relay::RelayService,
     },
 };
 
@@ -152,10 +150,8 @@ impl NostrValidationHandler {
         let gift_wrap_service = Arc::new(GiftWrapService::new(service_keys.clone()));
 
         // Create migration monitor
-        let migration_monitor = Arc::new(MigrationMonitor::new(
-            client.clone(),
-            relay_service.clone(),
-        ));
+        let migration_monitor =
+            Arc::new(MigrationMonitor::new(client.clone(), relay_service.clone()));
 
         Ok(Self {
             client,
@@ -236,14 +232,15 @@ impl NostrValidationHandler {
                             );
 
                             // Process migration event
-                            if let Err(e) = handler.migration_monitor.handle_migration_event(event.as_ref().clone()).await {
+                            if let Err(e) = handler
+                                .migration_monitor
+                                .handle_migration_event(event.as_ref().clone())
+                                .await
+                            {
                                 error!("❌ Failed to handle migration event: {}", e);
                             }
                         } else {
-                            debug!(
-                                "⏩ Ignoring event kind {}",
-                                event.kind.as_u16()
-                            );
+                            debug!("⏩ Ignoring event kind {}", event.kind.as_u16());
                         }
                     } else {
                         debug!("📋 Received non-event notification: {:?}", notification);

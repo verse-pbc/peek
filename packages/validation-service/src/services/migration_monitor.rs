@@ -1,9 +1,9 @@
+use anyhow::{anyhow, Result as AnyResult};
 use nostr_sdk::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
-use anyhow::{Result as AnyResult, anyhow};
 
 use super::relay::RelayService;
 
@@ -28,12 +28,13 @@ impl MigrationMonitor {
 
     /// Start monitoring for migration events
     pub async fn start_monitoring(&self) -> AnyResult<()> {
-        info!("Starting migration monitor for kind {} events", MIGRATION_KIND);
+        info!(
+            "Starting migration monitor for kind {} events",
+            MIGRATION_KIND
+        );
 
         // Subscribe to all migration events
-        let filter = Filter::new()
-            .kind(Kind::Custom(MIGRATION_KIND))
-            .limit(0); // Get all events
+        let filter = Filter::new().kind(Kind::Custom(MIGRATION_KIND)).limit(0); // Get all events
 
         self.client.subscribe(filter, None).await?;
 
@@ -43,16 +44,22 @@ impl MigrationMonitor {
 
     /// Handle a migration event
     pub async fn handle_migration_event(&self, event: Event) -> AnyResult<()> {
-        info!("Processing migration event from {}", event.pubkey.to_bech32()?);
+        info!(
+            "Processing migration event from {}",
+            event.pubkey.to_bech32()?
+        );
 
         // Verify outer event signature first
-        event.verify()
+        event
+            .verify()
             .map_err(|e| anyhow!("Invalid migration event signature: {}", e))?;
 
         let old_pubkey = event.pubkey.to_hex();
 
         // Validate proof and get the REAL new pubkey from signature
-        let new_pubkey = self.validate_migration_proof(&event).await?
+        let new_pubkey = self
+            .validate_migration_proof(&event)
+            .await?
             .ok_or_else(|| anyhow!("Invalid migration proof"))?;
 
         // Verify consistency: outer p tag should match proof's signer
@@ -66,11 +73,15 @@ impl MigrationMonitor {
         if claimed_new_pubkey != new_pubkey {
             return Err(anyhow!(
                 "P tag mismatch: tag claims {} but proof signed by {}",
-                claimed_new_pubkey, new_pubkey
+                claimed_new_pubkey,
+                new_pubkey
             ));
         }
 
-        info!("✅ Valid migration verified: {} -> {}", old_pubkey, new_pubkey);
+        info!(
+            "✅ Valid migration verified: {} -> {}",
+            old_pubkey, new_pubkey
+        );
 
         // Update cache with verified migration
         {
@@ -79,7 +90,8 @@ impl MigrationMonitor {
         }
 
         // Update group memberships
-        self.update_group_memberships(&old_pubkey, &new_pubkey).await?;
+        self.update_group_memberships(&old_pubkey, &new_pubkey)
+            .await?;
 
         Ok(())
     }
@@ -97,7 +109,8 @@ impl MigrationMonitor {
             .map_err(|e| anyhow!("Invalid proof event JSON: {}", e))?;
 
         // Verify the proof event signature
-        proof_event.verify()
+        proof_event
+            .verify()
             .map_err(|e| anyhow!("Invalid proof signature: {}", e))?;
 
         // The NEW pubkey is who signed the proof (verified by signature)
@@ -109,13 +122,10 @@ impl MigrationMonitor {
         }
 
         // Verify bidirectional binding: proof's p tag points back to old pubkey
-        let proof_points_to_old = proof_event
-            .tags
-            .iter()
-            .any(|t| {
-                matches!(t.kind(), TagKind::SingleLetter(s) if s.character == Alphabet::P) &&
-                t.content().map_or(false, |p| p == event.pubkey.to_hex())
-            });
+        let proof_points_to_old = proof_event.tags.iter().any(|t| {
+            matches!(t.kind(), TagKind::SingleLetter(s) if s.character == Alphabet::P)
+                && t.content().map_or(false, |p| p == event.pubkey.to_hex())
+        });
 
         if !proof_points_to_old {
             return Ok(None);
@@ -127,7 +137,10 @@ impl MigrationMonitor {
 
     /// Update all group memberships for a migrated identity
     async fn update_group_memberships(&self, old_pubkey: &str, new_pubkey: &str) -> AnyResult<()> {
-        info!("Updating group memberships for migration {} -> {}", old_pubkey, new_pubkey);
+        info!(
+            "Updating group memberships for migration {} -> {}",
+            old_pubkey, new_pubkey
+        );
 
         // Find all groups where old_pubkey is a member
         let groups = self.find_user_groups(old_pubkey).await?;
@@ -142,18 +155,30 @@ impl MigrationMonitor {
         let relay_service = self.relay_service.write().await;
 
         for group_id in groups {
-            info!("Updating group {}: replacing {} with {}", group_id, old_pubkey, new_pubkey);
+            info!(
+                "Updating group {}: replacing {} with {}",
+                group_id, old_pubkey, new_pubkey
+            );
 
             // Add new member first
-            match relay_service.add_group_member(&group_id, new_pubkey, false).await {
+            match relay_service
+                .add_group_member(&group_id, new_pubkey, false)
+                .await
+            {
                 Ok(_) => info!("Added {} to group {}", new_pubkey, group_id),
                 Err(e) => error!("Failed to add {} to group {}: {}", new_pubkey, group_id, e),
             }
 
             // Then remove old member
-            match relay_service.remove_group_member(&group_id, old_pubkey).await {
+            match relay_service
+                .remove_group_member(&group_id, old_pubkey)
+                .await
+            {
                 Ok(_) => info!("Removed {} from group {}", old_pubkey, group_id),
-                Err(e) => error!("Failed to remove {} from group {}: {}", old_pubkey, group_id, e),
+                Err(e) => error!(
+                    "Failed to remove {} from group {}: {}",
+                    old_pubkey, group_id, e
+                ),
             }
         }
 
@@ -165,13 +190,13 @@ impl MigrationMonitor {
         // Query for group member events (kind 39002) that include this pubkey
         let filter = Filter::new()
             .kind(Kind::Custom(39002)) // GROUP_MEMBERS kind
-            .custom_tag(
-                SingleLetterTag::lowercase(Alphabet::P),
-                pubkey.to_string(),
-            );
+            .custom_tag(SingleLetterTag::lowercase(Alphabet::P), pubkey.to_string());
 
         use std::time::Duration;
-        let events = self.client.fetch_events(filter, Duration::from_secs(5)).await?;
+        let events = self
+            .client
+            .fetch_events(filter, Duration::from_secs(5))
+            .await?;
 
         let mut groups = Vec::new();
         for event in events {
@@ -179,7 +204,9 @@ impl MigrationMonitor {
             if let Some(group_id) = event
                 .tags
                 .iter()
-                .find(|t| matches!(t.kind(), TagKind::SingleLetter(s) if s.character == Alphabet::D))
+                .find(
+                    |t| matches!(t.kind(), TagKind::SingleLetter(s) if s.character == Alphabet::D),
+                )
                 .and_then(|t| t.content())
             {
                 groups.push(group_id.to_string());
