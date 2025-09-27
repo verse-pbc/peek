@@ -33,7 +33,9 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'import' | 'extension'>('import');
 
-  const handleImport = () => {
+  const handleImport = React.useCallback(() => {
+    console.log('[IdentityModal] handleImport called with nsec:', nsecInput.substring(0, 10) + '...');
+
     if (!nsecInput.trim()) {
       setError('Please enter your nsec key');
       return;
@@ -45,14 +47,15 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
     }
 
     try {
+      console.log('[IdentityModal] Calling onImport with nsec:', nsecInput);
       onImport(nsecInput);
-      onOpenChange(false);
-      setNsecInput('');
-      setError(null);
-    } catch {
+      console.log('[IdentityModal] onImport completed successfully');
+      // Don't close modal or clear input here - let UserIdentityButton handle it after successful migration
+    } catch (err) {
+      console.error('[IdentityModal] onImport failed:', err);
       setError('Invalid nsec key - please check and try again');
     }
-  };
+  }, [nsecInput, onImport]);
 
   const handleExtension = () => {
     if (onExtension) {
@@ -114,10 +117,36 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
             </div>
             
             <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleImport}>
+              <Button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('[Button] Import Identity clicked, nsec:', nsecInput.substring(0, 10) + '...');
+
+                  if (!nsecInput.trim()) {
+                    setError('Please enter your nsec key');
+                    return;
+                  }
+
+                  if (!nsecInput.startsWith('nsec1')) {
+                    setError('Invalid nsec format - must start with nsec1');
+                    return;
+                  }
+
+                  try {
+                    console.log('[Button] Calling onImport directly...');
+                    onImport(nsecInput);
+                    console.log('[Button] onImport completed');
+                  } catch (err) {
+                    console.error('[Button] onImport error:', err);
+                    setError('Invalid nsec key - please check and try again');
+                  }
+                }}
+              >
                 Import Identity
               </Button>
             </DialogFooter>
@@ -147,10 +176,11 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
               <Button
+                type="button"
                 onClick={handleExtension}
                 disabled={!window.nostr || !onExtension}
               >
