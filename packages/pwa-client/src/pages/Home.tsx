@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MapPin,
@@ -18,12 +17,12 @@ import {
   ChevronRight,
   Loader2,
   UserCircle,
-  Settings,
-  LogOut
+  Settings
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
+import { UserIdentityButton } from '@/components/UserIdentityButton';
 
 interface Community {
   groupId: string;
@@ -43,7 +42,7 @@ const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useNostrContext();
-  const { pubkey, npub, logout, login } = useNostrLogin();
+  const { pubkey, login } = useNostrLogin();
   const { toast } = useToast();
   const { groupManager } = useRelayManager();
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -196,14 +195,6 @@ const Home = () => {
     navigate('/profile');
   };
 
-  const handleLogout = async () => {
-    await logout();
-    toast({
-      title: 'Logged out',
-      description: 'You have been logged out successfully'
-    });
-  };
-
   if (!user || !pubkey) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
@@ -260,20 +251,8 @@ const Home = () => {
               <Button variant="ghost" size="icon" onClick={handleProfileClick}>
                 <Settings className="h-5 w-5" />
               </Button>
-
-              <div className="flex items-center gap-3 pl-3 border-l">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    {npub?.slice(4, 6).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="hidden sm:block">
-                  <p className="text-sm font-medium">{npub?.slice(0, 8)}...</p>
-                  <p className="text-xs text-muted-foreground">Connected</p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4" />
-                </Button>
+              <div className="pl-2 border-l">
+                <UserIdentityButton />
               </div>
             </div>
           </div>
