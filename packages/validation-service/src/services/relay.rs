@@ -31,6 +31,11 @@ pub struct RelayService {
 }
 
 impl RelayService {
+    /// Get a reference to the authenticated client
+    pub fn client(&self) -> &Client {
+        &self.client
+    }
+
     pub async fn new(relay_url: String, relay_secret_key: String) -> Result<Self> {
         // Parse the relay's secret key
         let secret_key = SecretKey::from_bech32(&relay_secret_key)

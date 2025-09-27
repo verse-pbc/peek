@@ -149,9 +149,8 @@ impl NostrValidationHandler {
         // Create gift wrap service
         let gift_wrap_service = Arc::new(GiftWrapService::new(service_keys.clone()));
 
-        // Create migration monitor
-        let migration_monitor =
-            Arc::new(MigrationMonitor::new(client.clone(), relay_service.clone()));
+        // Create migration monitor (uses relay service's authenticated client)
+        let migration_monitor = Arc::new(MigrationMonitor::new(relay_service.clone()));
 
         Ok(Self {
             client,
