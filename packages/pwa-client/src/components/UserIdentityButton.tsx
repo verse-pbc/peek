@@ -10,7 +10,7 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, LogIn, LogOut, Shield, UserPlus, Zap, RefreshCw } from 'lucide-react';
+import { User, LogOut, Shield, UserPlus } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -21,13 +21,9 @@ import { IdentityMigrationService } from '@/services/identity-migration';
 export const UserIdentityButton: React.FC = () => {
   const {
     npub,
-    userIdentity,
     isAnonymous,
-    logout,
-    createNewIdentity,
     importIdentity,
     loginWithExtension,
-    hasExtension,
     showIdentityModal,
     setShowIdentityModal,
     identity,
@@ -35,7 +31,6 @@ export const UserIdentityButton: React.FC = () => {
   const { relayManager } = useRelayManager();
   const { toast } = useToast();
 
-  const [showLoginOptions, setShowLoginOptions] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
 
   const handleIdentitySwap = async (newIdentity: { publicKey: string; secretKey: string }) => {
@@ -111,23 +106,12 @@ export const UserIdentityButton: React.FC = () => {
     }
   };
 
-  const handleCreateNew = async () => {
-    const newIdentity = createNewIdentity();
-    if (isAnonymous && relayManager) {
-      await handleIdentitySwap(newIdentity);
-    } else {
-      // First time login - no swap needed
-      localStorage.removeItem('peek_anonymous_identity');
-      window.location.reload();
-    }
-  };
-
   const handleImport = async (nsec: string) => {
     const newIdentity = importIdentity(nsec);
     if (isAnonymous && relayManager) {
       await handleIdentitySwap(newIdentity);
     } else {
-      // First time login - no swap needed
+      // Should not happen - only anonymous users can upgrade
       localStorage.removeItem('peek_anonymous_identity');
       window.location.reload();
     }
@@ -135,12 +119,30 @@ export const UserIdentityButton: React.FC = () => {
 
   const handleLoginWithExtension = async () => {
     try {
-      await loginWithExtension();
+      const newIdentity = await loginWithExtension();
+      if (isAnonymous && relayManager && newIdentity) {
+        await handleIdentitySwap(newIdentity);
+      }
     } catch (err: unknown) {
       console.error('Extension login failed:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect to browser extension';
-      alert(errorMessage);
+      toast({
+        title: "Extension connection failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
     }
+  };
+
+  const handleLogout = () => {
+    // Clear all identity data
+    localStorage.removeItem('peek_nostr_identity');
+    localStorage.removeItem('peek_anonymous_identity');
+    localStorage.removeItem('joinedGroups');
+    localStorage.removeItem('identity_migrations');
+
+    // Navigate to home and reload for fresh start
+    window.location.href = '/';
   };
 
   const displayName = npub ? `${npub.slice(0, 8)}...${npub.slice(-4)}` : 'Not logged in';
@@ -193,47 +195,34 @@ export const UserIdentityButton: React.FC = () => {
 
           {isAnonymous ? (
             <>
-              <DropdownMenuItem onClick={() => setShowLoginOptions(true)}>
-                <LogIn className="mr-2 h-4 w-4" />
-                Login with Identity
-              </DropdownMenuItem>
-              {hasExtension && (
-                <DropdownMenuItem onClick={handleLoginWithExtension}>
-                  <Zap className="mr-2 h-4 w-4" />
-                  Connect Browser Extension
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem onClick={() => setShowIdentityModal(true)} disabled={isSwapping}>
                 <UserPlus className="mr-2 h-4 w-4" />
-                {isSwapping ? 'Switching...' : 'Switch to Real Identity'}
+                {isSwapping ? 'Upgrading...' : 'Upgrade to Personal Identity'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
               </DropdownMenuItem>
             </>
           ) : (
             <>
-              <DropdownMenuItem onClick={logout}>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
-                Switch to Anonymous
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowIdentityModal(true)} disabled={isSwapping}>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {isSwapping ? 'Switching...' : 'Switch Identity'}
+                Logout
               </DropdownMenuItem>
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Identity Modal for login/create/import */}
-      {(showIdentityModal || showLoginOptions) && (
+      {/* Identity Modal for upgrade (anonymous users only) */}
+      {showIdentityModal && isAnonymous && (
         <IdentityModal
-          open={showIdentityModal || showLoginOptions}
-          onOpenChange={(_open) => {
-            setShowIdentityModal(false);
-            setShowLoginOptions(false);
-          }}
-          onCreateNew={handleCreateNew}
+          open={showIdentityModal}
+          onOpenChange={setShowIdentityModal}
           onImport={handleImport}
-          existingNpub={userIdentity?.npub}
+          onExtension={handleLoginWithExtension}
+          isUpgrade={true}
         />
       )}
     </>

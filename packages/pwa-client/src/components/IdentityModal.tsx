@@ -12,32 +12,26 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Key, Copy, AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, Zap } from 'lucide-react';
 
 interface IdentityModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateNew: () => void;
   onImport: (nsec: string) => void;
-  existingNpub?: string;
+  onExtension?: () => void;
+  isUpgrade?: boolean;
 }
 
 export const IdentityModal: React.FC<IdentityModalProps> = ({
   open,
   onOpenChange,
-  onCreateNew,
   onImport,
-  existingNpub,
+  onExtension,
+  isUpgrade,
 }) => {
   const [nsecInput, setNsecInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'create' | 'import'>('create');
-
-  const handleCreateNew = () => {
-    onCreateNew();
-    onOpenChange(false);
-  };
+  const [activeTab, setActiveTab] = useState<'import' | 'extension'>('import');
 
   const handleImport = () => {
     if (!nsecInput.trim()) {
@@ -60,111 +54,32 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
     }
   };
 
-  const copyNpub = async () => {
-    if (existingNpub) {
-      await navigator.clipboard.writeText(existingNpub);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  const handleExtension = () => {
+    if (onExtension) {
+      onExtension();
+      onOpenChange(false);
     }
   };
 
-  // If user already has an identity, show it
-  if (existingNpub) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Your Nostr Identity</DialogTitle>
-            <DialogDescription>
-              You're using this identity for all Peek communities
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Your Public Key (npub)</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={existingNpub}
-                  readOnly
-                  className="font-mono text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={copyNpub}
-                >
-                  {copied ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            <Alert>
-              <Key className="h-4 w-4" />
-              <AlertDescription>
-                Your private key (nsec) is stored securely in your browser's localStorage.
-                Make sure to back it up if you want to use the same identity on other devices.
-              </AlertDescription>
-            </Alert>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  // New user - offer to create or import
+  // Offer to import or use extension
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Setup Your Nostr Identity</DialogTitle>
+          <DialogTitle>{isUpgrade ? 'Upgrade to Personal Identity' : 'Choose Your Identity'}</DialogTitle>
           <DialogDescription>
-            Create a new identity or import an existing one to join communities
+            {isUpgrade
+              ? 'Replace your anonymous identity with a personal one that you can use across all Nostr apps'
+              : 'Import an existing identity or use a browser extension'
+            }
           </DialogDescription>
         </DialogHeader>
-        
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'create' | 'import')}>
+
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'import' | 'extension')}>
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="create">Create New</TabsTrigger>
-            <TabsTrigger value="import">Import Existing</TabsTrigger>
+            <TabsTrigger value="import">Import Identity</TabsTrigger>
+            <TabsTrigger value="extension">Browser Extension</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="create" className="space-y-4">
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                We'll create a new Nostr identity for you. This will be used to identify
-                you across all Peek communities.
-              </p>
-              
-              <Alert>
-                <Key className="h-4 w-4" />
-                <AlertDescription>
-                  A new cryptographic key pair will be generated and stored securely 
-                  in your browser. You'll be able to export it later for backup.
-                </AlertDescription>
-              </Alert>
-            </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateNew}>
-                Create New Identity
-              </Button>
-            </DialogFooter>
-          </TabsContent>
           
           <TabsContent value="import" className="space-y-4">
             <div className="space-y-3">
@@ -204,6 +119,43 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
               </Button>
               <Button onClick={handleImport}>
                 Import Identity
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+
+          <TabsContent value="extension" className="space-y-4">
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Connect your Nostr browser extension (like Alby or nos2x) to use your existing identity without exposing your private key.
+              </p>
+
+              <Alert>
+                <Zap className="h-4 w-4" />
+                <AlertDescription>
+                  Your browser extension will handle signing events securely. Your private key never leaves the extension.
+                </AlertDescription>
+              </Alert>
+
+              {!window.nostr && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No Nostr browser extension detected. Please install Alby, nos2x, or another NIP-07 compatible extension.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleExtension}
+                disabled={!window.nostr || !onExtension}
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Connect Extension
               </Button>
             </DialogFooter>
           </TabsContent>

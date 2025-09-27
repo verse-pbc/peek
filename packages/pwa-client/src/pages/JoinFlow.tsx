@@ -16,7 +16,6 @@ import {
   XCircle
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
-import { IdentityModal } from '../components/IdentityModal';
 import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
 import { hexToBytes, bytesToHex } from '../lib/hex';
 import { getPublicKey, generateSecretKey } from 'nostr-tools';
@@ -59,7 +58,7 @@ interface JoinFlowError {
 export const JoinFlow: React.FC = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
-  const { pubkey, npub, login, createNewIdentity, importIdentity, showIdentityModal, setShowIdentityModal, identity } = useNostrLogin();
+  const { pubkey, login, identity } = useNostrLogin();
   const { toast } = useToast();
   const { relayManager, connected, waitForConnection } = useRelayManager();
 
@@ -797,14 +796,7 @@ export const JoinFlow: React.FC = () => {
         </Card>
       )}
 
-      {/* Identity Modal */}
-      <IdentityModal
-        open={showIdentityModal}
-        onOpenChange={setShowIdentityModal}
-        onCreateNew={createNewIdentity}
-        onImport={importIdentity}
-        existingNpub={npub || undefined}
-      />
+      {/* Identity modal removed - users can upgrade after joining */}
     </div>
   );
 };
