@@ -8,6 +8,7 @@ use tracing::{error, info};
 use super::relay::RelayService;
 
 const MIGRATION_KIND: u16 = 1776;
+#[allow(dead_code)]
 const MAX_MIGRATION_DEPTH: usize = 10;
 
 /// Service for monitoring and processing identity migrations (NIP-XX/kind 1776)
@@ -124,7 +125,7 @@ impl MigrationMonitor {
         // Verify bidirectional binding: proof's p tag points back to old pubkey
         let proof_points_to_old = proof_event.tags.iter().any(|t| {
             matches!(t.kind(), TagKind::SingleLetter(s) if s.character == Alphabet::P)
-                && t.content().map_or(false, |p| p == event.pubkey.to_hex())
+                && t.content().is_some_and(|p| p == event.pubkey.to_hex())
         });
 
         if !proof_points_to_old {
@@ -217,6 +218,7 @@ impl MigrationMonitor {
     }
 
     /// Resolve an identity through its migration chain
+    #[allow(dead_code)]
     pub async fn resolve_identity(&self, pubkey: &str) -> String {
         let cache = self.migration_cache.read().await;
         let mut visited = HashSet::new();
@@ -240,6 +242,7 @@ impl MigrationMonitor {
     }
 
     /// Get the latest migration for a pubkey
+    #[allow(dead_code)]
     pub async fn get_latest_migration(&self, pubkey: &str) -> Option<String> {
         let cache = self.migration_cache.read().await;
         cache.get(pubkey).cloned()
