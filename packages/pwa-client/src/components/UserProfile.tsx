@@ -33,6 +33,30 @@ const textSizeMap = {
   lg: 'text-lg'
 };
 
+// Helper function to resolve identity through migration chain
+function resolveIdentity(pubkey: string): string {
+  const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
+  let current = pubkey;
+  const visited = new Set<string>();
+  const maxDepth = 10;
+
+  for (let i = 0; i < maxDepth; i++) {
+    if (visited.has(current)) {
+      // Circular reference detected
+      break;
+    }
+    visited.add(current);
+
+    const next = migrations[current];
+    if (!next) {
+      break;
+    }
+    current = next;
+  }
+
+  return current;
+}
+
 export function UserProfile({
   pubkey,
   size = 'md',
@@ -45,11 +69,14 @@ export function UserProfile({
   nameClassName,
   compact = false
 }: UserProfileProps) {
-  const { data: profile, isLoading } = useProfile(pubkey);
-  const { data: nip05Verified } = useNip05Verification(profile?.nip05, pubkey);
+  // Resolve identity through migration chain
+  const resolvedPubkey = resolveIdentity(pubkey);
+
+  const { data: profile, isLoading } = useProfile(resolvedPubkey);
+  const { data: nip05Verified } = useNip05Verification(profile?.nip05, resolvedPubkey);
 
   // Compute display values
-  const displayName = profile?.display_name || profile?.name || `${nip19.npubEncode(pubkey).slice(0, 8)}...`;
+  const displayName = profile?.display_name || profile?.name || `${nip19.npubEncode(resolvedPubkey).slice(0, 8)}...`;
   const initials = (profile?.display_name || profile?.name || 'U')[0].toUpperCase();
 
   if (isLoading) {
