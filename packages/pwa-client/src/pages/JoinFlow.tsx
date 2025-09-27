@@ -797,14 +797,7 @@ export const JoinFlow: React.FC = () => {
         </Card>
       )}
 
-      {/* Identity Modal */}
-      <IdentityModal
-        open={showIdentityModal}
-        onOpenChange={setShowIdentityModal}
-        onCreateNew={createNewIdentity}
-        onImport={importIdentity}
-        existingNpub={npub || undefined}
-      />
+      {/* Identity modal removed - users can upgrade after joining */}
     </div>
   );
 };

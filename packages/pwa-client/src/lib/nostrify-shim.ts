@@ -128,12 +128,15 @@ export const useNostrLogin = () => {
   }, [identity, createNewIdentity]);
   
   const logout = React.useCallback(() => {
+    // Clear all identity-related data for fresh start
     localStorage.removeItem(STORAGE_KEY);
-    // Don't remove anonymous identity, just the user identity
+    localStorage.removeItem(ANON_KEY);
+    localStorage.removeItem('joinedGroups');
+    localStorage.removeItem('identity_migrations');
     setIdentity(null);
-    console.log('Nostr logout - switching to anonymous identity');
-    // Force a page reload to reconnect with anonymous identity
-    window.location.reload();
+    console.log('Nostr logout - clearing all data for fresh start');
+    // Navigate to home for fresh anonymous identity
+    window.location.href = '/';
   }, []);
 
   const loginWithExtension = React.useCallback(async () => {
@@ -160,8 +163,7 @@ export const useNostrLogin = () => {
       setIdentity(newIdentity);
       console.log('Logged in with browser extension:', npub);
 
-      // Force reload to reconnect with new identity
-      window.location.reload();
+      // Return the identity (reload will happen after migration event)
       return newIdentity;
     } catch (err) {
       console.error('Failed to login with extension:', err);
