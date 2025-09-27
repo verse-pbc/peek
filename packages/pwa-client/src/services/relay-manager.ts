@@ -308,8 +308,10 @@ export class RelayManager {
 
   /**
    * Subscribe to a specific group's events
+   * @param groupId - The group ID to subscribe to
+   * @param force - Force re-subscription even if already subscribed (useful after identity change)
    */
-  subscribeToGroup(groupId: string): void {
+  subscribeToGroup(groupId: string, force = false): void {
     if (!this.isConnected()) {
       console.warn('[RelayManager] Cannot subscribe: not connected');
       return;
@@ -317,8 +319,13 @@ export class RelayManager {
 
     // Check if already subscribed to this group
     if (this.subscriptions.has(`group-${groupId}`)) {
-      console.log(`[RelayManager] Already subscribed to group ${groupId}`);
-      return;
+      if (!force) {
+        console.log(`[RelayManager] Already subscribed to group ${groupId}`);
+        return;
+      }
+      // Force re-subscription: unsubscribe first
+      console.log(`[RelayManager] Force re-subscribing to group ${groupId}`);
+      this.unsubscribeFromGroup(groupId);
     }
 
     // Ensure we have a state for this group

@@ -82,8 +82,9 @@ export function CommunityFeed({
     // Try to subscribe even if auth fails - we might still get public messages
     setLoading(true);
 
-    // Subscribe to this group (Community page already subscribes, but this is safe as RelayManager should handle duplicates)
-    relayManager.subscribeToGroup(groupId);
+    // Force re-subscription when identity changes to ensure proper auth
+    const forceResubscribe = !!identity;
+    relayManager.subscribeToGroup(groupId, forceResubscribe);
 
     // Initialize members with current user's pubkey (we know they're a member if they're viewing this)
     const userPubkey = relayManager.getUserPubkey() || identity?.publicKey;
@@ -146,7 +147,7 @@ export function CommunityFeed({
       unsubscribeMembers();
       relayManager.unsubscribeFromGroup(groupId);
     };
-  }, [relayManager, groupId]); // Removed 'identity' dependency to prevent infinite loops
+  }, [relayManager, groupId, identity?.publicKey]); // Use identity.publicKey as dependency to trigger re-subscription on identity change
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
