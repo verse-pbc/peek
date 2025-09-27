@@ -10,13 +10,14 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, LogOut, Shield, UserPlus } from 'lucide-react';
+import { User, LogOut, Shield, UserPlus, Sun, Moon, Monitor } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
 import { IdentityMigrationService } from '@/services/identity-migration';
+import { useTheme } from '@/components/theme-provider';
 
 export const UserIdentityButton: React.FC = () => {
   const {
@@ -30,6 +31,7 @@ export const UserIdentityButton: React.FC = () => {
   } = useNostrLogin();
   const { relayManager } = useRelayManager();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
 
   const [isSwapping, setIsSwapping] = useState(false);
 
@@ -209,19 +211,33 @@ export const UserIdentityButton: React.FC = () => {
                 <UserPlus className="mr-2 h-4 w-4" />
                 {isSwapping ? 'Upgrading...' : 'Upgrade to Personal Identity'}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </DropdownMenuItem>
+              <DropdownMenuSeparator />
             </>
-          ) : (
-            <>
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
-              </DropdownMenuItem>
-            </>
-          )}
+          ) : null}
+
+          {/* Theme Toggle Options */}
+          <DropdownMenuLabel className="text-xs">Theme</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => setTheme("light")}>
+            <Sun className="mr-2 h-4 w-4" />
+            Light
+            {theme === 'light' && <span className="ml-auto">✓</span>}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTheme("dark")}>
+            <Moon className="mr-2 h-4 w-4" />
+            Dark
+            {theme === 'dark' && <span className="ml-auto">✓</span>}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTheme("system")}>
+            <Monitor className="mr-2 h-4 w-4" />
+            System
+            {theme === 'system' && <span className="ml-auto">✓</span>}
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
