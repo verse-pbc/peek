@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LocationPermission } from '../components/LocationPermission';
 import { CommunityPreview } from '../components/CommunityPreview';
+import { ForceLocationMap } from '../components/ForceLocationMap';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -13,7 +14,8 @@ import {
   Users,
   Loader2,
   Shield,
-  XCircle
+  XCircle,
+  Code2
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
@@ -74,10 +76,20 @@ export const JoinFlow: React.FC = () => {
     timestamp: number;
   } | null>(null);
   const [waitingForLogin, setWaitingForLogin] = useState(false);
+  const [developerMode, setDeveloperMode] = useState(false);
+  const [forcedLocation, setForcedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+    timestamp: number;
+  } | null>(null);
 
   // Check if this is likely a first scan (for immediate title display)
   const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
   const isLikelyFirstScan = !accessedCommunities.includes(communityId);
+
+  // Only show developer mode in development environment
+  const isDevelopment = import.meta.env.DEV;
 
   // Check if user is already a member and skip join flow
   useEffect(() => {
@@ -607,21 +619,67 @@ export const JoinFlow: React.FC = () => {
       {/* Location Permission Step */}
       {currentStep === JoinStep.LOCATION && (
         <div className="space-y-6">
-          <Alert className="border-blue-200 bg-blue-50">
-            <MapPin className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-900">Physical Presence Required</AlertTitle>
-            <AlertDescription className="text-blue-800">
-              To join this community, you need to prove you're physically at the location.
-              Please ensure you're within 25 meters of the QR code location.
-            </AlertDescription>
-          </Alert>
+          {/* Developer mode toggle - only in development */}
+          {isDevelopment && (
+            <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Code2 className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm font-medium text-yellow-900">Developer Mode</span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeveloperMode(!developerMode)}
+                className="text-xs"
+              >
+                {developerMode ? 'Hide' : 'Show'} Test Location
+              </Button>
+            </div>
+          )}
 
-          <LocationPermission
-            onLocationCaptured={handleLocationCaptured}
-            onPermissionDenied={handleLocationDenied}
-            maxAccuracy={20}
-            autoStart={true}
-          />
+          {/* Force location map - only when developer mode is enabled */}
+          {developerMode && (
+            <ForceLocationMap
+              onLocationSelected={(location) => {
+                setForcedLocation(location);
+                handleLocationCaptured(location);
+              }}
+            />
+          )}
+
+          {/* Normal location permission - show when not using forced location */}
+          {!forcedLocation && (
+            <>
+              <Alert className="border-blue-200 bg-blue-50">
+                <MapPin className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-900">Physical Presence Required</AlertTitle>
+                <AlertDescription className="text-blue-800">
+                  To join this community, you need to prove you're physically at the location.
+                  Please ensure you're within 25 meters of the QR code location.
+                </AlertDescription>
+              </Alert>
+
+              <LocationPermission
+                onLocationCaptured={handleLocationCaptured}
+                onPermissionDenied={handleLocationDenied}
+                maxAccuracy={20}
+                autoStart={true}
+              />
+            </>
+          )}
+
+          {/* Show forced location info */}
+          {forcedLocation && (
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-900">Using Test Location</AlertTitle>
+              <AlertDescription className="text-green-800">
+                📍 {forcedLocation.latitude.toFixed(6)}, {forcedLocation.longitude.toFixed(6)}
+                <br />
+                🎯 Accuracy: {forcedLocation.accuracy}m
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
 
