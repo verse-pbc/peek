@@ -76,7 +76,14 @@ export const JoinFlow: React.FC = () => {
     timestamp: number;
   } | null>(null);
   const [waitingForLogin, setWaitingForLogin] = useState(false);
-  const [developerMode, setDeveloperMode] = useState(false);
+  // Enable developer mode with ?dev=true URL parameter or in development mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const isDevParam = urlParams.get('dev') === 'true';
+  const [devModeEnabled, setDevModeEnabled] = useState(
+    import.meta.env.DEV || isDevParam
+  );
+  // Automatically show the map when dev=true is in URL
+  const [developerMode, setDeveloperMode] = useState(isDevParam);
   const [forcedLocation, setForcedLocation] = useState<{
     latitude: number;
     longitude: number;
@@ -88,12 +95,6 @@ export const JoinFlow: React.FC = () => {
   const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
   const isLikelyFirstScan = !accessedCommunities.includes(communityId);
 
-  // Only show developer mode in development environment
-  // Enable developer mode with ?dev=true URL parameter or in development mode
-  const urlParams = new URLSearchParams(window.location.search);
-  const [devModeEnabled, setDevModeEnabled] = useState(
-    import.meta.env.DEV || urlParams.get('dev') === 'true'
-  );
   // Force join flow even for existing members when forceJoin=true is set
   const forceJoinFlow = urlParams.get('forceJoin') === 'true';
 
