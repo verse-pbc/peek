@@ -653,7 +653,7 @@ export const JoinFlow: React.FC = () => {
                 onClick={() => setDeveloperMode(!developerMode)}
                 className="text-xs"
               >
-                {developerMode ? 'Hide' : 'Show'} Test Location
+                {developerMode ? 'Hide' : 'Show'} Test Location Map
               </Button>
             </div>
           )}
@@ -680,11 +680,26 @@ export const JoinFlow: React.FC = () => {
                 </AlertDescription>
               </Alert>
 
+              {/* Show a button to use real location when in dev mode */}
+              {devModeEnabled && developerMode && (
+                <div className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50">
+                  <p className="text-sm font-medium text-orange-900">Or use your real location:</p>
+                  <Button
+                    onClick={() => setDeveloperMode(false)}
+                    variant="outline"
+                    className="border-orange-300 hover:bg-orange-100"
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Use Real GPS Location
+                  </Button>
+                </div>
+              )}
+
               <LocationPermission
                 onLocationCaptured={handleLocationCaptured}
                 onPermissionDenied={handleLocationDenied}
                 maxAccuracy={20}
-                autoStart={true}
+                autoStart={!developerMode}
               />
             </>
           )}
