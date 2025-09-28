@@ -151,7 +151,7 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
         latitude: position.lat,
         longitude: position.lng,
         accuracy,
-        timestamp: Date.now()
+        timestamp: Math.floor(Date.now() / 1000) // Convert to seconds for Nostr
       };
 
       // Save to localStorage for persistence
