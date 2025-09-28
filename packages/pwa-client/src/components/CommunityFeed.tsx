@@ -8,6 +8,7 @@ import { Send, Users } from 'lucide-react';
 import { NIP29_KINDS } from '@/services/relay-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
+import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { Event } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { UserProfile } from '@/components/UserProfile';
@@ -26,30 +27,6 @@ interface CommunityFeedProps {
   onMemberClick?: (pubkey: string) => void;
 }
 
-// Helper function to resolve identity through migration chain
-function resolveIdentity(pubkey: string): string {
-  const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
-  let current = pubkey;
-  const visited = new Set<string>();
-  const maxDepth = 10;
-
-  for (let i = 0; i < maxDepth; i++) {
-    if (visited.has(current)) {
-      // Circular reference detected
-      break;
-    }
-    visited.add(current);
-
-    const next = migrations[current];
-    if (!next) {
-      break;
-    }
-    current = next;
-  }
-
-  return current;
-}
-
 export function CommunityFeed({
   groupId,
   communityName = 'Community',
@@ -57,7 +34,8 @@ export function CommunityFeed({
   onMemberClick
 }: CommunityFeedProps) {
   const { identity } = useNostrLogin();
-  const { relayManager, connected: relayConnected } = useRelayManager();
+  const { relayManager, connected: relayConnected, migrationService } = useRelayManager();
+  const { resolveIdentity } = useIdentityResolution(groupId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [members, setMembers] = useState<Set<string>>(new Set());
@@ -85,6 +63,11 @@ export function CommunityFeed({
     // Force re-subscription when identity changes to ensure proper auth
     const forceResubscribe = !!identity;
     relayManager.subscribeToGroup(groupId, forceResubscribe);
+
+    // Fetch migration events for this group
+    if (migrationService) {
+      migrationService.fetchGroupMigrations(groupId);
+    }
 
     // Initialize members with current user's pubkey (we know they're a member if they're viewing this)
     const userPubkey = relayManager.getUserPubkey() || identity?.publicKey;
@@ -147,7 +130,7 @@ export function CommunityFeed({
       unsubscribeMembers();
       relayManager.unsubscribeFromGroup(groupId);
     };
-  }, [relayManager, groupId, identity?.publicKey]); // Use identity.publicKey as dependency to trigger re-subscription on identity change
+  }, [relayManager, groupId, identity?.publicKey, migrationService]); // Use identity.publicKey as dependency to trigger re-subscription on identity change
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -259,6 +242,7 @@ export function CommunityFeed({
                           size="sm"
                           showName={false}
                           onClick={() => onMemberClick?.(message.pubkey)}
+                          groupId={groupId}
                         />
 
                         <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
@@ -270,6 +254,7 @@ export function CommunityFeed({
                               showAvatar={false}
                               className="inline-flex"
                               nameClassName="text-sm font-medium truncate max-w-[150px]"
+                              groupId={groupId}
                             />
                             <span className="text-xs text-muted-foreground flex-shrink-0">
                               {formatTime(message.created_at)}

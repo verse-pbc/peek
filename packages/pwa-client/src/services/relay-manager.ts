@@ -348,6 +348,7 @@ export class RelayManager {
         NIP29_KINDS.CREATE_INVITE,
         NIP29_KINDS.JOIN_REQUEST,
         NIP29_KINDS.LEAVE_REQUEST,
+        1776 // Migration events for this group
       ]
     };
 
@@ -825,6 +826,44 @@ export class RelayManager {
       this.subscriptions.delete(subId);
       console.log(`[RelayManager] Unsubscribed from ${subId}`);
     }
+  }
+
+  /**
+   * Query events from the relay with a filter
+   */
+  async queryEvents(filter: any): Promise<Event[]> {
+    return new Promise((resolve, reject) => {
+      if (!this.relay || !this.connected) {
+        reject(new Error('Not connected to relay'));
+        return;
+      }
+
+      const events: Event[] = [];
+      const subId = `query-${Date.now()}`;
+
+      // Create subscription with filter
+      const sub = this.relay.subscribe(
+        [filter],
+        {
+          onevent: (event: Event) => {
+            events.push(event);
+          },
+          oneose: () => {
+            // End of stored events
+            this.unsubscribe(subId);
+            resolve(events);
+          }
+        }
+      );
+
+      this.subscriptions.set(subId, sub);
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        this.unsubscribe(subId);
+        resolve(events);
+      }, 5000);
+    });
   }
 
   /**

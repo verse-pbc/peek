@@ -128,11 +128,17 @@ export class IdentityMigrationService {
     const newPubkey = getPublicKey(newSecretKey);
     const oldPubkey = getPublicKey(oldSecretKey);
 
+    // Get all groups the old identity is a member of
+    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+    const groupTags: string[][] = joinedGroups.map((group: any) =>
+      ['h', `peek-${group.communityId}`]
+    );
+
     // Create proof event signed by new identity
     const proofTemplate: EventTemplate = {
       kind: MIGRATION_KIND,
       content: '',
-      tags: [['p', oldPubkey]],
+      tags: [['p', oldPubkey], ...groupTags],
       created_at: Math.floor(Date.now() / 1000)
     };
     const proofEvent = finalizeEvent(proofTemplate, newSecretKey);
@@ -141,7 +147,7 @@ export class IdentityMigrationService {
     const migrationTemplate: EventTemplate = {
       kind: MIGRATION_KIND,
       content: JSON.stringify(proofEvent),
-      tags: [['p', newPubkey]],
+      tags: [['p', newPubkey], ...groupTags],
       created_at: Math.floor(Date.now() / 1000)
     };
 
@@ -161,11 +167,17 @@ export class IdentityMigrationService {
 
     const oldPubkey = getPublicKey(oldSecretKey);
 
+    // Get all groups the old identity is a member of
+    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+    const groupTags: string[][] = joinedGroups.map((group: any) =>
+      ['h', `peek-${group.communityId}`]
+    );
+
     // Create proof event to be signed by extension
     const proofTemplate = {
       kind: MIGRATION_KIND,
       content: '',
-      tags: [['p', oldPubkey]],
+      tags: [['p', oldPubkey], ...groupTags],
       created_at: Math.floor(Date.now() / 1000)
     };
 
@@ -176,7 +188,7 @@ export class IdentityMigrationService {
     const migrationTemplate: EventTemplate = {
       kind: MIGRATION_KIND,
       content: JSON.stringify(proofEvent),
-      tags: [['p', newPubkey]],
+      tags: [['p', newPubkey], ...groupTags],
       created_at: Math.floor(Date.now() / 1000)
     };
 
@@ -287,5 +299,76 @@ export class IdentityMigrationService {
   async subscribeMigrations(): Promise<void> {
     // Migration events are subscribed automatically when GroupManager listens to kind:1776
     // No need to explicitly subscribe here since setupEventHandlers() handles it
+  }
+
+  /**
+   * Fetch and process all migration events for a specific group
+   * This includes migrations for current members and former members
+   */
+  async fetchGroupMigrations(groupId: string): Promise<void> {
+    console.log(`[IdentityMigration] Fetching migrations for group ${groupId}`);
+
+    // Query relay for all kind:1776 events with h tag for this group
+    const filter = {
+      kinds: [MIGRATION_KIND],
+      '#h': [groupId]
+    };
+
+    try {
+      const events = await this.relayManager.queryEvents(filter);
+
+      console.log(`[IdentityMigration] Found ${events.length} migration events for group ${groupId}`);
+
+      // Process each migration event
+      for (const event of events) {
+        this.handleMigrationEvent(event as MigrationEvent);
+      }
+
+      // Build complete resolution cache for this group
+      this.buildGroupResolutionCache(groupId);
+    } catch (error) {
+      console.error(`[IdentityMigration] Error fetching group migrations:`, error);
+    }
+  }
+
+  /**
+   * Build a complete resolution cache for a group
+   * This creates an N-to-1 mapping where multiple old identities map to final identities
+   */
+  private buildGroupResolutionCache(groupId: string): void {
+    const cacheKey = `identity_resolutions_${groupId}`;
+    const resolutions: { [oldPubkey: string]: string } = {};
+
+    // Get all migrations from localStorage
+    const allMigrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
+
+    // Build complete resolution chains
+    for (const oldPubkey of Object.keys(allMigrations)) {
+      const finalPubkey = this.resolveIdentity(oldPubkey);
+      resolutions[oldPubkey] = finalPubkey;
+    }
+
+    // Store group-specific resolution cache
+    localStorage.setItem(cacheKey, JSON.stringify(resolutions));
+
+    console.log(`[IdentityMigration] Built resolution cache for ${groupId} with ${Object.keys(resolutions).length} mappings`);
+  }
+
+  /**
+   * Get cached resolution for a pubkey in a specific group context
+   */
+  getGroupResolution(groupId: string, pubkey: string): string {
+    const cacheKey = `identity_resolutions_${groupId}`;
+    const resolutions = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+    return resolutions[pubkey] || pubkey;
+  }
+
+  /**
+   * Subscribe to live migration events for a group
+   */
+  subscribeToGroupMigrations(groupId: string): void {
+    // This is handled by the relay subscription with h tag filter
+    // The RelayManager will call handleMigrationEvent for new events
+    console.log(`[IdentityMigration] Subscribed to migrations for group ${groupId}`);
   }
 }

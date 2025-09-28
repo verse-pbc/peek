@@ -4,6 +4,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle2 } from 'lucide-react';
 import { useProfile, useNip05Verification } from '@/contexts/ProfileContext';
+import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { cn } from '@/lib/utils';
 
 interface UserProfileProps {
@@ -17,6 +18,7 @@ interface UserProfileProps {
   className?: string;
   nameClassName?: string;
   compact?: boolean;
+  groupId?: string; // Optional group context for resolution
 }
 
 const sizeMap = {
@@ -33,30 +35,6 @@ const textSizeMap = {
   lg: 'text-lg'
 };
 
-// Helper function to resolve identity through migration chain
-function resolveIdentity(pubkey: string): string {
-  const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
-  let current = pubkey;
-  const visited = new Set<string>();
-  const maxDepth = 10;
-
-  for (let i = 0; i < maxDepth; i++) {
-    if (visited.has(current)) {
-      // Circular reference detected
-      break;
-    }
-    visited.add(current);
-
-    const next = migrations[current];
-    if (!next) {
-      break;
-    }
-    current = next;
-  }
-
-  return current;
-}
-
 export function UserProfile({
   pubkey,
   size = 'md',
@@ -67,9 +45,11 @@ export function UserProfile({
   onClick,
   className,
   nameClassName,
-  compact = false
+  compact = false,
+  groupId
 }: UserProfileProps) {
-  // Resolve identity through migration chain
+  // Use centralized identity resolution
+  const { resolveIdentity } = useIdentityResolution(groupId);
   const resolvedPubkey = resolveIdentity(pubkey);
 
   const { data: profile, isLoading } = useProfile(resolvedPubkey);
