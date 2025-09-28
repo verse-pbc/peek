@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { RelayManager } from '@/services/relay-manager';
 import { GroupManager } from '@/services/group-manager';
+import { IdentityMigrationService } from '@/services/identity-migration';
 import { finalizeEvent, type EventTemplate, type VerifiedEvent } from 'nostr-tools';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { hexToBytes, bytesToHex } from '@/lib/hex';
@@ -9,6 +10,7 @@ import { useNostrLogin } from '@/lib/nostrify-shim';
 interface RelayContextType {
   relayManager: RelayManager | null;
   groupManager: GroupManager | null;
+  migrationService: IdentityMigrationService | null;
   connected: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -32,9 +34,11 @@ interface RelayProviderProps {
 export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
   const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
+  const [migrationService, setMigrationService] = useState<IdentityMigrationService | null>(null);
   const [connected, setConnected] = useState(false);
   const managerRef = useRef<RelayManager | null>(null);
   const groupManagerRef = useRef<GroupManager | null>(null);
+  const migrationServiceRef = useRef<IdentityMigrationService | null>(null);
   const connectionPromiseRef = useRef<Promise<void> | null>(null);
   const connectionResolveRef = useRef<(() => void) | null>(null);
   const { identity } = useNostrLogin();
@@ -194,6 +198,11 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     groupManagerRef.current = gm;
     setGroupManager(gm);
 
+    // Create shared IdentityMigrationService instance
+    const ms = new IdentityMigrationService(manager);
+    migrationServiceRef.current = ms;
+    setMigrationService(ms);
+
     // Cleanup on unmount
     return () => {
       console.log('[RelayContext] Disposing relay and group managers');
@@ -230,6 +239,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     <RelayContext.Provider value={{
       relayManager,
       groupManager,
+      migrationService,
       connected,
       connect,
       disconnect,
