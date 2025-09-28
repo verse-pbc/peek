@@ -89,7 +89,28 @@ export const JoinFlow: React.FC = () => {
   const isLikelyFirstScan = !accessedCommunities.includes(communityId);
 
   // Only show developer mode in development environment
-  const isDevelopment = import.meta.env.DEV;
+  // Enable developer mode with ?dev=true URL parameter or in development mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const [devModeEnabled, setDevModeEnabled] = useState(
+    import.meta.env.DEV || urlParams.get('dev') === 'true'
+  );
+
+  // Add keyboard shortcut to enable dev mode (Ctrl+Shift+D)
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        setDevModeEnabled(prev => !prev);
+        toast({
+          title: devModeEnabled ? "Developer mode disabled" : "Developer mode enabled",
+          description: devModeEnabled ? "Test location controls hidden" : "Test location controls are now available"
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [devModeEnabled, toast]);
 
   // Check if user is already a member and skip join flow
   useEffect(() => {
@@ -619,8 +640,8 @@ export const JoinFlow: React.FC = () => {
       {/* Location Permission Step */}
       {currentStep === JoinStep.LOCATION && (
         <div className="space-y-6">
-          {/* Developer mode toggle - only in development */}
-          {isDevelopment && (
+          {/* Developer mode toggle - only when enabled */}
+          {devModeEnabled && (
             <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <Code2 className="h-4 w-4 text-yellow-600" />
