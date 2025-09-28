@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { MapPin, Crosshair, Navigation2, Copy, Check, Loader2 } from 'lucide-react';
+import { MapPin, Crosshair, Navigation2, Copy, Check, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import 'leaflet/dist/leaflet.css';
 
@@ -205,6 +205,32 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
     }
   }, [toast]);
 
+  const handleClearCache = useCallback(() => {
+    localStorage.removeItem('peek_test_location');
+    toast({
+      title: "Cache cleared",
+      description: "Test location has been removed from storage",
+    });
+
+    // Reset to current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const newPos = new LatLng(pos.coords.latitude, pos.coords.longitude);
+          setPosition(newPos);
+          setAccuracy(Math.round(pos.coords.accuracy));
+        },
+        () => {
+          // Fallback to San Francisco if location fails
+          const defaultPos = new LatLng(37.7749, -122.4194);
+          setPosition(defaultPos);
+          setManualLat('37.7749');
+          setManualLng('-122.4194');
+        }
+      );
+    }
+  }, [toast]);
+
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -304,7 +330,7 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={handleManualUpdate} variant="outline">
             <Navigation2 className="h-4 w-4 mr-2" />
             Update from inputs
@@ -316,6 +342,10 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
               <Copy className="h-4 w-4 mr-2" />
             )}
             {copied ? 'Copied!' : 'Copy coordinates'}
+          </Button>
+          <Button onClick={handleClearCache} variant="outline">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear cache
           </Button>
         </div>
 
