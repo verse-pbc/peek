@@ -6,6 +6,7 @@ import {
   type VerifiedEvent
 } from 'nostr-tools';
 import { RelayManager, NIP29_KINDS } from './relay-manager';
+import { IdentityMigrationService } from './identity-migration';
 
 export interface GroupMetadata {
   id: string;
@@ -53,18 +54,21 @@ export interface ModerationAction {
 
 export class GroupManager {
   private relayManager: RelayManager;
+  private migrationService: IdentityMigrationService;
   private eventSigner?: (event: EventTemplate) => Promise<VerifiedEvent>;
   private groupCache: Map<string, {
     metadata?: GroupMetadata;
     members: Map<string, GroupMember>;
+    resolvedMembers: Map<string, GroupMember>; // Deduplicated based on resolved identities
     roles: GroupRole[];
     admins: Map<string, string[]>;
     myMembership?: 'member' | 'admin' | 'none';
     lastUpdated: number;
   }>;
 
-  constructor(relayManager: RelayManager) {
+  constructor(relayManager: RelayManager, migrationService: IdentityMigrationService) {
     this.relayManager = relayManager;
+    this.migrationService = migrationService;
     this.groupCache = new Map();
 
     this.setupEventHandlers();
@@ -166,7 +170,30 @@ export class GroupManager {
       });
 
     this.updateMyMembership(groupId);
+    this.updateResolvedMembers(groupId);
     cache.lastUpdated = Date.now();
+
+    // Check if this completes a migration
+    const migratingState = localStorage.getItem('identity_migrating');
+    if (migratingState) {
+      try {
+        const state = JSON.parse(migratingState);
+        const userPubkey = this.relayManager.getUserPubkey();
+
+        // If our new identity appears in the member list and this group was in migration
+        if (userPubkey && userPubkey === state.to && state.groups.includes(groupId) && cache.members.has(userPubkey)) {
+          console.log(`[GroupManager] Migration complete - new identity ${userPubkey} confirmed in group ${groupId}`);
+
+          // Clear migrating state
+          localStorage.removeItem('identity_migrating');
+
+          // Force refresh to ensure UI updates
+          window.location.reload();
+        }
+      } catch (e) {
+        console.error('Error checking migration state:', e);
+      }
+    }
   }
 
   private handleRolesEvent(event: Event) {
@@ -210,6 +237,7 @@ export class GroupManager {
     }
 
     this.updateMyMembership(groupId);
+    this.updateResolvedMembers(groupId);
     cache.lastUpdated = Date.now();
   }
 
@@ -225,6 +253,7 @@ export class GroupManager {
     cache.admins.delete(pubkey);
 
     this.updateMyMembership(groupId);
+    this.updateResolvedMembers(groupId);
     cache.lastUpdated = Date.now();
   }
 
@@ -250,12 +279,31 @@ export class GroupManager {
     if (!this.groupCache.has(groupId)) {
       this.groupCache.set(groupId, {
         members: new Map(),
+        resolvedMembers: new Map(),
         admins: new Map(),
         roles: [],
         lastUpdated: Date.now()
       });
     }
     return this.groupCache.get(groupId)!;
+  }
+
+  private updateResolvedMembers(groupId: string) {
+    const cache = this.getOrCreateCache(groupId);
+    cache.resolvedMembers.clear();
+
+    // Build resolved member map - deduplicates based on resolved identity
+    for (const [pubkey, member] of cache.members) {
+      const resolvedPubkey = this.migrationService.resolveIdentity(pubkey);
+
+      // If this resolved identity is already in the map, skip it (deduplication)
+      if (!cache.resolvedMembers.has(resolvedPubkey)) {
+        cache.resolvedMembers.set(resolvedPubkey, {
+          ...member,
+          pubkey: resolvedPubkey // Use resolved pubkey
+        });
+      }
+    }
   }
 
   private updateMyMembership(groupId: string) {
@@ -486,6 +534,24 @@ export class GroupManager {
     return Array.from(cache.members.values());
   }
 
+  /**
+   * Get deduplicated group members after resolving identity migrations
+   */
+  getResolvedGroupMembers(groupId: string): GroupMember[] {
+    const cache = this.groupCache.get(groupId);
+    if (!cache) return [];
+    return Array.from(cache.resolvedMembers.values());
+  }
+
+  /**
+   * Get accurate member count after deduplicating migrated identities
+   */
+  getResolvedMemberCount(groupId: string): number {
+    const cache = this.groupCache.get(groupId);
+    if (!cache) return 0;
+    return cache.resolvedMembers.size;
+  }
+
   getGroupAdmins(groupId: string): GroupMember[] {
     const cache = this.groupCache.get(groupId);
     if (!cache) return [];
@@ -605,5 +671,6 @@ export function createGroupManager(relayUrl?: string): GroupManager {
     autoConnect: true
   });
 
-  return new GroupManager(relayManager);
+  const migrationService = new IdentityMigrationService(relayManager);
+  return new GroupManager(relayManager, migrationService);
 }

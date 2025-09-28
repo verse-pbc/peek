@@ -193,15 +193,15 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     managerRef.current = manager;
     setRelayManager(manager);
 
-    // Create shared GroupManager instance
-    const gm = new GroupManager(manager);
-    groupManagerRef.current = gm;
-    setGroupManager(gm);
-
-    // Create shared IdentityMigrationService instance
+    // Create shared IdentityMigrationService instance first (needed by GroupManager)
     const ms = new IdentityMigrationService(manager);
     migrationServiceRef.current = ms;
     setMigrationService(ms);
+
+    // Create shared GroupManager instance with migration service
+    const gm = new GroupManager(manager, ms);
+    groupManagerRef.current = gm;
+    setGroupManager(gm);
 
     // Cleanup on unmount
     return () => {

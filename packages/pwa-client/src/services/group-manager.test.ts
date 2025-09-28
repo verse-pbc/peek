@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { GroupManager } from './group-manager';
 import { RelayManager } from './relay-manager';
+import { IdentityMigrationService } from './identity-migration';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
 
 vi.mock('./relay-manager');
@@ -8,6 +9,7 @@ vi.mock('./relay-manager');
 describe('GroupManager', () => {
   let manager: GroupManager;
   let mockRelayManager: RelayManager;
+  let mockMigrationService: IdentityMigrationService;
   let secretKey: Uint8Array;
   let pubkey: string;
 
@@ -24,8 +26,15 @@ describe('GroupManager', () => {
       getRecentEventIds: vi.fn().mockReturnValue([])
     } as unknown as RelayManager;
 
+    mockMigrationService = {
+      resolveIdentity: vi.fn((p) => p), // Default: no migration (identity resolves to itself)
+      hasMigrated: vi.fn().mockReturnValue(false),
+      getMigrationHistory: vi.fn((p) => [p]),
+      fetchGroupMigrations: vi.fn()
+    } as unknown as IdentityMigrationService;
+
     (RelayManager as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => mockRelayManager);
-    manager = new GroupManager(mockRelayManager);
+    manager = new GroupManager(mockRelayManager, mockMigrationService);
 
     secretKey = generateSecretKey();
     pubkey = getPublicKey(secretKey);
@@ -139,7 +148,7 @@ describe('GroupManager', () => {
         return () => {};
       });
 
-      manager = new GroupManager(mockRelayManager);
+      manager = new GroupManager(mockRelayManager, mockMigrationService);
     });
 
     it('should handle metadata events', () => {
@@ -405,7 +414,7 @@ describe('GroupManager', () => {
         return () => {};
       });
 
-      manager = new GroupManager(mockRelayManager);
+      manager = new GroupManager(mockRelayManager, mockMigrationService);
       handlers['kind:39000'](metadataEvent);
 
       handlers['kind:39000']({
@@ -430,7 +439,7 @@ describe('GroupManager', () => {
         return () => {};
       });
 
-      manager = new GroupManager(mockRelayManager);
+      manager = new GroupManager(mockRelayManager, mockMigrationService);
 
       handlers['kind:39000']({
         kind: 39000,

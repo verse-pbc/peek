@@ -72,7 +72,8 @@ export function CommunityFeed({
     // Initialize members with current user's pubkey (we know they're a member if they're viewing this)
     const userPubkey = relayManager.getUserPubkey() || identity?.publicKey;
     if (userPubkey) {
-      setMembers(new Set([userPubkey]));
+      const resolvedUserPubkey = resolveIdentity(userPubkey);
+      setMembers(new Set([resolvedUserPubkey]));
     } else {
       // Fallback: at least count 1 member since someone must be viewing this
       setMembers(new Set(['placeholder']));
@@ -109,8 +110,9 @@ export function CommunityFeed({
         }
       });
 
-      // Track members
-      setMembers(prev => new Set([...prev, event.pubkey]));
+      // Track members - resolve identity to handle migrations
+      const resolvedPubkey = resolveIdentity(event.pubkey);
+      setMembers(prev => new Set([...prev, resolvedPubkey]));
     });
 
     // Listen for group members updates
@@ -119,7 +121,15 @@ export function CommunityFeed({
         const memberPubkeys = event.tags
           .filter(t => t[0] === 'p')
           .map(t => t[1]);
-        setMembers(new Set(memberPubkeys));
+
+        // Resolve each member and deduplicate
+        const resolvedMembers = new Set<string>();
+        memberPubkeys.forEach(pubkey => {
+          const resolved = resolveIdentity(pubkey);
+          resolvedMembers.add(resolved);
+        });
+
+        setMembers(resolvedMembers);
       }
     });
 

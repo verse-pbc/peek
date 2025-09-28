@@ -85,6 +85,16 @@ export const UserIdentityButton: React.FC = () => {
       migrations[oldPubkey] = newPubkey;
       localStorage.setItem('identity_migrations', JSON.stringify(migrations));
 
+      // Set migrating state with groups we're expecting updates for
+      const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+      const migratingState = {
+        from: oldPubkey,
+        to: newPubkey,
+        groups: joinedGroups.map((g: { communityId: string }) => `peek-${g.communityId}`),
+        timestamp: Date.now()
+      };
+      localStorage.setItem('identity_migrating', JSON.stringify(migratingState));
+
       // Switch to new identity
       localStorage.setItem('peek_nostr_identity', JSON.stringify(newIdentity));
       localStorage.removeItem('peek_anonymous_identity');

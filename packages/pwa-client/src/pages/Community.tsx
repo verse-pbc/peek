@@ -107,9 +107,22 @@ const Community = () => {
         });
       }
 
+      // Check if we're in the middle of a migration
+      const migratingState = localStorage.getItem('identity_migrating');
+      const isMigrating = (() => {
+        if (!migratingState) return false;
+        try {
+          const state = JSON.parse(migratingState);
+          // Check if this group is in the migration list
+          return state.groups && state.groups.includes(groupId);
+        } catch {
+          return false;
+        }
+      })();
+
       // Handle membership verification results
-      if (!isMember) {
-        // User is not a member according to relay
+      if (!isMember && !isMigrating) {
+        // User is not a member according to relay and not migrating
         const message = 'You are not a member of this community. Please scan the QR code at the physical location to join.';
 
         setError(message);
@@ -122,20 +135,25 @@ const Community = () => {
         return;
       }
 
+      if (isMigrating && !isMember) {
+        // Show migration in progress state instead of redirecting
+        console.log('Identity migration in progress, waiting for membership update...');
+      }
+
       // User is a member - load community data
       try {
         // Get metadata from GroupManager
         const metadata = groupManager.getGroupMetadata(groupId);
-        const members = groupManager.getGroupMembers(groupId);
+        const memberCount = groupManager.getResolvedMemberCount(groupId);
 
         // If members list is empty, we might not have synced yet
         // In that case, at least count ourselves
-        const memberCount = members.length > 0 ? members.length : 1;
+        const finalMemberCount = memberCount > 0 ? memberCount : 1;
 
         const community: CommunityData = {
           groupId,
           name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
-          memberCount,
+          memberCount: finalMemberCount,
           isAdmin,
           isMember: true
         };
@@ -190,14 +208,30 @@ const Community = () => {
     }
   };
 
-  if (loading) {
+  // Check if we're in migration mode
+  const migratingState = localStorage.getItem('identity_migrating');
+  const isMigrating = (() => {
+    if (!migratingState) return false;
+    try {
+      const state = JSON.parse(migratingState);
+      return state.groups && state.groups.includes(groupId);
+    } catch {
+      return false;
+    }
+  })();
+
+  if (loading || (isMigrating && !communityData)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-lg font-medium">Loading community...</p>
-            <p className="text-sm text-muted-foreground mt-2">Verifying your access</p>
+            <p className="text-lg font-medium">
+              {isMigrating ? 'Completing identity migration...' : 'Loading community...'}
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              {isMigrating ? 'Updating your membership' : 'Verifying your access'}
+            </p>
           </CardContent>
         </Card>
       </div>
