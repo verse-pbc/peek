@@ -833,7 +833,7 @@ export class RelayManager {
    */
   async queryEvents(filter: any): Promise<Event[]> {
     return new Promise((resolve, reject) => {
-      if (!this.relay || !this.connected) {
+      if (!this.relay || !this.isConnected()) {
         reject(new Error('Not connected to relay'));
         return;
       }
