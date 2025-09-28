@@ -130,7 +130,7 @@ export class IdentityMigrationService {
 
     // Get all groups the old identity is a member of
     const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-    const groupTags: string[][] = joinedGroups.map((group: any) =>
+    const groupTags: string[][] = joinedGroups.map((group: { communityId: string }) =>
       ['h', `peek-${group.communityId}`]
     );
 
@@ -169,7 +169,7 @@ export class IdentityMigrationService {
 
     // Get all groups the old identity is a member of
     const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-    const groupTags: string[][] = joinedGroups.map((group: any) =>
+    const groupTags: string[][] = joinedGroups.map((group: { communityId: string }) =>
       ['h', `peek-${group.communityId}`]
     );
 

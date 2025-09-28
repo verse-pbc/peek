@@ -831,7 +831,7 @@ export class RelayManager {
   /**
    * Query events from the relay with a filter
    */
-  async queryEvents(filter: any): Promise<Event[]> {
+  async queryEvents(filter: Filter): Promise<Event[]> {
     return new Promise((resolve, reject) => {
       if (!this.relay || !this.isConnected()) {
         reject(new Error('Not connected to relay'));
