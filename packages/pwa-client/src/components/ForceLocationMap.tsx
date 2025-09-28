@@ -15,7 +15,10 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Fix Leaflet's default icon issue with webpack
-delete (Icon.Default.prototype as any)._getIconUrl;
+interface LeafletIconPrototype {
+  _getIconUrl?: () => string;
+}
+delete (Icon.Default.prototype as LeafletIconPrototype)._getIconUrl;
 Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   iconRetinaUrl: markerIcon2x,
@@ -34,10 +37,8 @@ interface ForceLocationMapProps {
 
 // Component to handle map clicks and update marker position
 function LocationSelector({
-  position,
   setPosition
 }: {
-  position: LatLng | null;
   setPosition: (pos: LatLng) => void;
 }) {
   const map = useMapEvents({
@@ -200,7 +201,7 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <LocationSelector position={position} setPosition={setPosition} />
+                <LocationSelector setPosition={setPosition} />
                 <Marker position={position}>
                   <Popup>
                     Test Location<br />
