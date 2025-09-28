@@ -46,14 +46,7 @@ impl CommunityService {
 
             // Group exists with members, construct metadata
             // Get geohash from the metadata
-            let geohash = if let Some(gh) = group_meta.geohash {
-                gh
-            } else {
-                // If no geohash in metadata, this is an error state
-                // Groups should always have geohash set when created
-                tracing::error!("Group {} exists but has no location geohash", group_id);
-                return None;
-            };
+            let geohash = group_meta.geohash?;
 
             return Some(CommunityMetadata { geohash });
         }
@@ -63,6 +56,17 @@ impl CommunityService {
     }
 
     /// Create or get community
+    /// Check if group exists but has no geohash (corrupted state)
+    async fn group_exists_without_geohash(&self, community_id: &Uuid) -> bool {
+        let group_id = format!("peek-{}", community_id);
+
+        if let Ok(group_meta) = self.relay_service.get_group_metadata(&group_id).await {
+            // Group exists with members but no geohash - corrupted state
+            return group_meta.member_count > 0 && group_meta.geohash.is_none();
+        }
+        false
+    }
+
     /// Returns (community_metadata, is_new)
     pub async fn get_or_create(
         &self,
@@ -71,7 +75,15 @@ impl CommunityService {
         location: LocationPoint,
         creator_pubkey: String,
     ) -> Result<(CommunityMetadata, bool), Box<dyn std::error::Error>> {
-        // Check if community already exists
+        // Check if group exists but has no geohash (corrupted state)
+        if self.group_exists_without_geohash(&community_id).await {
+            return Err(format!(
+                "Community {} exists but has no location geohash - this is a corrupted state that needs manual intervention",
+                community_id
+            ).into());
+        }
+
+        // Check if community already exists and is valid
         if let Some(existing) = self.get(&community_id).await {
             return Ok((existing, false));
         }
