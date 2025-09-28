@@ -76,9 +76,13 @@ export const JoinFlow: React.FC = () => {
     timestamp: number;
   } | null>(null);
   const [waitingForLogin, setWaitingForLogin] = useState(false);
-  // Enable developer mode with ?dev=true URL parameter or in development mode
-  const urlParams = new URLSearchParams(window.location.search);
+
+  // Parse URL parameters - do this inside the component to ensure fresh values
+  const urlParams = React.useMemo(() => new URLSearchParams(window.location.search), []);
   const isDevParam = urlParams.get('dev') === 'true';
+  const forceJoinFlow = urlParams.get('forceJoin') === 'true';
+
+  // Enable developer mode with ?dev=true URL parameter or in development mode
   const [devModeEnabled, setDevModeEnabled] = useState(
     import.meta.env.DEV || isDevParam
   );
@@ -95,8 +99,12 @@ export const JoinFlow: React.FC = () => {
   const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
   const isLikelyFirstScan = !accessedCommunities.includes(communityId);
 
-  // Force join flow even for existing members when forceJoin=true is set
-  const forceJoinFlow = urlParams.get('forceJoin') === 'true';
+  // Ensure developer mode stays enabled based on URL param
+  useEffect(() => {
+    if (isDevParam && !developerMode) {
+      setDeveloperMode(true);
+    }
+  }, [isDevParam, developerMode]);
 
   // Add keyboard shortcut to enable dev mode (Ctrl+Shift+D)
   useEffect(() => {
