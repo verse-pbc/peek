@@ -80,7 +80,6 @@ export const JoinFlow: React.FC = () => {
   // Parse URL parameters - do this inside the component to ensure fresh values
   const urlParams = React.useMemo(() => new URLSearchParams(window.location.search), []);
   const isDevParam = urlParams.get('dev') === 'true';
-  const forceJoinFlow = urlParams.get('forceJoin') === 'true';
 
   // Enable developer mode with ?dev=true URL parameter or in development mode
   const [devModeEnabled, setDevModeEnabled] = useState(
@@ -127,12 +126,6 @@ export const JoinFlow: React.FC = () => {
   useEffect(() => {
     if (!communityId) return;
 
-    // Skip membership check if forceJoin is set (for testing)
-    if (forceJoinFlow) {
-      console.log('Force join flow enabled, skipping membership check');
-      return;
-    }
-
     // Check if user is already a member of this community
     const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
     const existingMembership = joinedGroups.find((g: { communityId: string }) => g.communityId === communityId);
@@ -143,7 +136,7 @@ export const JoinFlow: React.FC = () => {
       navigate(`/community/${communityId}`, { replace: true });
       return;
     }
-  }, [communityId, navigate, forceJoinFlow]);
+  }, [communityId, navigate]);
 
   // Check if user is logged in (skip for initial preview)
   useEffect(() => {
@@ -664,31 +657,14 @@ export const JoinFlow: React.FC = () => {
                 <Code2 className="h-4 w-4 text-yellow-600" />
                 <span className="text-sm font-medium text-yellow-900">Developer Mode</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    localStorage.removeItem('peek_test_location');
-                    setForcedLocation(null);
-                    toast({
-                      title: "Test location cleared",
-                      description: "Stored test location has been removed"
-                    });
-                  }}
-                  className="text-xs"
-                >
-                  Clear Cache
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeveloperMode(!developerMode)}
-                  className="text-xs"
-                >
-                  {developerMode ? 'Hide' : 'Show'} Test Location Map
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeveloperMode(!developerMode)}
+                className="text-xs"
+              >
+                {developerMode ? 'Hide' : 'Show'} Test Location Map
+              </Button>
             </div>
           )}
 

@@ -164,7 +164,7 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
 
       toast({
         title: "Test location set",
-        description: `Using location: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}`,
+        description: `GPS override: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)} (will be validated)`,
       });
     }
   }, [position, accuracy, onLocationSelected, toast]);
@@ -239,7 +239,7 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
           Force Test Location
         </CardTitle>
         <CardDescription>
-          Click on the map or enter coordinates to set a test location for development
+          Click on the map or enter coordinates to override GPS location for testing. The location will still be validated by the server.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -357,7 +357,7 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
           variant="default"
         >
           <MapPin className="h-4 w-4 mr-2" />
-          Use this test location
+          Override GPS with this location
         </Button>
 
         {/* Current selection display */}
