@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { MapPin, Crosshair, Navigation2, Copy, Check } from 'lucide-react';
+import { MapPin, Crosshair, Navigation2, Copy, Check, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import 'leaflet/dist/leaflet.css';
 
@@ -61,9 +61,11 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
   const [copied, setCopied] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
 
   // Load saved location from localStorage or use initial location
   useEffect(() => {
+    setIsLoadingLocation(true);
     const saved = localStorage.getItem('peek_test_location');
     if (saved) {
       try {
@@ -72,20 +74,48 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
         setPosition(newPos);
         setManualLat(lat.toString());
         setManualLng(lng.toString());
+        setIsLoadingLocation(false);
       } catch (e) {
         console.error('Failed to parse saved location:', e);
+        setIsLoadingLocation(false);
       }
     } else if (initialLocation) {
       const newPos = new LatLng(initialLocation.latitude, initialLocation.longitude);
       setPosition(newPos);
       setManualLat(initialLocation.latitude.toString());
       setManualLng(initialLocation.longitude.toString());
+      setIsLoadingLocation(false);
     } else {
-      // Default to San Francisco
-      const defaultPos = new LatLng(37.7749, -122.4194);
-      setPosition(defaultPos);
-      setManualLat('37.7749');
-      setManualLng('-122.4194');
+      // Try to get current location first, fallback to San Francisco
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const newPos = new LatLng(pos.coords.latitude, pos.coords.longitude);
+            setPosition(newPos);
+            setManualLat(pos.coords.latitude.toString());
+            setManualLng(pos.coords.longitude.toString());
+            setAccuracy(Math.round(pos.coords.accuracy));
+            setIsLoadingLocation(false);
+          },
+          (error) => {
+            console.log('Could not get current location, using default:', error);
+            // Fallback to San Francisco
+            const defaultPos = new LatLng(37.7749, -122.4194);
+            setPosition(defaultPos);
+            setManualLat('37.7749');
+            setManualLng('-122.4194');
+            setIsLoadingLocation(false);
+          },
+          { enableHighAccuracy: false, timeout: 5000 }
+        );
+      } else {
+        // No geolocation available, use San Francisco
+        const defaultPos = new LatLng(37.7749, -122.4194);
+        setPosition(defaultPos);
+        setManualLat('37.7749');
+        setManualLng('-122.4194');
+        setIsLoadingLocation(false);
+      }
     }
   }, [initialLocation]);
 
@@ -190,7 +220,14 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
         {/* Map */}
         <div className="relative">
           <div className="h-96 w-full rounded-lg overflow-hidden border">
-            {position && (
+            {isLoadingLocation ? (
+              <div className="h-full w-full flex items-center justify-center bg-muted">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">Detecting your location...</p>
+                </div>
+              </div>
+            ) : position ? (
               <MapContainer
                 center={position}
                 zoom={16}
@@ -210,7 +247,7 @@ export const ForceLocationMap: React.FC<ForceLocationMapProps> = ({
                   </Popup>
                 </Marker>
               </MapContainer>
-            )}
+            ) : null}
           </div>
           <Button
             variant="secondary"
