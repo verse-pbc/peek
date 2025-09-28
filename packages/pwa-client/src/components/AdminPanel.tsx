@@ -71,7 +71,7 @@ export function AdminPanel({
 }: AdminPanelProps) {
   const { identity } = useNostrLogin();
   const { toast } = useToast();
-  const { relayManager, connected: relayConnected } = useRelayManager();
+  const { relayManager, connected: relayConnected, migrationService } = useRelayManager();
   const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,7 +87,7 @@ export function AdminPanel({
   useEffect(() => {
     if (!relayManager || !identity) return;
 
-    const groupMgr = new GroupManager(relayManager);
+    const groupMgr = new GroupManager(relayManager, migrationService!);
 
     // Set up event signer for NIP-07 support
     if (identity.secretKey === 'NIP07_EXTENSION') {

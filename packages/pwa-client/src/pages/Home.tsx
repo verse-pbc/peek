@@ -109,13 +109,13 @@ const Home = () => {
 
           if (groupManager) {
             const metadata = groupManager.getGroupMetadata(fullGroupId);
-            const members = groupManager.getGroupMembers(fullGroupId);
+            const resolvedMemberCount = groupManager.getResolvedMemberCount(fullGroupId);
 
             if (metadata?.name) {
               name = metadata.name;
             }
-            if (members.length > 0) {
-              memberCount = members.length;
+            if (resolvedMemberCount > 0) {
+              memberCount = resolvedMemberCount;
             }
           }
 
