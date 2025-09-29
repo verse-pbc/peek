@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CommunityFeed } from '../components/CommunityFeed';
 import { AdminPanel } from '../components/AdminPanel';
 import { Button } from '../components/ui/button';
@@ -11,10 +11,10 @@ import {
   Settings,
   MapPin,
   Users,
-  Shield,
   AlertCircle,
   Loader2,
-  Lock
+  Lock,
+  Crown
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
@@ -36,6 +36,7 @@ interface CommunityData {
 const Community = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { pubkey } = useNostrLogin();
   const { toast: _toast } = useToast();
 
@@ -296,25 +297,30 @@ const Community = () => {
     return null;
   }
 
+  // Check if user just joined from JoinFlow
+  const fromJoin = location.state?.fromJoin === true;
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-cream">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
+      <div className="bg-white/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
-                onClick={handleBack}
-                variant="ghost"
-                size="sm"
-                className="gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-xl font-semibold">{communityData.name}</h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              {!fromJoin && (
+                <Button
+                  onClick={handleBack}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 text-navy hover:bg-coral/10"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Button>
+              )}
+              <div className={fromJoin ? 'ml-0' : ''}>
+                <h1 className="text-xl font-rubik font-semibold text-navy">{communityData.name}</h1>
+                <div className="flex items-center gap-4 text-sm text-navy/60">
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
                     {communityData.memberCount} members
@@ -329,16 +335,16 @@ const Community = () => {
               </div>
             </div>
             {communityData.isAdmin && (
-              <div className="flex items-center gap-2 mr-36">
-                <Badge variant="secondary" className="gap-1">
-                  <Shield className="h-3 w-3" />
-                  Admin
+              <div className="flex items-center gap-2">
+                <Badge className="bg-coral text-white border-0">
+                  <Crown className="h-3 w-3 mr-1" />
+                  Founder
                 </Badge>
                 <Button
                   onClick={handleAdminClick}
                   variant="outline"
                   size="sm"
-                  className="gap-2"
+                  className="gap-2 text-navy border-coral/30 hover:bg-coral/10"
                 >
                   <Settings className="h-4 w-4" />
                   Manage
@@ -353,29 +359,29 @@ const Community = () => {
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="grid gap-6">
           {/* Community Info Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Welcome to the Community</CardTitle>
-              <CardDescription>
+          <Card className="border-0 shadow-lg bg-white/95">
+            <CardHeader className="bg-gradient-to-br from-coral/5 to-peach/5">
+              <CardTitle className="font-rubik text-navy">Welcome to the Community</CardTitle>
+              <CardDescription className="text-navy/60">
                 This is a location-based group for people who have visited this place
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <Alert>
-                  <MapPin className="h-4 w-4" />
-                  <AlertTitle>Location Verified Community</AlertTitle>
-                  <AlertDescription>
+              <div className="space-y-4 pt-4">
+                <Alert className="border-mint/20 bg-mint/5">
+                  <MapPin className="h-4 w-4 text-mint" />
+                  <AlertTitle className="text-navy">Location Verified Community</AlertTitle>
+                  <AlertDescription className="text-navy/70">
                     All members have physically visited this location.
                     New members must be present at the location to join.
                   </AlertDescription>
                 </Alert>
 
                 {communityData.isAdmin && (
-                  <Alert className="border-purple-200 bg-purple-50">
-                    <Shield className="h-4 w-4 text-purple-600" />
-                    <AlertTitle className="text-purple-900">You're an Admin</AlertTitle>
-                    <AlertDescription className="text-purple-800">
+                  <Alert className="border-coral/20 bg-coral/5">
+                    <Crown className="h-4 w-4 text-coral" />
+                    <AlertTitle className="text-navy">You're the Founder</AlertTitle>
+                    <AlertDescription className="text-navy/70">
                       You have admin privileges for this community.
                       You can manage members and moderate content.
                     </AlertDescription>

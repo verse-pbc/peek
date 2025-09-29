@@ -15,7 +15,9 @@ import {
   Loader2,
   Shield,
   XCircle,
-  Code2
+  Code2,
+  Crown,
+  MessageSquare
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
@@ -775,68 +777,58 @@ export const JoinFlow: React.FC = () => {
 
       {/* Success Step */}
       {currentStep === JoinStep.SUCCESS && validationResponse && (
-        <Card className="border-green-200">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div>
-                <CardTitle className="text-green-900">
-                  Successfully Joined!
-                </CardTitle>
-                <CardDescription>
-                  You're now a member of this community
-                </CardDescription>
-              </div>
+        <Card className="border-0 shadow-xl bg-white/95 backdrop-blur">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto w-20 h-20 bg-mint/10 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="h-10 w-10 text-mint" />
             </div>
+            <CardTitle className="text-2xl font-rubik text-navy">
+              Welcome to the Community!
+            </CardTitle>
+            <CardDescription className="text-navy/60">
+              You're now connected with this location
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {validationResponse.is_admin && (
-              <Alert className="border-purple-200 bg-purple-50">
-                <Shield className="h-4 w-4 text-purple-600" />
-                <AlertTitle className="text-purple-900">You're an Admin!</AlertTitle>
-                <AlertDescription className="text-purple-800">
-                  As the first person to scan this QR code, you have admin privileges
-                  for this community. You can manage members and settings.
+              <Alert className="border-coral/20 bg-coral/5">
+                <Crown className="h-4 w-4 text-coral" />
+                <AlertTitle className="text-navy font-rubik">You're the Founder!</AlertTitle>
+                <AlertDescription className="text-navy/70">
+                  As the first person here, you have admin privileges.
+                  Shape the culture and vibe of your community.
                 </AlertDescription>
               </Alert>
             )}
 
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="font-medium mb-2">What's next?</h3>
-              <ul className="space-y-2 text-sm text-gray-600">
+            <div className="bg-cream rounded-xl p-4">
+              <h3 className="font-rubik font-semibold text-navy mb-3">What happens now?</h3>
+              <ul className="space-y-2.5 text-sm text-navy/70">
                 <li className="flex items-start gap-2">
-                  <Users className="h-4 w-4 mt-0.5 text-gray-400" />
-                  <span>Connect with other members who visit this location</span>
+                  <Users className="h-4 w-4 mt-0.5 text-coral" />
+                  <span>Connect with others who visit this spot</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 mt-0.5 text-gray-400" />
-                  <span>Share updates and messages with the community</span>
+                  <MessageSquare className="h-4 w-4 mt-0.5 text-coral" />
+                  <span>Share stories and updates with the group</span>
                 </li>
                 {validationResponse.is_admin && (
                   <li className="flex items-start gap-2">
-                    <Shield className="h-4 w-4 mt-0.5 text-gray-400" />
-                    <span>Manage community settings and moderate content</span>
+                    <Shield className="h-4 w-4 mt-0.5 text-coral" />
+                    <span>Manage your community as it grows</span>
                   </li>
                 )}
               </ul>
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                onClick={() => navigate(`/community/${communityId}`)}
-                className="flex-1"
-              >
-                <Users className="mr-2 h-4 w-4" />
-                Go to Community
-              </Button>
-              <Button
-                onClick={() => navigate('/')}
-                variant="outline"
-                className="flex-1"
-              >
-                Go to Home
-              </Button>
-            </div>
+            <Button
+              onClick={() => navigate(`/community/${communityId}`, { state: { fromJoin: true } })}
+              className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
+              size="lg"
+            >
+              <Users className="mr-2 h-5 w-5" />
+              Enter Your Community
+            </Button>
           </CardContent>
         </Card>
       )}
