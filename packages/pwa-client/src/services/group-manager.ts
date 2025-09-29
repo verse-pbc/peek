@@ -807,8 +807,8 @@ export class GroupManager {
         limit: 1
       };
 
-      // Use RelayManager's pool to query directly
-      const events = await (this.relayManager as { pool: { querySync: (urls: string[], filter: Filter) => Promise<Event[]> } }).pool.querySync([this.relayManager.url], filter);
+      // Use RelayManager's queryEventsDirectly method
+      const events = await this.relayManager.queryEventsDirectly(filter);
 
       if (events.length === 0) {
         console.log(`[GroupManager] No metadata event found for ${groupId}`);
