@@ -1,28 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { LatLng, Map as LeafletMap } from 'leaflet';
 import { useNostrContext } from '@/hooks/useNostrContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MapPin,
   Users,
   MessageSquare,
-  Shield,
   Clock,
-  AlertCircle,
   ChevronRight,
   Loader2,
   UserCircle,
-  Settings
+  Settings,
+  Eye,
+  EyeOff,
+  Crown,
+  Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
 import { UserIdentityButton } from '@/components/UserIdentityButton';
+import { FogOfWarOverlay } from '@/components/FogOfWarOverlay';
+import { DiscoveryService, DiscoveryMap as IDiscoveryMap } from '@/services/discovery-service';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons in React-Leaflet
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { Icon } from 'leaflet';
+
+interface LeafletIconPrototype {
+  _getIconUrl?: () => string;
+}
+delete (Icon.Default.prototype as LeafletIconPrototype)._getIconUrl;
+Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
+
+const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
+const FOG_RADIUS_METERS = 1000;
 
 interface Community {
   groupId: string;
@@ -38,6 +63,48 @@ interface Community {
   joinedAt?: number;
 }
 
+// Component to manage the fog overlay and handle map location updates
+function MapManager({
+  discoveryMap,
+  fogEnabled,
+  flyToLocation
+}: {
+  discoveryMap: IDiscoveryMap | null;
+  fogEnabled: boolean;
+  flyToLocation: LatLng | null;
+}) {
+  const map = useMap();
+  const [leafletMap, setLeafletMap] = useState<LeafletMap | null>(null);
+
+  useEffect(() => {
+    setLeafletMap(map);
+  }, [map]);
+
+  // Handle flying to a new location
+  useEffect(() => {
+    if (flyToLocation && map) {
+      map.flyTo(flyToLocation, 15, {
+        duration: 1.5
+      });
+    }
+  }, [flyToLocation, map]);
+
+  const fogPoints = discoveryMap?.points.map(point => ({
+    lat: point.lat,
+    lng: point.lng,
+    radiusMeters: FOG_RADIUS_METERS
+  })) || [];
+
+  return fogEnabled ? (
+    <FogOfWarOverlay
+      map={leafletMap}
+      points={fogPoints}
+      fogOpacity={0.65}
+      fogColor="#2C3E50"
+    />
+  ) : null;
+}
+
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,40 +114,69 @@ const Home = () => {
   const { groupManager } = useRelayManager();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('communities');
   const [rejoinMessage, setRejoinMessage] = useState<string | null>(null);
+
+  // Discovery map states
+  const [discoveryMap, setDiscoveryMap] = useState<IDiscoveryMap | null>(null);
+  const [fogEnabled, setFogEnabled] = useState(true);
+  const [mapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194));
+  const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
+  const discoveryServiceRef = useRef<DiscoveryService | null>(null);
 
   useSeoMeta({
     title: 'Peek - Location-Based Communities',
     description: 'Connect with people at physical locations through QR codes',
   });
 
-  // Check for navigation state message (e.g., from Community page redirect)
+  // Check for navigation state message
   useEffect(() => {
     if (location.state?.message) {
       setRejoinMessage(location.state.message);
-      // Clear the navigation state to prevent message from persisting on refresh
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
-  // GroupManager is now provided by RelayContext - no need to create new instance
+  // Load discovery map
+  useEffect(() => {
+    const loadDiscoveryMap = async () => {
+      try {
+        const service = new DiscoveryService(RELAY_URL);
+        discoveryServiceRef.current = service;
 
-  // Note: Group subscriptions are handled by individual components (CommunityFeed, etc.)
-  // that need the data, not at the Home page level
+        const map = await service.fetchDiscoveryMap();
+        setDiscoveryMap(map);
 
-  // Fetch user's communities from localStorage and enrich with relay data
+        // Subscribe to updates
+        const unsubscribe = service.subscribeToDiscoveryUpdates((updatedMap) => {
+          setDiscoveryMap(updatedMap);
+        });
+
+        return () => {
+          unsubscribe();
+        };
+      } catch (error) {
+        console.error('Failed to load discovery map:', error);
+      }
+    };
+
+    loadDiscoveryMap();
+
+    return () => {
+      if (discoveryServiceRef.current) {
+        discoveryServiceRef.current.close();
+      }
+    };
+  }, []);
+
+  // Fetch user's communities
   useEffect(() => {
     let isActive = true;
     let fetchCount = 0;
 
     const fetchCommunities = async () => {
-      // Skip if component unmounted
       if (!isActive) return;
-
       fetchCount++;
 
-      // Don't set loading on polling updates
       if (fetchCount === 1) {
         setLoading(true);
       }
@@ -88,7 +184,6 @@ const Home = () => {
       const userCommunities: Community[] = [];
 
       try {
-        // Get joined communities from localStorage
         const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
 
         if (joinedGroups.length === 0) {
@@ -97,15 +192,13 @@ const Home = () => {
           return;
         }
 
-        // For each joined community, create a community object
         for (const groupInfo of joinedGroups) {
           const communityId = groupInfo.communityId;
-          const groupId = communityId; // Use the community ID directly for navigation
+          const groupId = communityId;
           const fullGroupId = `peek-${communityId}`;
 
-          // Get metadata from GroupManager if available
-          let name = `Community ${communityId.slice(0, 8)}`; // Default name
-          let memberCount = 1; // Default to at least 1
+          let name = `Community ${communityId.slice(0, 8)}`;
+          let memberCount = 1;
 
           if (groupManager) {
             const metadata = groupManager.getGroupMetadata(fullGroupId);
@@ -123,25 +216,20 @@ const Home = () => {
             groupId,
             name,
             memberCount,
-            isAdmin: groupInfo.isAdmin || false, // Get admin status from localStorage
+            isAdmin: groupInfo.isAdmin || false,
             joinedAt: groupInfo.joinedAt || Date.now() / 1000,
-            location: groupInfo.location // Include location if stored
+            location: groupInfo.location
           };
-
-          // TODO: Get last activity timestamp from relay events if needed
 
           userCommunities.push(community);
         }
 
-        // Sort by last activity
         userCommunities.sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
         if (isActive) {
           setCommunities(userCommunities);
         }
       } catch (error) {
         console.error('Error fetching communities:', error);
-        // Only show error toast on first fetch, not on polling
-        // Also don't show for missing fetchEvents method
         if (fetchCount === 1 && error && !(error instanceof TypeError && error.message?.includes('fetchEvents'))) {
           toast({
             title: 'Error',
@@ -149,7 +237,6 @@ const Home = () => {
             variant: 'destructive'
           });
         }
-        // Set empty communities array on error
         if (isActive) {
           setCommunities([]);
         }
@@ -160,18 +247,14 @@ const Home = () => {
       }
     };
 
-    // Initial fetch
     fetchCommunities();
-
-    // Set up polling with 2 second interval
     const pollInterval = setInterval(fetchCommunities, 2000);
 
-    // Cleanup
     return () => {
       isActive = false;
       clearInterval(pollInterval);
     };
-  }, [groupManager, toast]); // Minimal dependencies to avoid recreating interval
+  }, [groupManager, toast]);
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';
@@ -187,42 +270,71 @@ const Home = () => {
   };
 
   const handleCommunityClick = (groupId: string) => {
-    // Navigate to the community page - groupId is already the communityId from localStorage
     navigate(`/community/${groupId}`);
   };
 
-  const handleProfileClick = () => {
-    navigate('/profile');
-  };
+  const handleFlyToLocation = useCallback(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLocation = new LatLng(
+            position.coords.latitude,
+            position.coords.longitude
+          );
+          setFlyToLocation(userLocation);
+          toast({
+            title: "📍 Location found",
+            description: "Centering map on your location",
+          });
+        },
+        (error) => {
+          toast({
+            title: "Location error",
+            description: error.message,
+            variant: "destructive"
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    }
+  }, [toast]);
 
   if (!user || !pubkey) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <MapPin className="h-8 w-8 text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-cream">
+        <Card className="w-full max-w-md bg-white/95 backdrop-blur shadow-2xl border-0">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mb-4">
+              <MapPin className="h-10 w-10 text-coral" />
             </div>
-            <CardTitle className="text-2xl">Welcome to Peek</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-3xl font-rubik text-navy">Welcome to Peek</CardTitle>
+            <CardDescription className="text-base text-navy/60">
               Connect with people at physical locations
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+            <Alert className="border-coral/20 bg-coral/5">
+              <Sparkles className="h-4 w-4 text-coral" />
+              <AlertDescription className="text-navy/70">
                 Scan a Peek QR code with your phone camera to join location-based communities.
                 No app installation required!
               </AlertDescription>
             </Alert>
 
-            <Button onClick={login} className="w-full" size="lg">
+            <Button
+              onClick={login}
+              className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
+              size="lg"
+            >
               <UserCircle className="mr-2 h-5 w-5" />
               Login with Nostr
             </Button>
 
-            <p className="text-xs text-center text-muted-foreground">
+            <p className="text-xs text-center text-navy/50">
               Use your existing Nostr account or create a new one
             </p>
           </CardContent>
@@ -232,26 +344,36 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b">
-        <div className="container mx-auto px-4 py-4">
+    <div className="min-h-screen bg-cream">
+      {/* Simplified Header */}
+      <header className="bg-white/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
+        <div className="container mx-auto px-3 sm:px-4 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                <MapPin className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-coral rounded-full flex items-center justify-center">
+                <span className="text-white font-rubik text-lg sm:text-xl font-bold">P</span>
               </div>
-              <div>
-                <h1 className="text-xl font-bold">Peek</h1>
-                <p className="text-xs text-muted-foreground">Location Communities</p>
-              </div>
+              <h1 className="text-xl sm:text-2xl font-rubik font-bold text-navy">Peek</h1>
             </div>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={handleProfileClick}>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleFlyToLocation}
+                className="text-navy hover:bg-coral/10"
+              >
+                <MapPin className="h-5 w-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/profile')}
+                className="text-navy hover:bg-coral/10"
+              >
                 <Settings className="h-5 w-5" />
               </Button>
-              <div className="pl-2 border-l">
+              <div className="pl-2 border-l border-coral/20">
                 <UserIdentityButton />
               </div>
             </div>
@@ -259,17 +381,17 @@ const Home = () => {
         </div>
       </header>
 
-      {/* Rejoin Message Alert */}
+      {/* Rejoin Message */}
       {rejoinMessage && (
         <div className="container mx-auto px-4 pt-4">
-          <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-            <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <AlertDescription className="text-amber-900 dark:text-amber-100">
+          <Alert className="border-peach bg-peach/10">
+            <MapPin className="h-4 w-4 text-coral" />
+            <AlertDescription className="text-navy">
               {rejoinMessage}
               <Button
                 size="sm"
                 variant="link"
-                className="ml-2 p-0 h-auto text-amber-700 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200"
+                className="ml-2 p-0 h-auto text-coral hover:text-coral/70"
                 onClick={() => setRejoinMessage(null)}
               >
                 Dismiss
@@ -279,194 +401,178 @@ const Home = () => {
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="communities">Communities</TabsTrigger>
-            <TabsTrigger value="discover">How it Works</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="communities" className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-semibold">Your Communities</h2>
-              <Badge variant="secondary">
-                {communities.length} joined
-              </Badge>
+      {/* Main Content - Map and Communities */}
+      <main className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+        {/* Discovery Map Section */}
+        <div className="mb-6">
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            {/* Map Header */}
+            <div className="p-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-rubik font-bold text-navy">
+                    Discover Communities
+                  </h2>
+                  <p className="text-sm text-navy/60">
+                    {discoveryMap ? `${discoveryMap.points.length} spots nearby` : 'Loading map...'}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => setFogEnabled(!fogEnabled)}
+                  variant={fogEnabled ? "default" : "secondary"}
+                  size="sm"
+                  className={`rounded-full ${
+                    fogEnabled
+                      ? 'bg-navy hover:bg-navy/90 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-navy'
+                  }`}
+                >
+                  {fogEnabled ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-1" />
+                      Fog On
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-1" />
+                      Fog Off
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
-            {loading ? (
-              <Card>
-                <CardContent className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </CardContent>
-              </Card>
-            ) : communities.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-12">
-                  <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No communities yet</h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Scan a Peek QR code with your phone camera to join your first community
-                  </p>
-                  <Alert className="text-left max-w-md mx-auto">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>How to join:</strong> Use your phone's camera app to scan a Peek QR code.
-                      You'll be taken directly to the join page - no app download needed!
+            {/* Map Container */}
+            <div className="h-[50vh] md:h-96 relative">
+              <MapContainer
+                center={mapCenter}
+                zoom={13}
+                className="h-full w-full"
+                zoomControl={true}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                <MapManager
+                  discoveryMap={discoveryMap}
+                  fogEnabled={fogEnabled}
+                  flyToLocation={flyToLocation}
+                />
+              </MapContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Your Communities Section */}
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-rubik font-bold text-navy">
+              Your Communities
+            </h2>
+            <Badge className="bg-coral/10 text-coral border-0 px-3 py-1">
+              {communities.length} joined
+            </Badge>
+          </div>
+
+          {loading ? (
+            <Card className="bg-white/95 border-0 shadow-lg">
+              <CardContent className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-coral" />
+              </CardContent>
+            </Card>
+          ) : communities.length === 0 ? (
+            <Card className="bg-white/95 border-0 shadow-lg">
+              <CardContent className="text-center py-12">
+                <div className="max-w-sm mx-auto space-y-4">
+                  <div className="w-24 h-24 bg-coral/10 rounded-full flex items-center justify-center mx-auto">
+                    <MapPin className="h-12 w-12 text-coral" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-rubik font-bold text-navy mb-2">
+                      No communities yet
+                    </h3>
+                    <p className="text-navy/60 mb-6">
+                      Find QR codes in the wild and scan them to join your first community!
+                    </p>
+                  </div>
+
+                  <Alert className="text-left bg-mint/10 border-mint/20">
+                    <Crown className="h-4 w-4 text-mint" />
+                    <AlertDescription className="text-navy/70">
+                      <strong>Pro tip:</strong> Be the first to scan an unclaimed QR code
+                      to become the founder with admin powers!
                     </AlertDescription>
                   </Alert>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {communities.map((community) => (
-                  <Card
-                    key={community.groupId}
-                    className="cursor-pointer hover:shadow-lg transition-shadow"
-                    onClick={() => handleCommunityClick(community.groupId)}
-                  >
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg line-clamp-1">
-                            {community.name}
-                          </CardTitle>
-                          <CardDescription className="flex items-center gap-2 mt-1">
-                            <Users className="h-3 w-3" />
-                            <span>{community.memberCount} members</span>
-                          </CardDescription>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {communities.map((community) => (
+                <Card
+                  key={community.groupId}
+                  className="cursor-pointer bg-white hover:shadow-xl transition-all duration-200 border-0 shadow-md overflow-hidden group"
+                  onClick={() => handleCommunityClick(community.groupId)}
+                >
+                  <CardHeader className="pb-3 bg-gradient-to-br from-coral/5 to-peach/5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg font-rubik text-navy line-clamp-1">
+                          {community.name}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2 mt-1 text-navy/60">
+                          <Users className="h-3 w-3" />
+                          <span>{community.memberCount} members</span>
+                        </CardDescription>
+                      </div>
+                      {community.isAdmin && (
+                        <Badge className="bg-coral text-white border-0">
+                          <Crown className="h-3 w-3 mr-1" />
+                          Founder
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-3">
+                    <div className="space-y-3">
+                      {community.location && (
+                        <div className="flex items-center gap-2 text-sm text-navy/50">
+                          <MapPin className="h-3 w-3" />
+                          <span className="text-xs">
+                            Location verified
+                          </span>
                         </div>
-                        {community.isAdmin && (
-                          <Badge variant="default" className="ml-2">
-                            <Shield className="h-3 w-3 mr-1" />
-                            Admin
+                      )}
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm text-navy/50">
+                          <Clock className="h-3 w-3" />
+                          <span>{formatTimeAgo(community.lastActivity)}</span>
+                        </div>
+
+                        {community.unreadCount && community.unreadCount > 0 && (
+                          <Badge className="bg-coral text-white border-0 h-5 min-w-[20px] px-1">
+                            {community.unreadCount}
                           </Badge>
                         )}
                       </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {community.location && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="h-3 w-3" />
-                            <span className="text-xs">
-                              {community.location.latitude.toFixed(4)}, {community.location.longitude.toFixed(4)}
-                            </span>
-                          </div>
-                        )}
 
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{formatTimeAgo(community.lastActivity)}</span>
-                          </div>
-
-                          {community.unreadCount && community.unreadCount > 0 && (
-                            <Badge variant="destructive" className="h-5 min-w-[20px] px-1">
-                              {community.unreadCount}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-between"
-                          size="sm"
-                          onClick={() => navigate(`/community/${community.groupId}`)}
-                        >
-                          <span className="flex items-center gap-2">
-                            <MessageSquare className="h-4 w-4" />
-                            Open Chat
-                          </span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="discover" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>How Peek Works</CardTitle>
-                <CardDescription>
-                  Join location-based communities by proving physical presence
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-primary">1</span>
+                      <Button
+                        className="w-full bg-coral/10 hover:bg-coral hover:text-white text-coral transition-colors rounded-full font-semibold group-hover:bg-coral group-hover:text-white"
+                        size="sm"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Open Community
+                        <ChevronRight className="h-4 w-4 ml-auto" />
+                      </Button>
                     </div>
-                    <div>
-                      <h3 className="font-medium mb-1">Find a QR Code</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Look for Peek QR codes at physical locations like cafes, events, or public spaces
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-primary">2</span>
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-1">Scan with Camera</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Use your phone's built-in camera app to scan the QR code - no special app needed
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-primary">3</span>
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-1">Prove Your Location</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Share your GPS location once to verify you're physically present (within 25 meters)
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-primary">4</span>
-                    </div>
-                    <div>
-                      <h3 className="font-medium mb-1">Join & Connect</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Once verified, you're part of the community and can chat with others who've been there
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <Alert>
-                  <Shield className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>First Scanner Bonus:</strong> If you're the first to scan a new QR code,
-                    you become the community admin with moderation privileges.
-                  </AlertDescription>
-                </Alert>
-
-                <Alert>
-                  <MapPin className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Privacy:</strong> Communities are private and closed. Only people who
-                    physically visit the location can join. Your exact location is never shared with others.
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
