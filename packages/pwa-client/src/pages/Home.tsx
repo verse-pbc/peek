@@ -16,11 +16,11 @@ import {
   ChevronRight,
   Loader2,
   UserCircle,
-  Settings,
   Eye,
   EyeOff,
   Crown,
-  Sparkles
+  Sparkles,
+  Navigation
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
@@ -360,18 +360,23 @@ const Home = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleFlyToLocation}
-                className="text-navy hover:bg-coral/10"
+                onClick={() => setFogEnabled(!fogEnabled)}
+                className="text-navy hover:bg-coral/10 relative"
+                title={fogEnabled ? "Click to reveal all locations" : "Click to hide with fog"}
               >
-                <MapPin className="h-5 w-5" />
+                <MapPin className={`h-5 w-5 ${fogEnabled ? 'fill-coral' : ''}`} />
+                {fogEnabled && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-coral rounded-full" />
+                )}
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => navigate('/profile')}
+                onClick={handleFlyToLocation}
                 className="text-navy hover:bg-coral/10"
+                title="Center on my location"
               >
-                <Settings className="h-5 w-5" />
+                <Navigation className="h-5 w-5" />
               </Button>
               <div className="pl-2 border-l border-coral/20">
                 <UserIdentityButton />
@@ -417,28 +422,25 @@ const Home = () => {
                     {discoveryMap ? `${discoveryMap.points.length} spots nearby` : 'Loading map...'}
                   </p>
                 </div>
-                <Button
-                  onClick={() => setFogEnabled(!fogEnabled)}
-                  variant={fogEnabled ? "default" : "secondary"}
-                  size="sm"
-                  className={`rounded-full ${
+                <div className="flex items-center gap-2 text-sm">
+                  <div className={`px-3 py-1 rounded-full ${
                     fogEnabled
-                      ? 'bg-navy hover:bg-navy/90 text-white'
-                      : 'bg-gray-100 hover:bg-gray-200 text-navy'
-                  }`}
-                >
-                  {fogEnabled ? (
-                    <>
-                      <EyeOff className="h-4 w-4 mr-1" />
-                      Fog On
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="h-4 w-4 mr-1" />
-                      Fog Off
-                    </>
-                  )}
-                </Button>
+                      ? 'bg-navy/10 text-navy'
+                      : 'bg-coral/10 text-coral'
+                  }`}>
+                    {fogEnabled ? (
+                      <span className="flex items-center gap-1">
+                        <EyeOff className="h-3 w-3" />
+                        Fog of war active
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        All locations visible
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
