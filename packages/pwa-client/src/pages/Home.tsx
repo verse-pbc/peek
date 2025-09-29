@@ -118,8 +118,8 @@ const Home = () => {
 
   // Discovery map states
   const [discoveryMap, setDiscoveryMap] = useState<IDiscoveryMap | null>(null);
-  const [fogEnabled, setFogEnabled] = useState(true);
-  const [mapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194));
+  const fogEnabled = true; // Always enabled, no toggle needed
+  const [mapCenter, setMapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF, will update with user location
   const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
   const discoveryServiceRef = useRef<DiscoveryService | null>(null);
 
@@ -135,6 +135,32 @@ const Home = () => {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  // Auto-center map on user location on load
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLocation = new LatLng(
+            position.coords.latitude,
+            position.coords.longitude
+          );
+          setMapCenter(userLocation);
+          setFlyToLocation(userLocation);
+          console.log('[Home] Auto-centered map on user location:', userLocation);
+        },
+        (error) => {
+          console.warn('[Home] Could not get user location:', error.message);
+          // Keep default SF coordinates if location access denied
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    }
+  }, []); // Run once on mount
 
   // Load discovery map
   useEffect(() => {
@@ -339,31 +365,8 @@ const Home = () => {
               <h1 className="text-xl sm:text-2xl font-rubik font-bold text-navy">Peek</h1>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setFogEnabled(!fogEnabled)}
-                className="text-navy hover:bg-coral/10 relative"
-                title={fogEnabled ? "Click to reveal all locations" : "Click to hide with fog"}
-              >
-                <MapPin className={`h-5 w-5 ${fogEnabled ? 'fill-coral' : ''}`} />
-                {fogEnabled && (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-coral rounded-full" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleFlyToLocation}
-                className="text-navy hover:bg-coral/10"
-                title="Center on my location"
-              >
-                <Navigation className="h-5 w-5" />
-              </Button>
-              <div className="pl-2 border-l border-coral/20">
-                <UserIdentityButton />
-              </div>
+            <div className="flex items-center">
+              <UserIdentityButton />
             </div>
           </div>
         </div>
@@ -405,25 +408,16 @@ const Home = () => {
                     {discoveryMap ? `${discoveryMap.points.length} spots nearby` : 'Loading map...'}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className={`px-3 py-1 rounded-full ${
-                    fogEnabled
-                      ? 'bg-navy/10 text-navy'
-                      : 'bg-coral/10 text-coral'
-                  }`}>
-                    {fogEnabled ? (
-                      <span className="flex items-center gap-1">
-                        <EyeOff className="h-3 w-3" />
-                        Fog of war active
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3 w-3" />
-                        All locations visible
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <Button
+                  onClick={handleFlyToLocation}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 text-navy border-coral/30 hover:bg-coral/10"
+                  title="Center on my location"
+                >
+                  <Navigation className="h-4 w-4" />
+                  My Location
+                </Button>
               </div>
             </div>
 
