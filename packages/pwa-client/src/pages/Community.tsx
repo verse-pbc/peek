@@ -55,9 +55,29 @@ const Community = () => {
       // Subscribe to the group to get updates
       relayManager.subscribeToGroup(groupId);
 
-      // Listen for group metadata updates to update member count
+      // Listen for group metadata updates
       const unsubscribe = relayManager.onEvent(`group-metadata-${groupId}`, (event) => {
-        if (event.kind === 39002) { // GROUP_MEMBERS event
+        if (event.kind === 39000) { // GROUP_METADATA event
+          // Update the name when metadata changes
+          const nameTag = event.tags.find(t => t[0] === 'name');
+          if (nameTag && nameTag[1]) {
+            console.log('Updating community name from kind 39000 event:', nameTag[1]);
+            setCommunityData(prev => prev ? { ...prev, name: nameTag[1] } : prev);
+          }
+
+          // Also update other metadata if needed
+          const aboutTag = event.tags.find(t => t[0] === 'about');
+          const pictureTag = event.tags.find(t => t[0] === 'picture');
+
+          setCommunityData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              ...(aboutTag && aboutTag[1] ? { about: aboutTag[1] } : {}),
+              ...(pictureTag && pictureTag[1] ? { picture: pictureTag[1] } : {})
+            };
+          });
+        } else if (event.kind === 39002) { // GROUP_MEMBERS event
           const memberCount = event.tags.filter(t => t[0] === 'p').length;
           setCommunityData(prev => prev ? { ...prev, memberCount } : prev);
         }
