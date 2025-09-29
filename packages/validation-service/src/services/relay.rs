@@ -613,7 +613,6 @@ impl RelayService {
 
         // Create NIP-78 event with discovery map containing only geohashes
         let content = serde_json::json!({
-            "version": 2,  // Bump version to indicate new format
             "geohashes": geohashes,
             "updated_at": Timestamp::now().as_u64(),
         })
