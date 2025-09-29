@@ -490,6 +490,30 @@ impl RelayService {
 
             for tag in event.tags.iter() {
                 tracing::debug!("[get_group_metadata] Processing tag: {:?}", tag);
+
+                // Handle single-letter tags (like "g")
+                if let TagKind::SingleLetter(single_letter) = tag.kind() {
+                    if single_letter.character == Alphabet::G {
+                        // Parse geohash location tag
+                        if let Some(content) = tag.content() {
+                            tracing::info!("[get_group_metadata] Found 'g' tag (SingleLetter) with content: '{}' (len={})", content, content.len());
+                            // Validate it's a level 8 geohash
+                            if content.len() == 8 {
+                                geohash = Some(content.to_string());
+                                tracing::info!(
+                                    "[get_group_metadata] Set geohash to: {:?}",
+                                    geohash
+                                );
+                            } else {
+                                tracing::warn!("[get_group_metadata] Geohash '{}' has invalid length {} (expected 8)", content, content.len());
+                            }
+                        } else {
+                            tracing::warn!("[get_group_metadata] 'g' tag has no content");
+                        }
+                    }
+                }
+
+                // Handle custom tags (multi-letter tags like "dg", "name", etc.)
                 if let TagKind::Custom(tag_name) = tag.kind() {
                     match tag_name.as_ref() {
                         "name" => {
@@ -502,24 +526,6 @@ impl RelayService {
                         }
                         "about" => {
                             about = tag.content().map(|s| s.to_string());
-                        }
-                        "g" => {
-                            // Parse geohash location tag
-                            if let Some(content) = tag.content() {
-                                tracing::info!("[get_group_metadata] Found 'g' tag with content: '{}' (len={})", content, content.len());
-                                // Validate it's a level 8 geohash
-                                if content.len() == 8 {
-                                    geohash = Some(content.to_string());
-                                    tracing::info!(
-                                        "[get_group_metadata] Set geohash to: {:?}",
-                                        geohash
-                                    );
-                                } else {
-                                    tracing::warn!("[get_group_metadata] Geohash '{}' has invalid length {} (expected 8)", content, content.len());
-                                }
-                            } else {
-                                tracing::warn!("[get_group_metadata] 'g' tag has no content");
-                            }
                         }
                         "dg" => {
                             // Parse display geohash location tag
