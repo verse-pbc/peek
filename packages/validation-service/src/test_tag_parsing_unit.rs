@@ -101,33 +101,48 @@ mod tests {
     #[test]
     fn test_single_letter_vs_custom_tags() {
         // Test that single letters are parsed as SingleLetter, not Custom
-        let tags = vec![
-            vec!["g".to_string(), "test123".to_string()],
-            vec!["p".to_string(), "pubkey123".to_string()],
-            vec!["e".to_string(), "event123".to_string()],
-            vec!["dg".to_string(), "display123".to_string()],
-            vec!["name".to_string(), "Test Name".to_string()],
+        // And that some tags have special kinds (like "name" -> TagKind::Name)
+        let test_cases = vec![
+            (vec!["g".to_string(), "test123".to_string()], true, false), // SingleLetter
+            (vec!["p".to_string(), "pubkey123".to_string()], true, false), // SingleLetter
+            (vec!["e".to_string(), "event123".to_string()], true, false), // SingleLetter
+            (
+                vec!["dg".to_string(), "display123".to_string()],
+                false,
+                true,
+            ), // Custom
+            (
+                vec!["name".to_string(), "Test Name".to_string()],
+                false,
+                false,
+            ), // Special TagKind::Name
         ];
 
-        for tag_array in tags {
+        for (tag_array, expect_single_letter, expect_custom) in test_cases {
             let tag_name = tag_array[0].clone();
             let tag = Tag::parse(tag_array).unwrap();
 
             println!("Testing tag '{}': kind = {:?}", tag_name, tag.kind());
 
-            if tag_name.len() == 1 {
-                // Single letter tags should be SingleLetter
+            if expect_single_letter {
                 assert!(
                     matches!(tag.kind(), TagKind::SingleLetter(_)),
                     "Tag '{}' should be SingleLetter, but was {:?}",
                     tag_name,
                     tag.kind()
                 );
-            } else {
-                // Multi-letter tags should be Custom
+            } else if expect_custom {
                 assert!(
                     matches!(tag.kind(), TagKind::Custom(_)),
                     "Tag '{}' should be Custom, but was {:?}",
+                    tag_name,
+                    tag.kind()
+                );
+            } else {
+                // It's a special tag kind (like Name)
+                assert!(
+                    !matches!(tag.kind(), TagKind::SingleLetter(_)) && !matches!(tag.kind(), TagKind::Custom(_)),
+                    "Tag '{}' should have a special TagKind (not SingleLetter or Custom), but was {:?}",
                     tag_name,
                     tag.kind()
                 );
