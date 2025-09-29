@@ -247,7 +247,7 @@ impl RelayService {
             ),
             Tag::custom(TagKind::Custom("picture".into()), [String::new()]), // Empty for now
             Tag::custom(TagKind::Custom("private".into()), Vec::<String>::new()), // Private group
-            Tag::custom(TagKind::Custom("open".into()), Vec::<String>::new()), // Open to join with location proof
+            Tag::custom(TagKind::Custom("closed".into()), Vec::<String>::new()), // Closed - requires location validation
             // Store location as geohash for privacy and efficient matching
             Tag::custom(
                 TagKind::Custom("g".into()),
