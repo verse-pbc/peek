@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { LatLng, Map as LeafletMap } from 'leaflet';
 import { Loader2, MapPin, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,10 +28,15 @@ Icon.Default.mergeOptions({
 const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
 const FOG_RADIUS_METERS = 1000; // 1km radius circles
 
-// Component to manage the fog overlay
-function MapManager({ discoveryMap, fogEnabled }: {
+// Component to manage the fog overlay and handle map location updates
+function MapManager({
+  discoveryMap,
+  fogEnabled,
+  flyToLocation
+}: {
   discoveryMap: IDiscoveryMap | null;
   fogEnabled: boolean;
+  flyToLocation: LatLng | null;
 }) {
   const map = useMap();
   const [leafletMap, setLeafletMap] = useState<LeafletMap | null>(null);
@@ -39,6 +44,15 @@ function MapManager({ discoveryMap, fogEnabled }: {
   useEffect(() => {
     setLeafletMap(map);
   }, [map]);
+
+  // Handle flying to a new location
+  useEffect(() => {
+    if (flyToLocation && map) {
+      map.flyTo(flyToLocation, 15, {
+        duration: 1.5
+      });
+    }
+  }, [flyToLocation, map]);
 
   const fogPoints = discoveryMap?.points.map(point => ({
     lat: point.lat,
@@ -62,6 +76,7 @@ export const DiscoveryMap: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [fogEnabled, setFogEnabled] = useState(true);
   const [mapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF
+  const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
   const discoveryServiceRef = useRef<DiscoveryService | null>(null);
 
   useEffect(() => {
@@ -126,15 +141,18 @@ export const DiscoveryMap: React.FC = () => {
     });
   };
 
-  const handleFlyToLocation = () => {
+  const handleFlyToLocation = useCallback(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          // Note: We'll need to pass this to the map component to actually fly to it
-          // For now, just show the toast
+          const userLocation = new LatLng(
+            position.coords.latitude,
+            position.coords.longitude
+          );
+          setFlyToLocation(userLocation);
           toast({
             title: "Location found",
-            description: `Your location: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`,
+            description: "Centering map on your location",
           });
         },
         (error) => {
@@ -143,10 +161,15 @@ export const DiscoveryMap: React.FC = () => {
             description: error.message,
             variant: "destructive"
           });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
         }
       );
     }
-  };
+  }, [toast]);
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
@@ -215,7 +238,11 @@ export const DiscoveryMap: React.FC = () => {
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
-                  <MapManager discoveryMap={discoveryMap} fogEnabled={fogEnabled} />
+                  <MapManager
+                    discoveryMap={discoveryMap}
+                    fogEnabled={fogEnabled}
+                    flyToLocation={flyToLocation}
+                  />
                 </MapContainer>
               )}
             </div>
