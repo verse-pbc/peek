@@ -1,4 +1,4 @@
-use geohash::{decode, encode, Coord};
+use geohash::{encode, Coord};
 use rand::Rng;
 use std::f64::consts::PI;
 
@@ -55,62 +55,25 @@ pub fn generate_display_location(actual_lat: f64, actual_lon: f64) -> Result<Str
     .map_err(|e| format!("Failed to encode display location: {}", e))
 }
 
-/// Generate display location from an 8-character geohash
-#[allow(dead_code)]
-pub fn generate_display_from_geohash(actual_geohash: &str) -> Result<String, String> {
-    if actual_geohash.len() != 8 {
-        return Err(format!(
-            "Expected 8-character geohash, got {}",
-            actual_geohash.len()
-        ));
-    }
-
-    // Decode the actual location
-    let (coord, _, _) =
-        decode(actual_geohash).map_err(|e| format!("Failed to decode geohash: {}", e))?;
-
-    generate_display_location(coord.y, coord.x)
-}
-
-/// Calculate distance between two points using Haversine formula
-#[allow(dead_code)]
-pub fn calculate_distance_meters(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
-    let lat1_rad = lat1 * PI / 180.0;
-    let lat2_rad = lat2 * PI / 180.0;
-    let delta_lat = (lat2 - lat1) * PI / 180.0;
-    let delta_lon = (lon2 - lon1) * PI / 180.0;
-
-    let a = (delta_lat / 2.0).sin().powi(2)
-        + lat1_rad.cos() * lat2_rad.cos() * (delta_lon / 2.0).sin().powi(2);
-
-    let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
-
-    EARTH_RADIUS_METERS * c
-}
-
-/// Verify that a display location is valid for the actual location
-/// (i.e., actual location is within 1km of display location)
-#[allow(dead_code)]
-pub fn verify_display_location(
-    actual_lat: f64,
-    actual_lon: f64,
-    display_geohash: &str,
-) -> Result<bool, String> {
-    // Decode display location
-    let (display_coord, _, _) =
-        decode(display_geohash).map_err(|e| format!("Failed to decode display geohash: {}", e))?;
-
-    // Calculate distance
-    let distance =
-        calculate_distance_meters(actual_lat, actual_lon, display_coord.y, display_coord.x);
-
-    // Actual location must be within 1km of display location
-    Ok(distance <= 1000.0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use geohash::decode;
+
+    // Test helper function for calculating distance
+    fn calculate_distance_meters(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
+        let lat1_rad = lat1 * PI / 180.0;
+        let lat2_rad = lat2 * PI / 180.0;
+        let delta_lat = (lat2 - lat1) * PI / 180.0;
+        let delta_lon = (lon2 - lon1) * PI / 180.0;
+
+        let a = (delta_lat / 2.0).sin().powi(2)
+            + lat1_rad.cos() * lat2_rad.cos() * (delta_lon / 2.0).sin().powi(2);
+
+        let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
+
+        EARTH_RADIUS_METERS * c
+    }
 
     #[test]
     fn test_generate_display_location() {
@@ -123,8 +86,10 @@ mod tests {
             let display_geohash = generate_display_location(lat, lon).unwrap();
             assert_eq!(display_geohash.len(), 9);
 
-            // Verify the actual location is within 1km
-            assert!(verify_display_location(lat, lon, &display_geohash).unwrap());
+            // Verify the offset is within bounds
+            let (display_coord, _, _) = decode(&display_geohash).unwrap();
+            let distance = calculate_distance_meters(lat, lon, display_coord.y, display_coord.x);
+            assert!(distance <= MAX_OFFSET_METERS);
 
             generated.push(display_geohash);
         }
