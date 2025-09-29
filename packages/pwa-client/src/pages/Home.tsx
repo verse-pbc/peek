@@ -174,62 +174,45 @@ const Home = () => {
     let fetchCount = 0;
 
     const fetchCommunities = async () => {
-      if (!isActive) return;
+      if (!isActive || !groupManager) return;
       fetchCount++;
 
       if (fetchCount === 1) {
         setLoading(true);
       }
 
-      const userCommunities: Community[] = [];
-
       try {
-        const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+        console.log('[Home] Fetching communities using NIP-29 events...');
 
-        if (joinedGroups.length === 0) {
-          setCommunities([]);
-          setLoading(false);
-          return;
-        }
+        // Use GroupManager to get communities from NIP-29 events
+        const userGroups = await groupManager.getUserGroups();
+        console.log(`[Home] Found ${userGroups.length} communities from NIP-29 events`);
 
-        for (const groupInfo of joinedGroups) {
-          const communityId = groupInfo.communityId;
-          const groupId = communityId;
-          const fullGroupId = `peek-${communityId}`;
+        // Convert to Community format for the UI
+        const userCommunities: Community[] = userGroups.map(group => {
+          // Try to get location from localStorage as fallback for UI
+          const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+          const cachedGroupInfo = joinedGroups.find((g: { communityId: string }) => g.communityId === group.communityId);
 
-          let name = `Community ${communityId.slice(0, 8)}`;
-          let memberCount = 1;
-
-          if (groupManager) {
-            const metadata = groupManager.getGroupMetadata(fullGroupId);
-            const resolvedMemberCount = groupManager.getResolvedMemberCount(fullGroupId);
-
-            if (metadata?.name) {
-              name = metadata.name;
-            }
-            if (resolvedMemberCount > 0) {
-              memberCount = resolvedMemberCount;
-            }
-          }
-
-          const community: Community = {
-            groupId,
-            name,
-            memberCount,
-            isAdmin: groupInfo.isAdmin || false,
-            joinedAt: groupInfo.joinedAt || Date.now() / 1000,
-            location: groupInfo.location
+          return {
+            groupId: group.groupId,
+            name: group.name,
+            memberCount: group.memberCount,
+            isAdmin: group.isAdmin,
+            joinedAt: cachedGroupInfo?.joinedAt || Date.now() / 1000,
+            location: cachedGroupInfo?.location
           };
+        });
 
-          userCommunities.push(community);
-        }
+        // Sort by last activity (using joinedAt as fallback since we don't have lastActivity from NIP-29 yet)
+        userCommunities.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
 
-        userCommunities.sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
         if (isActive) {
+          console.log('[Home] Setting communities from NIP-29 events:', userCommunities);
           setCommunities(userCommunities);
         }
       } catch (error) {
-        console.error('Error fetching communities:', error);
+        console.error('[Home] Error fetching communities from NIP-29:', error);
         if (fetchCount === 1 && error && !(error instanceof TypeError && error.message?.includes('fetchEvents'))) {
           toast({
             title: 'Error',
