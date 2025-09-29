@@ -20,6 +20,9 @@ importers:
       '@fontsource-variable/inter':
         specifier: ^5.2.6
         version: 5.2.6
+      '@fontsource-variable/rubik':
+        specifier: ^5.2.8
+        version: 5.2.8
       '@getalby/sdk':
         specifier: ^5.1.1
         version: 5.1.2(typescript@5.9.2)
@@ -1763,6 +1766,10 @@ packages:
 
   /@fontsource-variable/inter@5.2.6:
     resolution: {integrity: sha512-jks/bficUPQ9nn7GvXvHtlQIPudW7Wx8CrlZoY8bhxgeobNxlQan8DclUJuYF2loYRrGpfrhCIZZspXYysiVGg==}
+    dev: false
+
+  /@fontsource-variable/rubik@5.2.8:
+    resolution: {integrity: sha512-vGDExLzB4a2Fj9mca5LqNoA2ZKcU9o+x5FEBLte/nxYkCB9hOQwZS6ZlItUv+Ssn7YMzKauGuI/Po+YueFuZbg==}
     dev: false
 
   /@getalby/lightning-tools@5.2.1:

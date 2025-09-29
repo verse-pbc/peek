@@ -13,13 +13,26 @@ export default {
 	theme: {
 		container: {
 			center: true,
-			padding: '2rem',
+			padding: '1rem',
 			screens: {
 				'2xl': '1400px'
 			}
 		},
 		extend: {
+			fontFamily: {
+				'rubik': ['Rubik Variable', 'system-ui', 'sans-serif'],
+				'inter': ['Inter Variable', 'system-ui', 'sans-serif'],
+				'sans': ['Inter Variable', 'system-ui', 'sans-serif'],
+			},
 			colors: {
+				// Peek brand colors
+				cream: '#FAF5F0',
+				coral: '#FF6B4A',
+				peach: '#FFB899',
+				mint: '#4ECDC4',
+				navy: '#2C3E50',
+
+				// Keep existing color system
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',

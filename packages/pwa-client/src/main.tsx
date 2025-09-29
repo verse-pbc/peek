@@ -7,8 +7,9 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import App from './App.tsx';
 import './index.css';
 
-// TODO: a custom font should be used. Eg:
-// import '@fontsource-variable/<font-name>';
+// Import custom fonts
+import '@fontsource-variable/rubik';
+import '@fontsource-variable/inter';
 
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
