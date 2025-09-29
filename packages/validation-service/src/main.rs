@@ -15,7 +15,7 @@ mod test_gift_wrap;
 #[cfg(test)]
 mod test_h_tag_filter;
 
-use handlers::{health, NostrValidationHandler};
+use handlers::{get_community_discovery, get_discovery_map, health, NostrValidationHandler};
 use services::{community::CommunityService, relay::RelayService};
 
 #[tokio::main]
@@ -68,10 +68,13 @@ async fn main() {
         }
     });
 
-    // Set up HTTP server for health checks
+    // Set up HTTP server for health checks and discovery endpoints
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/health", get(health));
+        .route("/api/health", get(health))
+        .route("/api/discovery", get(get_discovery_map))
+        .route("/api/discovery/:community_id", get(get_community_discovery))
+        .with_state(relay_service_arc.clone());
 
     let addr: std::net::SocketAddr = format!("0.0.0.0:{}", config.port).parse().unwrap();
     info!("HTTP server listening on {}", addr);

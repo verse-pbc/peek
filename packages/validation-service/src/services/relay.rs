@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
 
+use crate::libraries::display_location::generate_display_location;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Location {
     pub latitude: f64,
@@ -21,7 +23,8 @@ pub struct GroupMetadata {
     pub is_public: bool,
     pub is_open: bool,
     pub created_at: Timestamp,
-    pub geohash: Option<String>, // Level 8 geohash for location
+    pub geohash: Option<String>, // Level 8 geohash for actual location
+    pub display_geohash: Option<String>, // Level 9 geohash for display location
 }
 
 /// Service for managing NIP-29 groups on a Nostr relay
@@ -260,6 +263,17 @@ impl RelayService {
                 )
                 .map_err(|e| RelayError::Other(format!("Failed to encode location: {}", e)))?],
             ),
+            // Store display location as 9-character geohash for public discovery
+            Tag::custom(
+                TagKind::Custom("dg".into()),
+                [
+                    generate_display_location(location.latitude, location.longitude).map_err(
+                        |e| {
+                            RelayError::Other(format!("Failed to generate display location: {}", e))
+                        },
+                    )?,
+                ],
+            ),
         ]);
 
         let metadata_start = std::time::Instant::now();
@@ -385,7 +399,7 @@ impl RelayService {
     }
 
     /// Get the member count for a NIP-29 group
-    async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
+    pub async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
         // Fetch kind 39002 (group members) event using d-tag
         // This is the relay-generated list of all group members
         let members_filter = Filter::new()
@@ -451,6 +465,7 @@ impl RelayService {
             let mut is_public = false;
             let mut is_open = false;
             let mut geohash = None;
+            let mut display_geohash = None;
 
             for tag in event.tags.iter() {
                 if let TagKind::Custom(tag_name) = tag.kind() {
@@ -472,6 +487,15 @@ impl RelayService {
                                 // Validate it's a level 8 geohash
                                 if content.len() == 8 {
                                     geohash = Some(content.to_string());
+                                }
+                            }
+                        }
+                        "dg" => {
+                            // Parse display geohash location tag
+                            if let Some(content) = tag.content() {
+                                // Validate it's a level 9 geohash
+                                if content.len() == 9 {
+                                    display_geohash = Some(content.to_string());
                                 }
                             }
                         }
@@ -498,6 +522,7 @@ impl RelayService {
                 is_open,
                 created_at: event.created_at,
                 geohash,
+                display_geohash,
             })
         } else {
             Err(RelayError::GroupNotFound(group_id.to_string()))
