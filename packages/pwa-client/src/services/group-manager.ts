@@ -3,7 +3,8 @@ import {
   EventTemplate,
   finalizeEvent,
   getPublicKey,
-  type VerifiedEvent
+  type VerifiedEvent,
+  Filter
 } from 'nostr-tools';
 import { RelayManager, NIP29_KINDS } from './relay-manager';
 import { IdentityMigrationService } from './identity-migration';
@@ -726,7 +727,7 @@ export class GroupManager {
 
         // Get metadata from cache first
         let metadata = this.getGroupMetadata(groupId);
-        let memberCount = this.getResolvedMemberCount(groupId);
+        const memberCount = this.getResolvedMemberCount(groupId);
 
         // If not in cache, fetch directly from relay
         if (!metadata || !metadata.name) {
@@ -753,7 +754,7 @@ export class GroupManager {
                 pubkey: '',
                 created_at: 0,
                 sig: ''
-              } as any);
+              } as Event);
             }
           } catch (error) {
             console.error(`[GroupManager] Error fetching metadata for ${groupId}:`, error);
@@ -800,14 +801,14 @@ export class GroupManager {
       }
 
       // Query for the metadata event
-      const filter = {
+      const filter: Filter = {
         kinds: [39000],
         '#d': [groupId],
         limit: 1
       };
 
       // Use RelayManager's pool to query directly
-      const events = await (this.relayManager as any).pool.querySync([this.relayManager.url], filter);
+      const events = await (this.relayManager as { pool: { querySync: (urls: string[], filter: Filter) => Promise<Event[]> } }).pool.querySync([this.relayManager.url], filter);
 
       if (events.length === 0) {
         console.log(`[GroupManager] No metadata event found for ${groupId}`);
