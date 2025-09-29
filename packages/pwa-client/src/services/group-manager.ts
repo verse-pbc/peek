@@ -3,7 +3,8 @@ import {
   EventTemplate,
   finalizeEvent,
   getPublicKey,
-  type VerifiedEvent
+  type VerifiedEvent,
+  Filter
 } from 'nostr-tools';
 import { RelayManager, NIP29_KINDS } from './relay-manager';
 import { IdentityMigrationService } from './identity-migration';
@@ -724,20 +725,43 @@ export class GroupManager {
 
         const communityId = groupId.replace('peek-', '');
 
-        // Get metadata from cache or fetch it
+        // Get metadata from cache first
         let metadata = this.getGroupMetadata(groupId);
-        let memberCount = this.getResolvedMemberCount(groupId);
+        const memberCount = this.getResolvedMemberCount(groupId);
 
-        // If not in cache, try to fetch from relay
-        if (!metadata) {
-          console.log(`[GroupManager] Metadata not in cache for ${groupId}, subscribing...`);
+        // If not in cache, fetch directly from relay
+        if (!metadata || !metadata.name) {
+          console.log(`[GroupManager] Metadata not in cache for ${groupId}, fetching directly...`);
+
+          try {
+            // Directly query for kind 39000 metadata event
+            const metadataFromRelay = await this.fetchGroupMetadataDirectly(groupId);
+            if (metadataFromRelay) {
+              metadata = metadataFromRelay;
+              // Store in cache for future use
+              this.handleMetadataEvent({
+                kind: 39000,
+                tags: [
+                  ['d', groupId],
+                  ['name', metadataFromRelay.name],
+                  ...(metadataFromRelay.about ? [['about', metadataFromRelay.about]] : []),
+                  ...(metadataFromRelay.picture ? [['picture', metadataFromRelay.picture]] : []),
+                  ...(metadataFromRelay.isPublic ? [['public']] : [['private']]),
+                  ...(metadataFromRelay.isOpen ? [['open']] : [['closed']])
+                ],
+                content: '',
+                id: '',
+                pubkey: '',
+                created_at: 0,
+                sig: ''
+              } as Event);
+            }
+          } catch (error) {
+            console.error(`[GroupManager] Error fetching metadata for ${groupId}:`, error);
+          }
+
+          // Also start subscription for future updates
           this.relayManager.subscribeToGroup(groupId);
-
-          // Wait a moment for the subscription to fetch data
-          await new Promise(resolve => setTimeout(resolve, 500));
-
-          metadata = this.getGroupMetadata(groupId);
-          memberCount = this.getResolvedMemberCount(groupId);
         }
 
         // Check if user is admin
@@ -762,6 +786,70 @@ export class GroupManager {
     } catch (error) {
       console.error('[GroupManager] Error getting user groups:', error);
       return [];
+    }
+  }
+
+  /**
+   * Fetch group metadata directly from relay without relying on subscriptions
+   */
+  private async fetchGroupMetadataDirectly(groupId: string): Promise<GroupMetadata | null> {
+    try {
+      // Use RelayManager to directly query for kind 39000 metadata
+      if (!this.relayManager.isConnected()) {
+        console.warn('[GroupManager] Cannot fetch metadata: relay not connected');
+        return null;
+      }
+
+      // Query for the metadata event
+      const filter: Filter = {
+        kinds: [39000],
+        '#d': [groupId],
+        limit: 1
+      };
+
+      // Use RelayManager's queryEventsDirectly method
+      const events = await this.relayManager.queryEventsDirectly(filter);
+
+      if (events.length === 0) {
+        console.log(`[GroupManager] No metadata event found for ${groupId}`);
+        return null;
+      }
+
+      const event = events[0];
+      console.log(`[GroupManager] Found metadata event for ${groupId}:`, event);
+
+      // Parse the metadata from tags
+      const metadata: GroupMetadata = {
+        id: groupId,
+        name: '',
+        isPublic: false,
+        isOpen: false
+      };
+
+      for (const tag of event.tags) {
+        if (tag[0] === 'name' && tag[1]) {
+          metadata.name = tag[1];
+        } else if (tag[0] === 'about' && tag[1]) {
+          metadata.about = tag[1];
+        } else if (tag[0] === 'picture' && tag[1]) {
+          metadata.picture = tag[1];
+        } else if (tag[0] === 'public') {
+          metadata.isPublic = true;
+        } else if (tag[0] === 'private') {
+          metadata.isPublic = false;
+        } else if (tag[0] === 'open') {
+          metadata.isOpen = true;
+        } else if (tag[0] === 'closed') {
+          metadata.isOpen = false;
+        }
+      }
+
+      console.log(`[GroupManager] Parsed metadata for ${groupId}:`, metadata);
+      return metadata;
+
+    } catch (error) {
+      console.error('[GroupManager] Error fetching group metadata directly:', error);
+      return null;
     }
   }
 
