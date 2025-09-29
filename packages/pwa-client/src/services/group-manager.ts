@@ -354,6 +354,27 @@ export class GroupManager {
     return event;
   }
 
+  /**
+   * Set initial admin status for a user (useful after validation service creates group)
+   */
+  setInitialAdminStatus(groupId: string, pubkey: string): void {
+    const cache = this.getOrCreateCache(groupId);
+
+    // Add to members and admins
+    cache.members.set(pubkey, {
+      pubkey,
+      roles: ['admin'],
+      joinedAt: Math.floor(Date.now() / 1000)
+    });
+    cache.admins.set(pubkey, ['admin']);
+
+    // Update my membership if it's the current user
+    const userPubkey = this.relayManager.getUserPubkey();
+    if (userPubkey === pubkey) {
+      cache.myMembership = 'admin';
+    }
+  }
+
   async joinGroup(
     groupId: string,
     secretKey: Uint8Array,
@@ -423,7 +444,7 @@ export class GroupManager {
 
   async updateMetadata(
     groupId: string,
-    secretKey: Uint8Array,
+    secretKey: Uint8Array | undefined,
     updates: Partial<GroupMetadata>
   ): Promise<Event> {
     return this.performModerationAction(groupId, secretKey, {

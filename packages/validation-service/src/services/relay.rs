@@ -238,6 +238,12 @@ impl RelayService {
         );
 
         // Step 5: Set group metadata with location (kind 9002)
+        // Generate the display geohash for the discovery map
+        let display_geohash = generate_display_location(location.latitude, location.longitude)
+            .map_err(|e| {
+                RelayError::Other(format!("Failed to generate display location: {}", e))
+            })?;
+
         let metadata_event = EventBuilder::new(
             Kind::from(9002),
             "", // Empty content per NIP-29
@@ -265,16 +271,7 @@ impl RelayService {
                 .map_err(|e| RelayError::Other(format!("Failed to encode location: {}", e)))?],
             ),
             // Store display location as 9-character geohash for public discovery
-            Tag::custom(
-                TagKind::Custom("dg".into()),
-                [
-                    generate_display_location(location.latitude, location.longitude).map_err(
-                        |e| {
-                            RelayError::Other(format!("Failed to generate display location: {}", e))
-                        },
-                    )?,
-                ],
-            ),
+            Tag::custom(TagKind::Custom("dg".into()), [display_geohash.clone()]),
         ]);
 
         let metadata_start = std::time::Instant::now();
@@ -298,8 +295,8 @@ impl RelayService {
 
         // Location is now stored in the NIP-29 group metadata, no need for separate storage
 
-        // Publish updated discovery map with new community
-        if let Err(e) = self.publish_discovery_map().await {
+        // Publish updated discovery map with new community's display geohash
+        if let Err(e) = self.publish_discovery_map(Some(display_geohash)).await {
             tracing::warn!(
                 "Failed to publish discovery map after creating group: {}",
                 e
@@ -548,7 +545,11 @@ impl RelayService {
     }
 
     /// Publish a NIP-78 discovery map event with all communities' display locations
-    pub async fn publish_discovery_map(&self) -> Result<()> {
+    /// If current_display_geohash is provided, it will be included in the map
+    pub async fn publish_discovery_map(
+        &self,
+        current_display_geohash: Option<String>,
+    ) -> Result<()> {
         tracing::info!("Publishing discovery map...");
 
         // Fetch all kind 39000 (group metadata) events created by this relay
@@ -562,15 +563,18 @@ impl RelayService {
             .fetch_events(filter, Duration::from_secs(5))
             .await?;
 
-        let mut communities = Vec::new();
+        let mut geohashes = Vec::new();
+
+        // Add the current group's display geohash if provided
+        if let Some(dg) = current_display_geohash {
+            if dg.len() == 9 {
+                geohashes.push(dg);
+            }
+        }
 
         for event in events {
-            let mut group_id = None;
-            let mut name = None;
-            let mut about = None;
-            let mut picture = None;
+            let mut is_peek_group = false;
             let mut display_geohash = None;
-            let mut member_count = 0u32;
 
             for tag in event.tags.iter() {
                 if let TagKind::Custom(tag_name) = tag.kind() {
@@ -579,18 +583,9 @@ impl RelayService {
                             if let Some(content) = tag.content() {
                                 // Only include peek communities
                                 if content.starts_with("peek-") {
-                                    group_id = Some(content.to_string());
+                                    is_peek_group = true;
                                 }
                             }
-                        }
-                        "name" => {
-                            name = tag.content().map(|s| s.to_string());
-                        }
-                        "about" => {
-                            about = tag.content().map(|s| s.to_string());
-                        }
-                        "picture" => {
-                            picture = tag.content().map(|s| s.to_string());
                         }
                         "dg" => {
                             // Display geohash (9 characters)
@@ -605,39 +600,21 @@ impl RelayService {
                 }
             }
 
-            // Only include communities with display locations
-            if let (Some(id), Some(community_name), Some(dg_hash)) =
-                (group_id, name, display_geohash)
-            {
-                // Try to get member count
-                if let Ok(count) = self.get_group_member_count(&id).await {
-                    member_count = count;
+            // Only include peek communities with display geohashes
+            if is_peek_group {
+                if let Some(dg_hash) = display_geohash {
+                    // Avoid duplicates (in case current_display_geohash is already in a 39000)
+                    if !geohashes.contains(&dg_hash) {
+                        geohashes.push(dg_hash);
+                    }
                 }
-
-                let mut community_obj = serde_json::json!({
-                    "id": id.strip_prefix("peek-").unwrap_or(&id),
-                    "name": community_name,
-                    "display_geohash": dg_hash,
-                    "member_count": member_count,
-                    "created_at": event.created_at.as_u64(),
-                });
-
-                // Add optional fields if present
-                if let Some(about_text) = about {
-                    community_obj["about"] = serde_json::json!(about_text);
-                }
-                if let Some(picture_url) = picture {
-                    community_obj["picture"] = serde_json::json!(picture_url);
-                }
-
-                communities.push(community_obj);
             }
         }
 
-        // Create NIP-78 event with discovery map
+        // Create NIP-78 event with discovery map containing only geohashes
         let content = serde_json::json!({
-            "version": 1,
-            "groups": communities,
+            "version": 2,  // Bump version to indicate new format
+            "geohashes": geohashes,
             "updated_at": Timestamp::now().as_u64(),
         })
         .to_string();
@@ -651,10 +628,7 @@ impl RelayService {
         let signed_event = self.client.sign_event_builder(event).await?;
         self.client.send_event(&signed_event).await?;
 
-        tracing::info!(
-            "Published discovery map with {} communities",
-            communities.len()
-        );
+        tracing::info!("Published discovery map with {} geohashes", geohashes.len());
         Ok(())
     }
 }
