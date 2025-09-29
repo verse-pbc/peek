@@ -47,37 +47,21 @@ export class DiscoveryService {
     try {
       const content = JSON.parse(event.content);
 
-      // Handle version 2 format (geohashes only - privacy preserving)
-      if (content.version === 2 && content.geohashes && Array.isArray(content.geohashes)) {
-        return content.geohashes.map((geohashStr: string) => {
-          const decoded = geohash.decode(geohashStr);
-          return {
-            displayGeohash: geohashStr,
-            lat: decoded.latitude,
-            lng: decoded.longitude
-          };
-        }).filter(point =>
-          point.lat >= -90 && point.lat <= 90 &&
-          point.lng >= -180 && point.lng <= 180
-        );
+      if (!content.geohashes || !Array.isArray(content.geohashes)) {
+        return [];
       }
 
-      // Handle legacy version 1 format (includes names, etc - deprecated)
-      if (content.groups && Array.isArray(content.groups)) {
-        return content.groups.map(group => {
-          const decoded = geohash.decode(group.display_geohash);
-          return {
-            displayGeohash: group.display_geohash,
-            lat: decoded.latitude,
-            lng: decoded.longitude
-          };
-        }).filter(point =>
-          point.lat >= -90 && point.lat <= 90 &&
-          point.lng >= -180 && point.lng <= 180
-        );
-      }
-
-      return [];
+      return content.geohashes.map((geohashStr: string) => {
+        const decoded = geohash.decode(geohashStr);
+        return {
+          displayGeohash: geohashStr,
+          lat: decoded.latitude,
+          lng: decoded.longitude
+        };
+      }).filter(point =>
+        point.lat >= -90 && point.lat <= 90 &&
+        point.lng >= -180 && point.lng <= 180
+      );
     } catch (error) {
       console.error('Failed to parse discovery event:', error);
       return [];
