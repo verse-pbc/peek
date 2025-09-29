@@ -16,8 +16,6 @@ import {
   ChevronRight,
   Loader2,
   UserCircle,
-  Eye,
-  EyeOff,
   Crown,
   Sparkles,
   Navigation
