@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Loader2,
   UserCircle,
-  Settings
+  Settings,
+  Map
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
@@ -248,6 +249,9 @@ const Home = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/discover')}>
+                <Map className="h-5 w-5" />
+              </Button>
               <Button variant="ghost" size="icon" onClick={handleProfileClick}>
                 <Settings className="h-5 w-5" />
               </Button>
@@ -309,13 +313,19 @@ const Home = () => {
                   <p className="text-sm text-muted-foreground mb-6">
                     Scan a Peek QR code with your phone camera to join your first community
                   </p>
-                  <Alert className="text-left max-w-md mx-auto">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>How to join:</strong> Use your phone's camera app to scan a Peek QR code.
-                      You'll be taken directly to the join page - no app download needed!
-                    </AlertDescription>
-                  </Alert>
+                  <div className="space-y-3">
+                    <Button onClick={() => navigate('/discover')} variant="default" className="gap-2">
+                      <Map className="h-4 w-4" />
+                      Discover Communities
+                    </Button>
+                    <Alert className="text-left max-w-md mx-auto">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>How to join:</strong> Use your phone's camera app to scan a Peek QR code.
+                        You'll be taken directly to the join page - no app download needed!
+                      </AlertDescription>
+                    </Alert>
+                  </div>
                 </CardContent>
               </Card>
             ) : (

@@ -567,6 +567,8 @@ impl RelayService {
         for event in events {
             let mut group_id = None;
             let mut name = None;
+            let mut about = None;
+            let mut picture = None;
             let mut display_geohash = None;
             let mut member_count = 0u32;
 
@@ -583,6 +585,12 @@ impl RelayService {
                         }
                         "name" => {
                             name = tag.content().map(|s| s.to_string());
+                        }
+                        "about" => {
+                            about = tag.content().map(|s| s.to_string());
+                        }
+                        "picture" => {
+                            picture = tag.content().map(|s| s.to_string());
                         }
                         "dg" => {
                             // Display geohash (9 characters)
@@ -606,20 +614,30 @@ impl RelayService {
                     member_count = count;
                 }
 
-                communities.push(serde_json::json!({
+                let mut community_obj = serde_json::json!({
                     "id": id.strip_prefix("peek-").unwrap_or(&id),
                     "name": community_name,
                     "display_geohash": dg_hash,
                     "member_count": member_count,
                     "created_at": event.created_at.as_u64(),
-                }));
+                });
+
+                // Add optional fields if present
+                if let Some(about_text) = about {
+                    community_obj["about"] = serde_json::json!(about_text);
+                }
+                if let Some(picture_url) = picture {
+                    community_obj["picture"] = serde_json::json!(picture_url);
+                }
+
+                communities.push(community_obj);
             }
         }
 
         // Create NIP-78 event with discovery map
         let content = serde_json::json!({
             "version": 1,
-            "communities": communities,
+            "groups": communities,
             "updated_at": Timestamp::now().as_u64(),
         })
         .to_string();

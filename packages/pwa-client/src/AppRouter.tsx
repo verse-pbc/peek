@@ -9,6 +9,7 @@ import { TestLocationPage } from "./pages/TestLocation";
 import { TestCommunityPreviewPage } from "./pages/TestCommunityPreview";
 import { JoinFlow } from "./pages/JoinFlow";
 import JoinCommunityMock from "./pages/JoinCommunityMock";
+import { DiscoveryMap } from "./pages/DiscoveryMap";
 import NotFound from "./pages/NotFound";
 
 export function AppRouter() {
@@ -22,6 +23,7 @@ export function AppRouter() {
           <Route path="/c/join-community" element={<JoinCommunityMock />} /> {/* Mock page for local dev only */}
           <Route path="/c/:communityId" element={<JoinFlow />} /> {/* QR code path for joining communities */}
           <Route path="/community/:communityId" element={<Community />} /> {/* Community page after validation */}
+          <Route path="/discover" element={<DiscoveryMap />} /> {/* Discovery map with fog of war */}
           <Route path="/test-location" element={<TestLocationPage />} />
           <Route path="/test-preview" element={<TestCommunityPreviewPage />} />
           {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
