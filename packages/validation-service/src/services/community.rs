@@ -35,20 +35,53 @@ impl CommunityService {
     pub async fn get(&self, id: &Uuid) -> Option<CommunityMetadata> {
         // Check if NIP-29 group exists on relay
         let group_id = format!("peek-{}", id);
+        tracing::info!(
+            "[CommunityService::get] Getting metadata for group {}",
+            group_id
+        );
 
         // Try to get NIP-29 group metadata first
         if let Ok(group_meta) = self.relay_service.get_group_metadata(&group_id).await {
+            tracing::info!("[CommunityService::get] Retrieved metadata for {}: name='{}', members={}, geohash={:?}, display_geohash={:?}",
+                group_id, group_meta.name, group_meta.member_count, group_meta.geohash, group_meta.display_geohash);
             // If group exists and has no members, it's essentially "new" for the first user
             // Return None so the first user becomes admin
             if group_meta.member_count == 0 {
+                tracing::info!(
+                    "[CommunityService::get] Group {} has 0 members, treating as new",
+                    group_id
+                );
                 return None;
             }
 
             // Group exists with members, construct metadata
             // Get geohash from the metadata
-            let geohash = group_meta.geohash?;
-
-            return Some(CommunityMetadata { geohash });
+            if let Some(geohash) = group_meta.geohash {
+                tracing::info!(
+                    "[CommunityService::get] Group {} has geohash: {}",
+                    group_id,
+                    geohash
+                );
+                return Some(CommunityMetadata { geohash });
+            } else if let Some(display_geohash) = group_meta.display_geohash {
+                // Fallback to display geohash if regular geohash is missing
+                tracing::warn!("[CommunityService::get] Group {} missing regular geohash, using display_geohash: {}", group_id, display_geohash);
+                // Extract the first 8 characters as a fallback geohash
+                let geohash = display_geohash.chars().take(8).collect::<String>();
+                return Some(CommunityMetadata { geohash });
+            } else {
+                tracing::error!(
+                    "[CommunityService::get] Group {} exists with {} members but has no geohash!",
+                    group_id,
+                    group_meta.member_count
+                );
+                return None;
+            }
+        } else {
+            tracing::info!(
+                "[CommunityService::get] Group {} not found on relay",
+                group_id
+            );
         }
 
         // Group doesn't exist on relay
@@ -59,11 +92,28 @@ impl CommunityService {
     /// Check if group exists but has no geohash (corrupted state)
     async fn group_exists_without_geohash(&self, community_id: &Uuid) -> bool {
         let group_id = format!("peek-{}", community_id);
+        tracing::info!(
+            "[group_exists_without_geohash] Checking if group {} exists without geohash",
+            group_id
+        );
 
         if let Ok(group_meta) = self.relay_service.get_group_metadata(&group_id).await {
+            tracing::info!("[group_exists_without_geohash] Group {} metadata: members={}, geohash={:?}, display_geohash={:?}",
+                group_id, group_meta.member_count, group_meta.geohash, group_meta.display_geohash);
+
             // Group exists with members but no geohash - corrupted state
-            return group_meta.member_count > 0 && group_meta.geohash.is_none();
+            let result = group_meta.member_count > 0 && group_meta.geohash.is_none();
+            tracing::info!(
+                "[group_exists_without_geohash] Group {} exists_without_geohash = {}",
+                group_id,
+                result
+            );
+            return result;
         }
+        tracing::info!(
+            "[group_exists_without_geohash] Group {} not found on relay",
+            group_id
+        );
         false
     }
 

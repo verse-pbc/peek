@@ -449,6 +449,11 @@ impl RelayService {
 
     /// Get NIP-29 group metadata from relay
     pub async fn get_group_metadata(&self, group_id: &str) -> Result<GroupMetadata> {
+        tracing::info!(
+            "[get_group_metadata] Fetching metadata for group: {}",
+            group_id
+        );
+
         // Fetch kind 39000 (group metadata) events using d-tag
         // These are relay-generated events that contain the group metadata
         let metadata_filter = Filter::new()
@@ -464,7 +469,16 @@ impl RelayService {
             .fetch_events(metadata_filter, Duration::from_secs(5))
             .await?;
 
+        tracing::info!(
+            "[get_group_metadata] Found {} events for group {}",
+            metadata_events.len(),
+            group_id
+        );
+
         if let Some(event) = metadata_events.first() {
+            tracing::info!("[get_group_metadata] Raw kind 39000 event for {}: id={}, created_at={}, tags count={}",
+                group_id, event.id, event.created_at, event.tags.len());
+            tracing::debug!("[get_group_metadata] Full event: {:?}", event);
             // Parse tags for metadata fields
             let mut name = String::new();
             let mut picture = None;
@@ -475,6 +489,7 @@ impl RelayService {
             let mut display_geohash = None;
 
             for tag in event.tags.iter() {
+                tracing::debug!("[get_group_metadata] Processing tag: {:?}", tag);
                 if let TagKind::Custom(tag_name) = tag.kind() {
                     match tag_name.as_ref() {
                         "name" => {
@@ -491,19 +506,37 @@ impl RelayService {
                         "g" => {
                             // Parse geohash location tag
                             if let Some(content) = tag.content() {
+                                tracing::info!("[get_group_metadata] Found 'g' tag with content: '{}' (len={})", content, content.len());
                                 // Validate it's a level 8 geohash
                                 if content.len() == 8 {
                                     geohash = Some(content.to_string());
+                                    tracing::info!(
+                                        "[get_group_metadata] Set geohash to: {:?}",
+                                        geohash
+                                    );
+                                } else {
+                                    tracing::warn!("[get_group_metadata] Geohash '{}' has invalid length {} (expected 8)", content, content.len());
                                 }
+                            } else {
+                                tracing::warn!("[get_group_metadata] 'g' tag has no content");
                             }
                         }
                         "dg" => {
                             // Parse display geohash location tag
                             if let Some(content) = tag.content() {
+                                tracing::info!("[get_group_metadata] Found 'dg' tag with content: '{}' (len={})", content, content.len());
                                 // Validate it's a level 9 geohash
                                 if content.len() == 9 {
                                     display_geohash = Some(content.to_string());
+                                    tracing::info!(
+                                        "[get_group_metadata] Set display_geohash to: {:?}",
+                                        display_geohash
+                                    );
+                                } else {
+                                    tracing::warn!("[get_group_metadata] Display geohash '{}' has invalid length {} (expected 9)", content, content.len());
                                 }
+                            } else {
+                                tracing::warn!("[get_group_metadata] 'dg' tag has no content");
                             }
                         }
                         "public" => is_public = true,
@@ -519,6 +552,9 @@ impl RelayService {
             let member_count = self.get_group_member_count(group_id).await.unwrap_or(0);
             let rules = None;
 
+            tracing::info!("[get_group_metadata] Final metadata for {}: name='{}', members={}, geohash={:?}, display_geohash={:?}",
+                group_id, name, member_count, geohash, display_geohash);
+
             Ok(GroupMetadata {
                 name,
                 picture,
@@ -532,6 +568,10 @@ impl RelayService {
                 display_geohash,
             })
         } else {
+            tracing::warn!(
+                "[get_group_metadata] No kind 39000 event found for group {}",
+                group_id
+            );
             Err(RelayError::GroupNotFound(group_id.to_string()))
         }
     }
