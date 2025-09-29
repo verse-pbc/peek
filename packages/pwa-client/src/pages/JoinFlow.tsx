@@ -62,7 +62,7 @@ export const JoinFlow: React.FC = () => {
   const navigate = useNavigate();
   const { pubkey, login, identity } = useNostrLogin();
   const { toast } = useToast();
-  const { relayManager, connected, waitForConnection } = useRelayManager();
+  const { relayManager, groupManager, connected, waitForConnection } = useRelayManager();
 
   // Flow state
   const [currentStep, setCurrentStep] = useState<JoinStep>(JoinStep.LOADING);
@@ -484,6 +484,12 @@ export const JoinFlow: React.FC = () => {
           relay: response.relay_url,
           is_admin: response.is_admin
         });
+
+        // If user is admin, immediately update the cache
+        if (response.is_admin && response.group_id && groupManager && pubkey) {
+          groupManager.setInitialAdminStatus(response.group_id, pubkey);
+          console.log('Set initial admin status in cache for group:', response.group_id);
+        }
       } else {
         // Validation failed - show specific error
         const errorMessage = response.error || 'Location validation failed';

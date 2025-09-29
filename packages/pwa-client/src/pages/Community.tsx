@@ -86,7 +86,28 @@ const Community = () => {
 
       // First check cache for fast initial display
       let isMember = groupManager.isGroupMember(groupId);
-      const isAdmin = groupManager.isGroupAdmin(groupId);
+      let isAdmin = groupManager.isGroupAdmin(groupId);
+
+      // If not admin in cache, check localStorage as fallback
+      if (!isAdmin) {
+        const joinedGroupsStr = localStorage.getItem('joinedGroups');
+        if (joinedGroupsStr) {
+          try {
+            const joinedGroups = JSON.parse(joinedGroupsStr);
+            const groupInfo = joinedGroups.find((g: { groupId?: string; communityId?: string }) =>
+              g.groupId === groupId || g.communityId === communityId
+            );
+            if (groupInfo?.isAdmin) {
+              // Set initial admin status from localStorage
+              groupManager.setInitialAdminStatus(groupId, pubkey);
+              isAdmin = true;
+              console.log('Set admin status from localStorage for group:', groupId);
+            }
+          } catch (e) {
+            console.error('Error parsing joinedGroups:', e);
+          }
+        }
+      }
 
       console.log('Initial cache check:', {
         groupId,
