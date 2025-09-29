@@ -1,1 +1,1 @@
-// This module is currently empty - location validation is handled via geohash
+pub mod display_location;

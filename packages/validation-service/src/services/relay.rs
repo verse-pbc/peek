@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
 
+use crate::libraries::display_location::generate_display_location;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Location {
     pub latitude: f64,
@@ -21,7 +23,9 @@ pub struct GroupMetadata {
     pub is_public: bool,
     pub is_open: bool,
     pub created_at: Timestamp,
-    pub geohash: Option<String>, // Level 8 geohash for location
+    pub geohash: Option<String>, // Level 8 geohash for actual location
+    #[allow(dead_code)]
+    pub display_geohash: Option<String>, // Level 9 geohash for display location
 }
 
 /// Service for managing NIP-29 groups on a Nostr relay
@@ -260,6 +264,17 @@ impl RelayService {
                 )
                 .map_err(|e| RelayError::Other(format!("Failed to encode location: {}", e)))?],
             ),
+            // Store display location as 9-character geohash for public discovery
+            Tag::custom(
+                TagKind::Custom("dg".into()),
+                [
+                    generate_display_location(location.latitude, location.longitude).map_err(
+                        |e| {
+                            RelayError::Other(format!("Failed to generate display location: {}", e))
+                        },
+                    )?,
+                ],
+            ),
         ]);
 
         let metadata_start = std::time::Instant::now();
@@ -282,6 +297,15 @@ impl RelayService {
         }
 
         // Location is now stored in the NIP-29 group metadata, no need for separate storage
+
+        // Publish updated discovery map with new community
+        if let Err(e) = self.publish_discovery_map().await {
+            tracing::warn!(
+                "Failed to publish discovery map after creating group: {}",
+                e
+            );
+            // Don't fail the group creation if discovery map publishing fails
+        }
 
         Ok(group_id)
     }
@@ -385,7 +409,7 @@ impl RelayService {
     }
 
     /// Get the member count for a NIP-29 group
-    async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
+    pub async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
         // Fetch kind 39002 (group members) event using d-tag
         // This is the relay-generated list of all group members
         let members_filter = Filter::new()
@@ -451,6 +475,7 @@ impl RelayService {
             let mut is_public = false;
             let mut is_open = false;
             let mut geohash = None;
+            let mut display_geohash = None;
 
             for tag in event.tags.iter() {
                 if let TagKind::Custom(tag_name) = tag.kind() {
@@ -472,6 +497,15 @@ impl RelayService {
                                 // Validate it's a level 8 geohash
                                 if content.len() == 8 {
                                     geohash = Some(content.to_string());
+                                }
+                            }
+                        }
+                        "dg" => {
+                            // Parse display geohash location tag
+                            if let Some(content) = tag.content() {
+                                // Validate it's a level 9 geohash
+                                if content.len() == 9 {
+                                    display_geohash = Some(content.to_string());
                                 }
                             }
                         }
@@ -498,6 +532,7 @@ impl RelayService {
                 is_open,
                 created_at: event.created_at,
                 geohash,
+                display_geohash,
             })
         } else {
             Err(RelayError::GroupNotFound(group_id.to_string()))
@@ -506,20 +541,102 @@ impl RelayService {
 
     /// Load all communities from relay on startup
     pub async fn load_all_communities(&self) -> Result<()> {
-        // Create filter for all kind 30078 community metadata events
-        let filter = Filter::new()
-            .kind(Kind::from(30078))
-            .author(self.relay_keys.public_key());
-
-        // Query relay
-        let _events = self
-            .client
-            .fetch_events(filter, Duration::from_secs(10))
-            .await?;
-
         // Communities are now tracked entirely through NIP-29 group metadata
         // No need to load encrypted metadata
         tracing::info!("Communities are now loaded directly from NIP-29 groups");
+        Ok(())
+    }
+
+    /// Publish a NIP-78 discovery map event with all communities' display locations
+    pub async fn publish_discovery_map(&self) -> Result<()> {
+        tracing::info!("Publishing discovery map...");
+
+        // Fetch all kind 39000 (group metadata) events created by this relay
+        let filter = Filter::new()
+            .kind(Kind::from(39000))
+            .author(self.relay_keys.public_key())
+            .limit(1000); // Safety limit
+
+        let events = self
+            .client
+            .fetch_events(filter, Duration::from_secs(5))
+            .await?;
+
+        let mut communities = Vec::new();
+
+        for event in events {
+            let mut group_id = None;
+            let mut name = None;
+            let mut display_geohash = None;
+            let mut member_count = 0u32;
+
+            for tag in event.tags.iter() {
+                if let TagKind::Custom(tag_name) = tag.kind() {
+                    match tag_name.as_ref() {
+                        "d" => {
+                            if let Some(content) = tag.content() {
+                                // Only include peek communities
+                                if content.starts_with("peek-") {
+                                    group_id = Some(content.to_string());
+                                }
+                            }
+                        }
+                        "name" => {
+                            name = tag.content().map(|s| s.to_string());
+                        }
+                        "dg" => {
+                            // Display geohash (9 characters)
+                            if let Some(content) = tag.content() {
+                                if content.len() == 9 {
+                                    display_geohash = Some(content.to_string());
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            // Only include communities with display locations
+            if let (Some(id), Some(community_name), Some(dg_hash)) =
+                (group_id, name, display_geohash)
+            {
+                // Try to get member count
+                if let Ok(count) = self.get_group_member_count(&id).await {
+                    member_count = count;
+                }
+
+                communities.push(serde_json::json!({
+                    "id": id.strip_prefix("peek-").unwrap_or(&id),
+                    "name": community_name,
+                    "display_geohash": dg_hash,
+                    "member_count": member_count,
+                    "created_at": event.created_at.as_u64(),
+                }));
+            }
+        }
+
+        // Create NIP-78 event with discovery map
+        let content = serde_json::json!({
+            "version": 1,
+            "communities": communities,
+            "updated_at": Timestamp::now().as_u64(),
+        })
+        .to_string();
+
+        let event = EventBuilder::new(Kind::from(30078), content).tags([Tag::custom(
+            TagKind::Custom("d".into()),
+            ["peek.discovery-map"],
+        )]);
+
+        // Sign and publish
+        let signed_event = self.client.sign_event_builder(event).await?;
+        self.client.send_event(&signed_event).await?;
+
+        tracing::info!(
+            "Published discovery map with {} communities",
+            communities.len()
+        );
         Ok(())
     }
 }
