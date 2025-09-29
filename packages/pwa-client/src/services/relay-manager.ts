@@ -176,6 +176,100 @@ export class RelayManager {
   }
 
   /**
+   * Query all groups where the user is a member by checking kind 39002 (GROUP_MEMBERS) events
+   * Returns an array of group IDs the user belongs to
+   */
+  async queryUserGroups(pubkey?: string): Promise<string[]> {
+    const targetPubkey = pubkey || this.userPubkey;
+    if (!targetPubkey) {
+      console.warn('[RelayManager] Cannot query user groups: no pubkey provided');
+      return [];
+    }
+
+    if (!this.relay || !this.relay.connected) {
+      console.warn('[RelayManager] Cannot query user groups: not connected');
+      return [];
+    }
+
+    try {
+      console.log('[RelayManager] Querying user groups for pubkey:', targetPubkey);
+
+      // Query for all GROUP_MEMBERS (kind 39002) events that contain this user's pubkey
+      const filter: Filter = {
+        kinds: [NIP29_KINDS.GROUP_MEMBERS],
+        '#p': [targetPubkey],
+        limit: 100
+      };
+
+      const events = await this.pool.querySync([this.relayUrl], filter);
+      console.log(`[RelayManager] Found ${events.length} GROUP_MEMBERS events containing user`);
+
+      // Extract group IDs from the 'd' tags
+      const groupIds: string[] = [];
+      for (const event of events) {
+        const dTag = event.tags.find(tag => tag[0] === 'd' && tag[1]);
+        if (dTag && dTag[1]) {
+          groupIds.push(dTag[1]);
+          console.log(`[RelayManager] User is member of group: ${dTag[1]}`);
+        }
+      }
+
+      // Remove duplicates and return
+      const uniqueGroupIds = [...new Set(groupIds)];
+      console.log(`[RelayManager] User belongs to ${uniqueGroupIds.length} unique groups:`, uniqueGroupIds);
+
+      return uniqueGroupIds;
+    } catch (error) {
+      console.error('[RelayManager] Error querying user groups:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if a user is a member of a specific group by querying kind 39002 (GROUP_MEMBERS) events
+   * This is the authoritative way to check current membership status
+   */
+  async queryGroupMembership(groupId: string, pubkey: string): Promise<boolean> {
+    if (!this.relay || !this.relay.connected) {
+      console.warn('[RelayManager] Cannot query group membership: not connected');
+      return false;
+    }
+
+    try {
+      console.log(`[RelayManager] Checking membership for user ${pubkey} in group ${groupId}`);
+
+      // Query for the latest GROUP_MEMBERS (kind 39002) event for this group
+      const filter: Filter = {
+        kinds: [NIP29_KINDS.GROUP_MEMBERS],
+        '#d': [groupId],
+        limit: 1
+      };
+
+      const events = await this.pool.querySync([this.relayUrl], filter);
+
+      if (events.length === 0) {
+        console.log(`[RelayManager] No GROUP_MEMBERS event found for group ${groupId}`);
+        return false;
+      }
+
+      const membersEvent = events[0];
+      console.log(`[RelayManager] Found GROUP_MEMBERS event for ${groupId}, checking for user ${pubkey}`);
+
+      // Check if the user's pubkey is in the 'p' tags
+      const isMember = membersEvent.tags.some(tag =>
+        tag[0] === 'p' && tag[1] === pubkey
+      );
+
+      console.log(`[RelayManager] User ${pubkey} ${isMember ? 'is' : 'is not'} a member of group ${groupId}`);
+      return isMember;
+
+    } catch (error) {
+      console.error('[RelayManager] Error querying group membership:', error);
+      return false;
+    }
+  }
+
+  /**
    * Connect to the relay
    */
   async connect(): Promise<void> {

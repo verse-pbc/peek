@@ -614,39 +614,61 @@ export class GroupManager {
   /**
    * Check membership status directly from the relay (bypasses cache)
    * This is the authoritative way to check if a user is a member
+   * Prioritizes kind 39002 (GROUP_MEMBERS) events over kind 9000/9001 (moderation) events
    */
   async checkMembershipDirectly(groupId: string, pubkey?: string): Promise<boolean> {
     const targetPubkey = pubkey || this.relayManager.getUserPubkey();
     if (!targetPubkey) return false;
 
-    // TEMPORARY: For development testing, check localStorage first
-    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-    const communityId = groupId.replace('peek-', '');
-    const isInLocalStorage = joinedGroups.some((g: { communityId: string }) => g.communityId === communityId);
+    console.log(`[GroupManager] Checking membership directly for ${targetPubkey} in ${groupId}`);
 
-    if (isInLocalStorage) {
-      console.log(`[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`);
-      return true;
-    }
+    try {
+      // PRIORITY 1: Check current membership via kind 39002 (GROUP_MEMBERS) events
+      // This is the most reliable source as it reflects the current state
+      const isMemberViaGroupEvents = await this.relayManager.queryGroupMembership(groupId, targetPubkey);
 
-    const latestEvent = await this.relayManager.queryMembershipEvents(groupId, targetPubkey);
+      if (isMemberViaGroupEvents) {
+        console.log(`[GroupManager] User confirmed as member via kind 39002 events`);
+        return true;
+      }
 
-    if (!latestEvent) {
-      // No membership events found - user was never added
+      console.log(`[GroupManager] User not found in kind 39002 events, checking moderation timeline...`);
+
+      // PRIORITY 2: Fallback to moderation events (kind 9000/9001) for membership timeline
+      const latestEvent = await this.relayManager.queryMembershipEvents(groupId, targetPubkey);
+
+      if (!latestEvent) {
+        console.log(`[GroupManager] No membership events found - user was never added`);
+        return false;
+      }
+
+      // Check if the latest event is an add (9000) or remove (9001)
+      if (latestEvent.kind === 9000) {
+        console.log(`[GroupManager] Latest moderation event shows user was added`);
+        return true;
+      } else if (latestEvent.kind === 9001) {
+        console.log(`[GroupManager] Latest moderation event shows user was removed`);
+        return false;
+      }
+
+      // PRIORITY 3: Final fallback for development testing - check localStorage
+      console.log(`[GroupManager] Checking localStorage as final fallback...`);
+      const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+      const communityId = groupId.replace('peek-', '');
+      const isInLocalStorage = joinedGroups.some((g: { communityId: string }) => g.communityId === communityId);
+
+      if (isInLocalStorage) {
+        console.log(`[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`);
+        return true;
+      }
+
+      console.log(`[GroupManager] User is not a member according to all checks`);
+      return false;
+
+    } catch (error) {
+      console.error('[GroupManager] Error checking membership directly:', error);
       return false;
     }
-
-    // Check if the latest event is an add (9000) or remove (9001)
-    if (latestEvent.kind === 9000) {
-      // User was added - they are a member
-      return true;
-    } else if (latestEvent.kind === 9001) {
-      // User was removed - they are not a member
-      return false;
-    }
-
-    // Shouldn't reach here, but default to not a member
-    return false;
   }
 
   getAllGroups(): Map<string, GroupMetadata> {
@@ -659,6 +681,88 @@ export class GroupManager {
     }
 
     return groups;
+  }
+
+  /**
+   * Get all groups where the current user is a member using NIP-29 events
+   * Returns an array of community objects with metadata
+   */
+  async getUserGroups(): Promise<Array<{
+    groupId: string;
+    communityId: string;
+    name: string;
+    memberCount: number;
+    isAdmin: boolean;
+    metadata?: GroupMetadata;
+  }>> {
+    const userPubkey = this.relayManager.getUserPubkey();
+    if (!userPubkey) {
+      console.warn('[GroupManager] Cannot get user groups: no pubkey available');
+      return [];
+    }
+
+    try {
+      // Query the relay for all groups this user belongs to
+      const groupIds = await this.relayManager.queryUserGroups(userPubkey);
+
+      console.log(`[GroupManager] Found ${groupIds.length} groups for user:`, groupIds);
+
+      const userGroups: Array<{
+        groupId: string;
+        communityId: string;
+        name: string;
+        memberCount: number;
+        isAdmin: boolean;
+        metadata?: GroupMetadata;
+      }> = [];
+
+      for (const groupId of groupIds) {
+        // Check if this is a Peek group (starts with 'peek-')
+        if (!groupId.startsWith('peek-')) {
+          continue; // Skip non-Peek groups
+        }
+
+        const communityId = groupId.replace('peek-', '');
+
+        // Get metadata from cache or fetch it
+        let metadata = this.getGroupMetadata(groupId);
+        let memberCount = this.getResolvedMemberCount(groupId);
+
+        // If not in cache, try to fetch from relay
+        if (!metadata) {
+          console.log(`[GroupManager] Metadata not in cache for ${groupId}, subscribing...`);
+          this.relayManager.subscribeToGroup(groupId);
+
+          // Wait a moment for the subscription to fetch data
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          metadata = this.getGroupMetadata(groupId);
+          memberCount = this.getResolvedMemberCount(groupId);
+        }
+
+        // Check if user is admin
+        const isAdmin = this.isGroupAdmin(groupId, userPubkey);
+
+        const userGroup = {
+          groupId: communityId, // Use communityId for navigation
+          communityId,
+          name: metadata?.name || `Community ${communityId.slice(0, 8)}`,
+          memberCount: memberCount > 0 ? memberCount : 1,
+          isAdmin,
+          metadata
+        };
+
+        userGroups.push(userGroup);
+        console.log(`[GroupManager] Added user group:`, userGroup);
+      }
+
+      console.log(`[GroupManager] Returning ${userGroups.length} user groups`);
+      return userGroups;
+
+    } catch (error) {
+      console.error('[GroupManager] Error getting user groups:', error);
+      return [];
+    }
   }
 
   refreshGroup(groupId: string) {
