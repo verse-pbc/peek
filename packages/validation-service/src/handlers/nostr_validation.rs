@@ -286,10 +286,12 @@ impl NostrValidationHandler {
             &gift_wrap.id.to_string()[0..8]
         );
 
-        // Unwrap the gift wrap
+        // Unwrap the gift wrap using service keys (gift wrap is addressed to service pubkey)
+        // Note: client uses relay keys for auth, but gift wraps are encrypted to service keys
         let unwrap_start = std::time::Instant::now();
         info!("⏱️ Starting unwrap at {:?}", unwrap_start);
-        let unwrapped = self.client.unwrap_gift_wrap(&gift_wrap).await?;
+        let unwrapped =
+            nostr_sdk::nips::nip59::extract_rumor(&self.service_keys, &gift_wrap).await?;
         let unwrap_duration = unwrap_start.elapsed();
         info!("⏱️ Unwrap completed in {:?}ms", unwrap_duration.as_millis());
         let rumor = unwrapped.rumor;
