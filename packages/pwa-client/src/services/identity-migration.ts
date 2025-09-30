@@ -128,17 +128,12 @@ export class IdentityMigrationService {
     const newPubkey = getPublicKey(newSecretKey);
     const oldPubkey = getPublicKey(oldSecretKey);
 
-    // Get all groups the old identity is a member of
-    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-    const groupTags: string[][] = joinedGroups.map((group: { communityId: string }) =>
-      ['h', `peek-${group.communityId}`]
-    );
-
     // Create proof event signed by new identity
+    // NOTE: No #h tags - migrations are identity-level, not group-specific
     const proofTemplate: EventTemplate = {
       kind: MIGRATION_KIND,
       content: '',
-      tags: [['p', oldPubkey], ...groupTags],
+      tags: [['p', oldPubkey]],
       created_at: Math.floor(Date.now() / 1000)
     };
     const proofEvent = finalizeEvent(proofTemplate, newSecretKey);
@@ -147,7 +142,7 @@ export class IdentityMigrationService {
     const migrationTemplate: EventTemplate = {
       kind: MIGRATION_KIND,
       content: JSON.stringify(proofEvent),
-      tags: [['p', newPubkey], ...groupTags],
+      tags: [['p', newPubkey]],
       created_at: Math.floor(Date.now() / 1000)
     };
 
@@ -167,17 +162,12 @@ export class IdentityMigrationService {
 
     const oldPubkey = getPublicKey(oldSecretKey);
 
-    // Get all groups the old identity is a member of
-    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-    const groupTags: string[][] = joinedGroups.map((group: { communityId: string }) =>
-      ['h', `peek-${group.communityId}`]
-    );
-
     // Create proof event to be signed by extension
+    // NOTE: No #h tags - migrations are identity-level, not group-specific
     const proofTemplate = {
       kind: MIGRATION_KIND,
       content: '',
-      tags: [['p', oldPubkey], ...groupTags],
+      tags: [['p', oldPubkey]],
       created_at: Math.floor(Date.now() / 1000)
     };
 
@@ -188,7 +178,7 @@ export class IdentityMigrationService {
     const migrationTemplate: EventTemplate = {
       kind: MIGRATION_KIND,
       content: JSON.stringify(proofEvent),
-      tags: [['p', newPubkey], ...groupTags],
+      tags: [['p', newPubkey]],
       created_at: Math.floor(Date.now() / 1000)
     };
 
@@ -202,12 +192,10 @@ export class IdentityMigrationService {
     // Extract migration details for logging
     const oldPubkey = event.pubkey;
     const newPubkey = event.tags.find(t => t[0] === 'p')?.[1];
-    const groupTags = event.tags.filter(t => t[0] === 'h');
 
     console.log('[IdentityMigration] Publishing migration event:', {
       old: oldPubkey,
       new: newPubkey,
-      groups: groupTags.map(t => t[1]),
       eventId: event.id
     });
 
@@ -316,33 +304,43 @@ export class IdentityMigrationService {
   }
 
   /**
-   * Fetch and process all migration events for a specific group
-   * This includes migrations for current members and former members
+   * Fetch and process all migration events globally
+   * Migration events are identity-level, not group-specific
    */
-  async fetchGroupMigrations(groupId: string): Promise<void> {
-    console.log(`[IdentityMigration] Fetching migrations for group ${groupId}`);
+  async fetchAllMigrations(): Promise<void> {
+    console.log(`[IdentityMigration] Fetching all migration events`);
 
-    // Query relay for all kind:1776 events with h tag for this group
+    // Query relay for all kind:1776 events (no group filter)
     const filter = {
-      kinds: [MIGRATION_KIND],
-      '#h': [groupId]
+      kinds: [MIGRATION_KIND]
     };
 
     try {
       const events = await this.relayManager.queryEvents(filter);
 
-      console.log(`[IdentityMigration] Found ${events.length} migration events for group ${groupId}`);
+      console.log(`[IdentityMigration] Found ${events.length} migration events`);
 
       // Process each migration event
       for (const event of events) {
         this.handleMigrationEvent(event as MigrationEvent);
       }
-
-      // Build complete resolution cache for this group
-      this.buildGroupResolutionCache(groupId);
     } catch (error) {
-      console.error(`[IdentityMigration] Error fetching group migrations:`, error);
+      console.error(`[IdentityMigration] Error fetching migrations:`, error);
     }
+  }
+
+  /**
+   * Fetch and process all migration events for a specific group
+   * Now fetches globally since migrations are identity-level
+   */
+  async fetchGroupMigrations(groupId: string): Promise<void> {
+    console.log(`[IdentityMigration] Fetching migrations for group ${groupId}`);
+
+    // Fetch all migrations (identity-level, not group-specific)
+    await this.fetchAllMigrations();
+
+    // Build complete resolution cache for this group
+    this.buildGroupResolutionCache(groupId);
   }
 
   /**
