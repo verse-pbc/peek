@@ -510,10 +510,12 @@ export class RelayManager {
 
     console.log(`[RelayManager] Subscribing to group ${groupId} with auth handler:`, !!this.authHandler);
 
-    // Subscribe to h-tagged events (content only - membership is in 39xxx events)
+    // Subscribe to h-tagged events (content + moderation)
     const hFilter: Filter = {
       '#h': [groupId],
       kinds: [
+        NIP29_KINDS.PUT_USER,
+        NIP29_KINDS.REMOVE_USER,
         NIP29_KINDS.CHAT_MESSAGE,
         NIP29_KINDS.CHANNEL_MESSAGE,
         NIP29_KINDS.DELETE_EVENT,

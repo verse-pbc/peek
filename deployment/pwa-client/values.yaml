@@ -1,7 +1,7 @@
 replicaCount: 1
 image:
   repository: ghcr.io/verse-pbc/peek-pwa-client
-  tag: "0.1.20250930-1848-c0f7070"
+  tag: "0.1.20250930-2115-278c897"
   pullPolicy: Always
 service:
   type: ClusterIP

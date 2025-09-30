@@ -166,16 +166,23 @@ export const useNostrLogin = () => {
     }
 
     try {
-      // Get public key from extension
+      // Always get fresh public key from extension
       const publicKey = await window.nostr!.getPublicKey();
       const npub = nip19.npubEncode(publicKey);
 
-      // We can't get the private key from extension, so we'll use a special marker
+      // Check if this is different from current identity
+      const storedIdentity = localStorage.getItem(STORAGE_KEY);
+      const cached = storedIdentity ? JSON.parse(storedIdentity) : null;
+
+      if (cached && cached.publicKey !== publicKey) {
+        console.log(`[loginWithExtension] Extension pubkey changed: ${cached.publicKey.slice(0, 8)}... → ${publicKey.slice(0, 8)}...`);
+      }
+
+      // Always update localStorage with current extension state
       const newIdentity: StoredIdentity = {
-        secretKey: 'NIP07_EXTENSION', // Special marker for extension usage
+        secretKey: 'NIP07_EXTENSION',
         publicKey,
         npub
-        // SECURITY: Never store any private key data for extension
       };
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newIdentity));
