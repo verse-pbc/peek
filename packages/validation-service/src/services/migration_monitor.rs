@@ -153,22 +153,27 @@ impl MigrationMonitor {
 
         info!("Found {} groups to update", groups.len());
 
-        let relay_service = self.relay_service.write().await;
-
-        for group_id in groups {
-            info!(
-                "Updating group {}: replacing {} with {}",
-                group_id, old_pubkey, new_pubkey
-            );
-
-            // Check if old member is an admin
+        // Check admin status for all groups BEFORE acquiring write lock to avoid deadlock
+        let mut group_admin_status = Vec::new();
+        for group_id in &groups {
             let is_admin = self
-                .check_if_admin(&group_id, old_pubkey)
+                .check_if_admin(group_id, old_pubkey)
                 .await
                 .unwrap_or(false);
             info!(
                 "Old member {} admin status in group {}: {}",
                 old_pubkey, group_id, is_admin
+            );
+            group_admin_status.push((group_id.clone(), is_admin));
+        }
+
+        // Now acquire write lock to perform updates
+        let relay_service = self.relay_service.write().await;
+
+        for (group_id, is_admin) in group_admin_status {
+            info!(
+                "Updating group {}: replacing {} with {} (admin: {})",
+                group_id, old_pubkey, new_pubkey, is_admin
             );
 
             // Add new member first with same admin status as old member
