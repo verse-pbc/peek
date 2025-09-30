@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CommunityFeed } from '../components/CommunityFeed';
 import { AdminPanel } from '../components/AdminPanel';
@@ -45,6 +45,10 @@ const Community = () => {
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const { relayManager, groupManager, connected, waitForConnection } = useRelayManager();
+
+  // Refs for migration polling cleanup
+  const migrationPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const migrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // The group ID format for NIP-29
   const groupId = communityId ? `peek-${communityId}` : null;
@@ -178,8 +182,58 @@ const Community = () => {
       }
 
       if (isMigrating && !isMember) {
-        // Show migration in progress state instead of redirecting
+        // Migration in progress - keep loading state and poll for membership update
         console.log('Identity migration in progress, waiting for membership update...');
+
+        // Clear any existing polling intervals
+        if (migrationPollIntervalRef.current) {
+          clearInterval(migrationPollIntervalRef.current);
+        }
+        if (migrationTimeoutRef.current) {
+          clearTimeout(migrationTimeoutRef.current);
+        }
+
+        // Poll for membership update every 2 seconds
+        migrationPollIntervalRef.current = setInterval(async () => {
+          const updatedIsMember = await groupManager.checkMembershipDirectly(groupId);
+
+          if (updatedIsMember) {
+            console.log('Migration complete - membership confirmed!');
+
+            // Clear polling
+            if (migrationPollIntervalRef.current) {
+              clearInterval(migrationPollIntervalRef.current);
+              migrationPollIntervalRef.current = null;
+            }
+            if (migrationTimeoutRef.current) {
+              clearTimeout(migrationTimeoutRef.current);
+              migrationTimeoutRef.current = null;
+            }
+
+            // Clear migration state
+            localStorage.removeItem('identity_migrating');
+
+            // Re-trigger the access verification to load community data
+            verifyCommunityAccess();
+          }
+        }, 2000);
+
+        // Timeout after 30 seconds
+        migrationTimeoutRef.current = setTimeout(() => {
+          if (migrationPollIntervalRef.current) {
+            clearInterval(migrationPollIntervalRef.current);
+            migrationPollIntervalRef.current = null;
+          }
+
+          console.warn('Migration polling timed out');
+
+          // Clear migration state and retry
+          localStorage.removeItem('identity_migrating');
+          verifyCommunityAccess();
+        }, 30000);
+
+        // Keep loading state true - don't proceed to load community data yet
+        return;
       }
 
       // User is a member - load community data
@@ -238,6 +292,18 @@ const Community = () => {
     };
 
     verifyCommunityAccess();
+
+    // Cleanup function to clear migration polling intervals
+    return () => {
+      if (migrationPollIntervalRef.current) {
+        clearInterval(migrationPollIntervalRef.current);
+        migrationPollIntervalRef.current = null;
+      }
+      if (migrationTimeoutRef.current) {
+        clearTimeout(migrationTimeoutRef.current);
+        migrationTimeoutRef.current = null;
+      }
+    };
   }, [pubkey, groupId, communityId, groupManager, connected, navigate, waitForConnection]);
 
   const handleBack = () => {
