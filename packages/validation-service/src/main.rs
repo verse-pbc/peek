@@ -35,20 +35,17 @@ async fn main() {
 
     info!("Starting validation service (Nostr-only mode)");
 
-    // Initialize community service with relay connection
-    let community_service = CommunityService::new(&config.relay_url, &config.relay_secret_key)
-        .await
-        .expect("Failed to initialize community service");
-
-    let community_service_arc = Arc::new(community_service);
-
-    // Initialize relay service
+    // Initialize relay service (single shared instance)
     let relay_service =
         RelayService::new(config.relay_url.clone(), config.relay_secret_key.clone())
             .await
             .expect("Failed to initialize relay service");
 
     let relay_service_arc = Arc::new(tokio::sync::RwLock::new(relay_service));
+
+    // Initialize community service with shared relay service
+    let community_service = CommunityService::new(relay_service_arc.clone());
+    let community_service_arc = Arc::new(community_service);
 
     // Start Nostr validation handler in background
     let nostr_config = config.clone();
