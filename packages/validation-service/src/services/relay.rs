@@ -44,6 +44,8 @@ pub struct GroupMetadata {
 pub struct RelayService {
     client: Client,
     relay_keys: Keys,
+    uuid_to_group_cache:
+        std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<Uuid, String>>>,
 }
 
 impl RelayService {
@@ -88,7 +90,13 @@ impl RelayService {
             tracing::warn!("⚠️ Relay connection might not be fully established");
         }
 
-        Ok(Self { client, relay_keys })
+        Ok(Self {
+            client,
+            relay_keys,
+            uuid_to_group_cache: std::sync::Arc::new(tokio::sync::RwLock::new(
+                std::collections::HashMap::new(),
+            )),
+        })
     }
 
     /// Create a new NIP-29 group for a community
@@ -312,6 +320,13 @@ impl RelayService {
         }
 
         // Location is now stored in the NIP-29 group metadata, no need for separate storage
+
+        // Cache the UUID → h-tag mapping for immediate lookups
+        self.uuid_to_group_cache
+            .write()
+            .await
+            .insert(community_id, group_id.clone());
+        tracing::info!("Cached UUID {} → group {}", community_id, group_id);
 
         // Publish updated discovery map with new community's display geohash
         if let Err(e) = self.publish_discovery_map(Some(display_geohash)).await {
@@ -624,6 +639,16 @@ impl RelayService {
     pub async fn find_group_by_uuid(&self, uuid: &Uuid) -> Result<Option<String>> {
         tracing::info!("[find_group_by_uuid] Looking up group for UUID: {}", uuid);
 
+        // Check cache first
+        if let Some(group_id) = self.uuid_to_group_cache.read().await.get(uuid) {
+            tracing::info!(
+                "[find_group_by_uuid] Found cached mapping {} → {}",
+                uuid,
+                group_id
+            );
+            return Ok(Some(group_id.clone()));
+        }
+
         // Query for kind 39000 (group metadata) with i-tag containing the UUID
         let filter = Filter::new()
             .kind(Kind::from(39000))
@@ -644,12 +669,18 @@ impl RelayService {
                 if let TagKind::Custom(tag_name) = tag.kind() {
                     if tag_name.as_ref() == "d" {
                         if let Some(group_id) = tag.content() {
+                            let group_id_string = group_id.to_string();
                             tracing::info!(
                                 "[find_group_by_uuid] Found group {} for UUID {}",
-                                group_id,
+                                group_id_string,
                                 uuid
                             );
-                            return Ok(Some(group_id.to_string()));
+                            // Cache for future lookups
+                            self.uuid_to_group_cache
+                                .write()
+                                .await
+                                .insert(*uuid, group_id_string.clone());
+                            return Ok(Some(group_id_string));
                         }
                     }
                 }
