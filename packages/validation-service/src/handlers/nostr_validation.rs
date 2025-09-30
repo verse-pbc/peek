@@ -109,15 +109,29 @@ impl NostrValidationHandler {
         community_service: Arc<CommunityService>,
         relay_service: Arc<RwLock<RelayService>>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        // Parse the service's secret key from hex
+        // Parse the service's secret key from hex (for gift wrap recipient identity)
         let secret_key = SecretKey::from_hex(&config.service_secret_key)
             .map_err(|e| format!("Failed to parse service secret key: {}", e))?;
         let service_keys = Keys::new(secret_key);
 
-        info!("Service pubkey: {}", service_keys.public_key().to_bech32()?);
+        info!(
+            "Service pubkey (gift wrap recipient): {}",
+            service_keys.public_key().to_bech32()?
+        );
 
-        // Create client with service keys
-        let client = Client::new(service_keys.clone());
+        // Parse relay secret key for authentication (admin privileges)
+        let relay_secret_key = SecretKey::from_bech32(&config.relay_secret_key)
+            .or_else(|_| SecretKey::from_hex(&config.relay_secret_key))
+            .map_err(|e| format!("Failed to parse relay secret key: {}", e))?;
+        let relay_keys = Keys::new(relay_secret_key);
+
+        info!(
+            "Relay pubkey (authentication): {}",
+            relay_keys.public_key().to_bech32()?
+        );
+
+        // Create client with relay keys for admin authentication
+        let client = Client::new(relay_keys.clone());
 
         // Add relays for receiving gift wraps
         // Use only local relay for development/testing environments
