@@ -4,12 +4,13 @@ import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { 
-  MapPin, 
-  Users, 
-  Calendar, 
-  Shield, 
-  Loader2, 
+import { MemberAvatarStack } from './MemberAvatarStack';
+import {
+  MapPin,
+  Users,
+  Calendar,
+  Shield,
+  Loader2,
   AlertCircle,
   CheckCircle
 } from 'lucide-react';
@@ -18,6 +19,8 @@ interface CommunityMetadata {
   name: string;
   description: string;
   member_count: number;
+  members?: string[];
+  picture?: string;
   created_at: number;
   location_name?: string;
   admin_count?: number;
@@ -142,7 +145,19 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="w-full max-w-2xl mx-auto overflow-hidden">
+      {/* Hero Image */}
+      {previewData.picture && (
+        <div className="relative h-48 w-full overflow-hidden">
+          <img
+            src={previewData.picture}
+            alt={previewData.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/20" />
+        </div>
+      )}
+
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -153,12 +168,20 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
               {previewData.description}
             </CardDescription>
           </div>
-          {isFirstScanner && (
-            <Badge variant="default" className="ml-4">
-              <Shield className="h-3 w-3 mr-1" />
-              You'll be admin
-            </Badge>
-          )}
+          <div className="flex flex-col items-end gap-2">
+            {isFirstScanner && (
+              <Badge variant="default" className="ml-4">
+                <Shield className="h-3 w-3 mr-1" />
+                You'll be admin
+              </Badge>
+            )}
+            {previewData.members && previewData.members.length > 0 && (
+              <MemberAvatarStack
+                members={previewData.members}
+                totalCount={previewData.member_count}
+              />
+            )}
+          </div>
         </div>
       </CardHeader>
       
@@ -186,16 +209,16 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
             </p>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-gray-600 mb-1">
-              <Calendar className="h-4 w-4" />
+          <div className="border border-gray-200/50 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-gray-400 mb-1">
+              <Calendar className="h-3.5 w-3.5" />
               <span className="text-xs font-medium uppercase">Created</span>
             </div>
-            <p className="text-lg font-bold">
+            <p className="text-base font-semibold text-gray-600">
               {formatDate(previewData.created_at)}
             </p>
             {previewData.admin_count && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 {previewData.admin_count} admin{previewData.admin_count !== 1 ? 's' : ''}
               </p>
             )}

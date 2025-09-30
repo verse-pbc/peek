@@ -63,6 +63,7 @@ pub enum ServiceResponse {
         about: Option<String>,
         rules: Option<Vec<String>>,
         member_count: Option<u32>,
+        members: Option<Vec<String>>,
         is_public: Option<bool>,
         is_open: Option<bool>,
         created_at: Option<u64>,
@@ -377,10 +378,11 @@ impl NostrValidationHandler {
                         about: result.3,
                         rules: result.4,
                         member_count: result.5,
-                        is_public: result.6,
-                        is_open: result.7,
-                        created_at: result.8,
-                        error: result.9,
+                        members: result.6,
+                        is_public: result.7,
+                        is_open: result.8,
+                        created_at: result.9,
+                        error: result.10,
                     }
                 }
             }
@@ -437,12 +439,13 @@ impl NostrValidationHandler {
                 success,
                 name,
                 member_count,
+                members,
                 error,
                 ..
             } => {
                 info!(
-                    "✅ Preview complete - success: {}, name: {:?}, members: {:?}",
-                    success, name, member_count
+                    "✅ Preview complete - success: {}, name: {:?}, members: {:?}, member_list_count: {:?}",
+                    success, name, member_count, members.as_ref().map(|m| m.len())
                 );
                 if let Some(ref err) = error {
                     info!("   Error: {}", err);
@@ -718,6 +721,7 @@ impl NostrValidationHandler {
         Option<String>,
         Option<Vec<String>>,
         Option<u32>,
+        Option<Vec<String>>,
         Option<bool>,
         Option<bool>,
         Option<u64>,
@@ -737,6 +741,7 @@ impl NostrValidationHandler {
                     None,                                         // about
                     None,                                         // rules
                     None,                                         // member_count
+                    None,                                         // members
                     None,                                         // is_public
                     None,                                         // is_open
                     None,                                         // created_at
@@ -766,6 +771,7 @@ impl NostrValidationHandler {
                     None,
                     None,
                     None,
+                    None,
                     Some("Community not found".to_string()),
                 );
             }
@@ -776,6 +782,7 @@ impl NostrValidationHandler {
                 );
                 return (
                     false,
+                    None,
                     None,
                     None,
                     None,
@@ -804,6 +811,17 @@ impl NostrValidationHandler {
                     "✅ Found community metadata: name={}, members={}",
                     metadata.name, metadata.member_count
                 );
+
+                // Fetch member list (limit to first 20 for performance)
+                let members = self
+                    .relay_service
+                    .read()
+                    .await
+                    .get_group_members(&group_id)
+                    .await
+                    .ok()
+                    .map(|m| m.into_iter().take(20).collect::<Vec<_>>());
+
                 (
                     true,
                     Some(metadata.name),
@@ -811,6 +829,7 @@ impl NostrValidationHandler {
                     metadata.about,
                     metadata.rules,
                     Some(metadata.member_count),
+                    members,
                     Some(metadata.is_public),
                     Some(metadata.is_open),
                     Some(metadata.created_at.as_u64()),
@@ -821,6 +840,7 @@ impl NostrValidationHandler {
                 error!("❌ Failed to fetch community metadata: {}", e);
                 (
                     false,
+                    None,
                     None,
                     None,
                     None,
