@@ -889,7 +889,7 @@ export class RelayManager {
 
         // If onlyAfterEose is true, skip events until EOSE is received
         if (onlyAfterEose && !eoseReceived) {
-          console.debug(`[RelayManager] Skipping historical gift wrap (before EOSE): ${event.id}`);
+          // Silently skip historical events before EOSE
           return;
         }
 

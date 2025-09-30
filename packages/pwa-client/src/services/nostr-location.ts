@@ -391,20 +391,30 @@ export class NostrLocationService {
         tags: giftWrap.tags
       });
 
-      // First, decrypt the gift wrap to get the seal (always uses local nip44 since wrap uses ephemeral key)
-      if (!this.secretKey) {
-        throw new Error('No secret key available for decryption');
+      // First, decrypt the gift wrap to get the seal
+      // The gift wrap is encrypted TO our pubkey FROM an ephemeral key
+      let decryptedWrap: string;
+
+      if (this.encryptionHelper) {
+        // Use NIP-07 to decrypt if available (gift wrap sent to our real pubkey)
+        decryptedWrap = await this.encryptionHelper.decrypt(
+          giftWrap.pubkey,
+          giftWrap.content
+        );
+      } else {
+        // Use local key (gift wrap sent to our local pubkey)
+        if (!this.secretKey) {
+          throw new Error('No secret key available for decryption');
+        }
+        const conversationKey = nip44.getConversationKey(
+          this.secretKey,
+          giftWrap.pubkey
+        );
+        decryptedWrap = nip44.decrypt(
+          giftWrap.content,
+          conversationKey
+        );
       }
-
-      const conversationKey = nip44.getConversationKey(
-        this.secretKey,
-        giftWrap.pubkey
-      );
-
-      const decryptedWrap = nip44.decrypt(
-        giftWrap.content,
-        conversationKey
-      );
 
       const seal = JSON.parse(decryptedWrap) as Event;
       console.log('🔓 Decrypted outer wrap (seal):', {
@@ -453,7 +463,8 @@ export class NostrLocationService {
     } catch (error) {
       // Silent handling for MAC errors (gift wrap not meant for us)
       if (error instanceof Error && error.message?.includes('MAC')) {
-        console.debug('Gift wrap MAC error - not encrypted for our key');
+        // Silently ignore - this is expected for gift wraps not meant for us
+        return null;
       } else {
         console.error('Failed to unwrap gift wrap:', error);
       }
@@ -602,7 +613,7 @@ export class NostrLocationService {
             const rumor = await this.unwrapAndUnseal(event);
 
             if (!rumor) {
-              console.debug('Failed to unwrap gift wrap event - likely not for us or invalid MAC');
+              // Silently skip - likely not for us or already processed
               return;
             }
 
