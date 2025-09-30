@@ -109,7 +109,7 @@ const Home = () => {
   const { user } = useNostrContext();
   const { pubkey, login } = useNostrLogin();
   const { toast } = useToast();
-  const { groupManager } = useRelayManager();
+  const { groupManager, connected } = useRelayManager();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejoinMessage, setRejoinMessage] = useState<string | null>(null);
@@ -194,6 +194,11 @@ const Home = () => {
 
   // Fetch user's communities
   useEffect(() => {
+    // Wait for relay connection before fetching
+    if (!connected || !groupManager) {
+      return;
+    }
+
     let isActive = true;
     let fetchCount = 0;
 
@@ -259,7 +264,7 @@ const Home = () => {
     return () => {
       isActive = false;
     };
-  }, [groupManager, toast]);
+  }, [connected, groupManager, toast]);
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';

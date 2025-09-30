@@ -115,7 +115,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     if (usingExtension) {
       // Use NIP-07 extension for signing
       manager.setAuthHandler(async (authEvent: EventTemplate) => {
-        console.log('[RelayContext] Signing auth event with NIP-07 extension');
+        console.log('[RelayContext] Signing auth event with NIP-07 extension for pubkey:', publicKeyHex.slice(0, 8) + '...');
         if (!window.nostr) {
           throw new Error('Browser extension not available');
         }
@@ -135,7 +135,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     } else {
       // Use local key for signing
       manager.setAuthHandler(async (authEvent: EventTemplate) => {
-        console.log('[RelayContext] Signing auth event for NIP-42');
+        console.log('[RelayContext] Signing auth event for NIP-42 with pubkey:', publicKeyHex.slice(0, 8) + '...');
         const currentIdentity = identityRef.current;
 
         // Get the current secret key
