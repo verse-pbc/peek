@@ -199,7 +199,21 @@ export class IdentityMigrationService {
    * Publish a migration event to the relay
    */
   async publishMigrationEvent(event: Event): Promise<void> {
+    // Extract migration details for logging
+    const oldPubkey = event.pubkey;
+    const newPubkey = event.tags.find(t => t[0] === 'p')?.[1];
+    const groupTags = event.tags.filter(t => t[0] === 'h');
+
+    console.log('[IdentityMigration] Publishing migration event:', {
+      old: oldPubkey,
+      new: newPubkey,
+      groups: groupTags.map(t => t[1]),
+      eventId: event.id
+    });
+
     await this.relayManager.publishEvent(event);
+
+    console.log('[IdentityMigration] Migration event published successfully');
 
     // Store locally immediately
     this.handleMigrationEvent(event as MigrationEvent);

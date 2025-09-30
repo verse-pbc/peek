@@ -76,7 +76,9 @@ export const UserIdentityButton: React.FC = () => {
       }
 
       // Publish migration event to relay
+      console.log('[UserIdentityButton] About to publish migration event');
       await migrationService.publishMigrationEvent(migrationEvent);
+      console.log('[UserIdentityButton] Migration event published to relay');
 
       // Store migration mapping locally for immediate use
       const migrations = JSON.parse(
