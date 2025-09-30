@@ -31,6 +31,8 @@ export interface CommunityPreviewData {
   name: string;
   description: string;
   member_count: number;
+  members?: string[];
+  picture?: string;
   created_at: number;
   location?: {
     latitude: number;
@@ -273,6 +275,8 @@ export const JoinFlow: React.FC = () => {
           name: response.name || 'Community',
           description: response.about || 'Location-based community',
           member_count: response.member_count || 0,
+          members: response.members,
+          picture: response.picture,
           created_at: response.created_at || Math.floor(Date.now() / 1000),
           is_first_scan: response.member_count === 0
         };
@@ -286,6 +290,8 @@ export const JoinFlow: React.FC = () => {
           name: `New Community`,
           description: 'Be the first to create this location-based community. You will become the admin.',
           member_count: 0,
+          members: [],
+          picture: undefined,
           created_at: Math.floor(Date.now() / 1000),
           is_first_scan: true
         };
@@ -682,7 +688,9 @@ export const JoinFlow: React.FC = () => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">
-          {(previewData?.is_first_scan || isLikelyFirstScan) ? 'Create a Community' : 'Join Community'}
+          {(previewData?.is_first_scan || isLikelyFirstScan)
+            ? 'Create a Community'
+            : `Join ${previewData?.name}!`}
         </h1>
         <Progress value={getProgressValue()} className="h-2" />
       </div>

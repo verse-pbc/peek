@@ -116,6 +116,7 @@ export interface CommunityPreviewResponse {
   about?: string;
   rules?: string[];
   member_count?: number;
+  members?: string[];
   is_public?: boolean;
   is_open?: boolean;
   created_at?: number;

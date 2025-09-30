@@ -438,6 +438,53 @@ impl RelayService {
         Ok(())
     }
 
+    /// Get the member list for a NIP-29 group
+    /// Returns a vector of member pubkeys
+    pub async fn get_group_members(&self, group_id: &str) -> Result<Vec<String>> {
+        // Fetch kind 39002 (group members) event using d-tag
+        let members_filter = Filter::new()
+            .kind(Kind::from(39002))
+            .identifier(group_id)
+            .limit(1);
+
+        let members_events = self
+            .client
+            .fetch_events(members_filter, Duration::from_secs(5))
+            .await?;
+
+        if let Some(event) = members_events.into_iter().next() {
+            // Extract all p-tags (member pubkeys)
+            let members: Vec<String> = event
+                .tags
+                .iter()
+                .filter_map(|tag| {
+                    if let TagKind::SingleLetter(single_letter) = tag.kind() {
+                        if single_letter.character == Alphabet::P {
+                            tag.content().map(|s| s.to_string())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            tracing::info!(
+                "Found {} members in group {} from kind 39002",
+                members.len(),
+                group_id
+            );
+            return Ok(members);
+        }
+
+        tracing::info!(
+            "No kind 39002 event found for group {}, returning empty list",
+            group_id
+        );
+        Ok(Vec::new())
+    }
+
     /// Get the member count for a NIP-29 group
     pub async fn get_group_member_count(&self, group_id: &str) -> Result<u32> {
         // Fetch kind 39002 (group members) event using d-tag
