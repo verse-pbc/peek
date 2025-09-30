@@ -630,40 +630,26 @@ impl RelayService {
         }
 
         for event in events {
-            let mut is_peek_group = false;
             let mut display_geohash = None;
 
             for tag in event.tags.iter() {
                 if let TagKind::Custom(tag_name) = tag.kind() {
-                    match tag_name.as_ref() {
-                        "d" => {
-                            if let Some(content) = tag.content() {
-                                // Only include peek communities
-                                if content.starts_with("peek-") {
-                                    is_peek_group = true;
-                                }
+                    if tag_name.as_ref() == "dg" {
+                        // Display geohash (9 characters)
+                        if let Some(content) = tag.content() {
+                            if content.len() == 9 {
+                                display_geohash = Some(content.to_string());
+                                break; // Found dg, no need to check more tags
                             }
                         }
-                        "dg" => {
-                            // Display geohash (9 characters)
-                            if let Some(content) = tag.content() {
-                                if content.len() == 9 {
-                                    display_geohash = Some(content.to_string());
-                                }
-                            }
-                        }
-                        _ => {}
                     }
                 }
             }
 
-            // Only include peek communities with display geohashes
-            if is_peek_group {
-                if let Some(dg_hash) = display_geohash {
-                    // Avoid duplicates (in case current_display_geohash is already in a 39000)
-                    if !geohashes.contains(&dg_hash) {
-                        geohashes.push(dg_hash);
-                    }
+            // Add any valid display geohash found
+            if let Some(dg_hash) = display_geohash {
+                if !geohashes.contains(&dg_hash) {
+                    geohashes.push(dg_hash);
                 }
             }
         }
