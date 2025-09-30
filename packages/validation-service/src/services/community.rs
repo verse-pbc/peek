@@ -33,11 +33,29 @@ impl CommunityService {
 
     /// Get community metadata by ID
     pub async fn get(&self, id: &Uuid) -> Option<CommunityMetadata> {
-        // Check if NIP-29 group exists on relay
-        let group_id = format!("peek-{}", id);
+        tracing::info!("[CommunityService::get] Looking up group for UUID {}", id);
+
+        // Look up the group ID from UUID using NIP-73 i-tag
+        let group_id = match self.relay_service.find_group_by_uuid(id).await {
+            Ok(Some(gid)) => gid,
+            Ok(None) => {
+                tracing::info!("[CommunityService::get] No group found for UUID {}", id);
+                return None;
+            }
+            Err(e) => {
+                tracing::error!(
+                    "[CommunityService::get] Error looking up group for UUID {}: {}",
+                    id,
+                    e
+                );
+                return None;
+            }
+        };
+
         tracing::info!(
-            "[CommunityService::get] Getting metadata for group {}",
-            group_id
+            "[CommunityService::get] Found group {} for UUID {}, fetching metadata",
+            group_id,
+            id
         );
 
         // Try to get NIP-29 group metadata first
@@ -91,9 +109,32 @@ impl CommunityService {
     /// Create or get community
     /// Check if group exists but has no geohash (corrupted state)
     async fn group_exists_without_geohash(&self, community_id: &Uuid) -> bool {
-        let group_id = format!("peek-{}", community_id);
         tracing::info!(
-            "[group_exists_without_geohash] Checking if group {} exists without geohash",
+            "[group_exists_without_geohash] Looking up group for UUID {}",
+            community_id
+        );
+
+        // Look up the group ID from UUID
+        let group_id = match self.relay_service.find_group_by_uuid(community_id).await {
+            Ok(Some(gid)) => gid,
+            Ok(None) => {
+                tracing::info!(
+                    "[group_exists_without_geohash] No group found for UUID {}",
+                    community_id
+                );
+                return false;
+            }
+            Err(e) => {
+                tracing::error!(
+                    "[group_exists_without_geohash] Error looking up group: {}",
+                    e
+                );
+                return false;
+            }
+        };
+
+        tracing::info!(
+            "[group_exists_without_geohash] Found group {}, checking metadata",
             group_id
         );
 
