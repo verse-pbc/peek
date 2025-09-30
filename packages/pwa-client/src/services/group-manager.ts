@@ -653,14 +653,31 @@ export class GroupManager {
       }
 
       // PRIORITY 3: Final fallback for development testing - check localStorage
+      // Need to extract UUID from group metadata first
       console.log(`[GroupManager] Checking localStorage as final fallback...`);
-      const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-      const communityId = groupId.replace('peek-', '');
-      const isInLocalStorage = joinedGroups.some((g: { communityId: string }) => g.communityId === communityId);
 
-      if (isInLocalStorage) {
-        console.log(`[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`);
-        return true;
+      try {
+        const filter: Filter = {
+          kinds: [39000],
+          '#d': [groupId],
+          limit: 1
+        };
+
+        const metadataEvents = await this.relayManager.queryEventsDirectly(filter);
+        if (metadataEvents.length > 0) {
+          const communityId = this.extractUuidFromMetadata(metadataEvents[0]);
+          if (communityId) {
+            const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+            const isInLocalStorage = joinedGroups.some((g: { communityId: string }) => g.communityId === communityId);
+
+            if (isInLocalStorage) {
+              console.log(`[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`);
+              return true;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[GroupManager] Error checking localStorage fallback:', e);
       }
 
       console.log(`[GroupManager] User is not a member according to all checks`);
@@ -723,42 +740,40 @@ export class GroupManager {
           continue; // Skip non-Peek groups
         }
 
-        const communityId = groupId.replace('peek-', '');
+        // Need to fetch metadata to extract UUID from i-tag
+        // Query for kind 39000 metadata event
+        const filter: Filter = {
+          kinds: [39000],
+          '#d': [groupId],
+          limit: 1
+        };
+
+        const metadataEvents = await this.relayManager.queryEventsDirectly(filter);
+        if (metadataEvents.length === 0) {
+          console.warn(`[GroupManager] No metadata found for group ${groupId}`);
+          continue;
+        }
+
+        const metadataEvent = metadataEvents[0];
+
+        // Extract UUID from i-tag
+        const communityId = this.extractUuidFromMetadata(metadataEvent);
+        if (!communityId) {
+          console.warn(`[GroupManager] No UUID found in i-tag for group ${groupId}`);
+          continue;
+        }
+
+        console.log(`[GroupManager] Extracted UUID ${communityId} from group ${groupId}`);
 
         // Get metadata from cache first
         let metadata = this.getGroupMetadata(groupId);
         const memberCount = this.getResolvedMemberCount(groupId);
 
-        // If not in cache, fetch directly from relay
+        // If not in cache, process the metadata event we just fetched
         if (!metadata || !metadata.name) {
-          console.log(`[GroupManager] Metadata not in cache for ${groupId}, fetching directly...`);
-
-          try {
-            // Directly query for kind 39000 metadata event
-            const metadataFromRelay = await this.fetchGroupMetadataDirectly(groupId);
-            if (metadataFromRelay) {
-              metadata = metadataFromRelay;
-              // Store in cache for future use
-              this.handleMetadataEvent({
-                kind: 39000,
-                tags: [
-                  ['d', groupId],
-                  ['name', metadataFromRelay.name],
-                  ...(metadataFromRelay.about ? [['about', metadataFromRelay.about]] : []),
-                  ...(metadataFromRelay.picture ? [['picture', metadataFromRelay.picture]] : []),
-                  ...(metadataFromRelay.isPublic ? [['public']] : [['private']]),
-                  ...(metadataFromRelay.isOpen ? [['open']] : [['closed']])
-                ],
-                content: '',
-                id: '',
-                pubkey: '',
-                created_at: 0,
-                sig: ''
-              } as Event);
-            }
-          } catch (error) {
-            console.error(`[GroupManager] Error fetching metadata for ${groupId}:`, error);
-          }
+          console.log(`[GroupManager] Processing metadata event for ${groupId}`);
+          this.handleMetadataEvent(metadataEvent);
+          metadata = this.getGroupMetadata(groupId);
 
           // Also start subscription for future updates
           this.relayManager.subscribeToGroup(groupId);
@@ -768,7 +783,7 @@ export class GroupManager {
         const isAdmin = this.isGroupAdmin(groupId, userPubkey);
 
         const userGroup = {
-          groupId: communityId, // Use communityId for navigation
+          groupId: communityId, // Use communityId (UUID) for navigation
           communityId,
           name: metadata?.name || `Community ${communityId.slice(0, 8)}`,
           memberCount: memberCount > 0 ? memberCount : 1,
@@ -787,6 +802,19 @@ export class GroupManager {
       console.error('[GroupManager] Error getting user groups:', error);
       return [];
     }
+  }
+
+  /**
+   * Extract UUID from a metadata event's i-tag (NIP-73)
+   * Returns null if no i-tag found
+   */
+  private extractUuidFromMetadata(event: Event): string | null {
+    const iTag = event.tags.find(t => t[0] === 'i' && t[1]?.startsWith('peek:uuid:'));
+    if (iTag && iTag[1]) {
+      const uuid = iTag[1].replace('peek:uuid:', '');
+      return uuid;
+    }
+    return null;
   }
 
   /**

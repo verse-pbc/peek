@@ -1,10 +1,22 @@
 use geohash::{encode, Coord};
 use nostr_sdk::prelude::*;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
 
 use crate::libraries::display_location::generate_display_location;
+
+/// Generate a random group identifier for NIP-29 h-tag
+/// Format: peek-{10 random alphanumeric chars}
+fn generate_random_group_id() -> String {
+    const CHARSET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
+    let mut rng = rand::thread_rng();
+    let id: String = (0..10)
+        .map(|_| CHARSET[rng.gen_range(0..CHARSET.len())] as char)
+        .collect();
+    format!("peek-{}", id)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Location {
@@ -87,8 +99,9 @@ impl RelayService {
         creator_pubkey: String,
         location: Location,
     ) -> Result<String> {
-        // Generate group ID (h-tag for NIP-29)
-        let group_id = format!("peek-{}", community_id);
+        // Generate random group ID (h-tag for NIP-29)
+        // UUID is stored separately in i-tag per NIP-73
+        let group_id = generate_random_group_id();
 
         // Check if group already exists by trying to fetch its metadata
         // This avoids the 10-second timeout when relay returns "Group already exists"
@@ -272,6 +285,11 @@ impl RelayService {
             ),
             // Store display location as 9-character geohash for public discovery
             Tag::custom(TagKind::Custom("dg".into()), [display_geohash.clone()]),
+            // Store UUID as i-tag per NIP-73 for efficient UUID-based lookups
+            Tag::custom(
+                TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::I)),
+                [format!("peek:uuid:{}", community_id)],
+            ),
         ]);
 
         let metadata_start = std::time::Instant::now();
@@ -599,6 +617,52 @@ impl RelayService {
         // No need to load encrypted metadata
         tracing::info!("Communities are now loaded directly from NIP-29 groups");
         Ok(())
+    }
+
+    /// Find a group's h-tag by its UUID using NIP-73 i-tag
+    /// Returns the group_id (h-tag) if found, None otherwise
+    pub async fn find_group_by_uuid(&self, uuid: &Uuid) -> Result<Option<String>> {
+        tracing::info!("[find_group_by_uuid] Looking up group for UUID: {}", uuid);
+
+        // Query for kind 39000 (group metadata) with i-tag containing the UUID
+        let filter = Filter::new()
+            .kind(Kind::from(39000))
+            .custom_tag(
+                SingleLetterTag::lowercase(Alphabet::I),
+                format!("peek:uuid:{}", uuid),
+            )
+            .limit(1);
+
+        let events = self
+            .client
+            .fetch_events(filter, Duration::from_secs(5))
+            .await?;
+
+        if let Some(event) = events.first() {
+            // Extract the d-tag which contains the group h-tag
+            for tag in event.tags.iter() {
+                if let TagKind::Custom(tag_name) = tag.kind() {
+                    if tag_name.as_ref() == "d" {
+                        if let Some(group_id) = tag.content() {
+                            tracing::info!(
+                                "[find_group_by_uuid] Found group {} for UUID {}",
+                                group_id,
+                                uuid
+                            );
+                            return Ok(Some(group_id.to_string()));
+                        }
+                    }
+                }
+            }
+            tracing::warn!(
+                "[find_group_by_uuid] Found event but no d-tag for UUID {}",
+                uuid
+            );
+            Ok(None)
+        } else {
+            tracing::info!("[find_group_by_uuid] No group found for UUID {}", uuid);
+            Ok(None)
+        }
     }
 
     /// Publish a NIP-78 discovery map event with all communities' display locations

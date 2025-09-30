@@ -82,6 +82,7 @@ export class RelayManager {
   private userPubkey?: string;
   private authHandler?: (authEvent: EventTemplate) => Promise<VerifiedEvent>;
   private eventSigner?: (event: EventTemplate) => Promise<VerifiedEvent>;
+  private uuidToGroupCache: Map<string, string>; // UUID -> h-tag cache
 
   constructor(options: RelayConnectionOptions) {
     this.pool = new SimplePool();
@@ -94,6 +95,7 @@ export class RelayManager {
     this.maxReconnectAttempts = options.maxReconnectAttempts || 10;
     this.reconnectAttempts = 0;
     this.isConnecting = false;
+    this.uuidToGroupCache = new Map();
 
     if (options.autoConnect !== false) {
       this.connect();
@@ -285,6 +287,64 @@ export class RelayManager {
       console.error('[RelayManager] Error querying events directly:', error);
       return [];
     }
+  }
+
+  /**
+   * Find a group's h-tag by its UUID using NIP-73 i-tag
+   * Returns the group_id (h-tag) if found, null otherwise
+   */
+  async findGroupByUuid(uuid: string): Promise<string | null> {
+    // Check cache first
+    if (this.uuidToGroupCache.has(uuid)) {
+      const cached = this.uuidToGroupCache.get(uuid)!;
+      console.log(`[RelayManager] Found cached group ${cached} for UUID ${uuid}`);
+      return cached;
+    }
+
+    if (!this.relay || !this.relay.connected) {
+      console.warn('[RelayManager] Cannot find group by UUID: not connected');
+      return null;
+    }
+
+    try {
+      console.log(`[RelayManager] Looking up group for UUID ${uuid}`);
+
+      // Query for kind 39000 (GROUP_METADATA) with i-tag containing the UUID
+      const filter: Filter = {
+        kinds: [NIP29_KINDS.GROUP_METADATA],
+        '#i': [`peek:uuid:${uuid}`],
+        limit: 1
+      };
+
+      const events = await this.pool.querySync([this.relayUrl], filter);
+
+      if (events.length === 0) {
+        console.log(`[RelayManager] No group found for UUID ${uuid}`);
+        return null;
+      }
+
+      // Extract d-tag which contains the group h-tag
+      const dTag = events[0].tags.find(t => t[0] === 'd')?.[1];
+      if (dTag) {
+        console.log(`[RelayManager] Found group ${dTag} for UUID ${uuid}`);
+        // Cache the mapping
+        this.uuidToGroupCache.set(uuid, dTag);
+        return dTag;
+      }
+
+      console.warn('[RelayManager] Found event but no d-tag for UUID', uuid);
+      return null;
+    } catch (error) {
+      console.error('[RelayManager] Error finding group by UUID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Cache a UUID to h-tag mapping (useful when received from validation response)
+   */
+  cacheUuidToGroup(uuid: string, groupId: string): void {
+    this.uuidToGroupCache.set(uuid, groupId);
   }
 
   /**

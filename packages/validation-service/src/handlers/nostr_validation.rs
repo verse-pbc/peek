@@ -618,8 +618,40 @@ impl NostrValidationHandler {
             // the actual security.
         }
 
-        // The group was already created in get_or_create
-        let group_id = format!("peek-{}", community_uuid);
+        // Get the group ID by looking up the UUID
+        let group_id = match self
+            .relay_service
+            .read()
+            .await
+            .find_group_by_uuid(&community_uuid)
+            .await
+        {
+            Ok(Some(id)) => id,
+            Ok(None) => {
+                return LocationValidationResponse {
+                    response_type: Some("location_validation_response".to_string()),
+                    success: false,
+                    group_id: None,
+                    relay_url: None,
+                    is_admin: None,
+                    is_member: None,
+                    error: Some("Group not found after creation".to_string()),
+                    error_code: Some("GROUP_NOT_FOUND".to_string()),
+                };
+            }
+            Err(e) => {
+                return LocationValidationResponse {
+                    response_type: Some("location_validation_response".to_string()),
+                    success: false,
+                    group_id: None,
+                    relay_url: None,
+                    is_admin: None,
+                    is_member: None,
+                    error: Some(format!("Failed to lookup group: {}", e)),
+                    error_code: Some("GROUP_LOOKUP_FAILED".to_string()),
+                };
+            }
+        };
 
         // If not a new community (user is joining existing), add them as a member
         if !is_new {
@@ -713,7 +745,50 @@ impl NostrValidationHandler {
             }
         };
 
-        let group_id = format!("peek-{}", community_uuid);
+        // Look up the group ID from UUID
+        let group_id = match self
+            .relay_service
+            .read()
+            .await
+            .find_group_by_uuid(&community_uuid)
+            .await
+        {
+            Ok(Some(id)) => id,
+            Ok(None) => {
+                error!("❌ Group not found for UUID: {}", community_uuid);
+                return (
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some("Community not found".to_string()),
+                );
+            }
+            Err(e) => {
+                error!(
+                    "❌ Failed to lookup group for UUID {}: {}",
+                    community_uuid, e
+                );
+                return (
+                    false,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some(format!("Failed to lookup community: {}", e)),
+                );
+            }
+        };
+
         info!("📋 Fetching metadata for group: {}", group_id);
 
         // Try to fetch NIP-29 group metadata from relay

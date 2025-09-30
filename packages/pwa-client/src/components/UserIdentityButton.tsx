@@ -88,11 +88,19 @@ export const UserIdentityButton: React.FC = () => {
       localStorage.setItem('identity_migrations', JSON.stringify(migrations));
 
       // Set migrating state with groups we're expecting updates for
+      // Need to resolve UUIDs to h-tags
       const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+      const groupIds = await Promise.all(
+        joinedGroups.map(async (g: { communityId: string }) => {
+          const groupId = await relayManager.findGroupByUuid(g.communityId);
+          return groupId || null;
+        })
+      );
+
       const migratingState = {
         from: oldPubkey,
         to: newPubkey,
-        groups: joinedGroups.map((g: { communityId: string }) => `peek-${g.communityId}`),
+        groups: groupIds.filter((id): id is string => id !== null),
         timestamp: Date.now()
       };
       localStorage.setItem('identity_migrating', JSON.stringify(migratingState));

@@ -50,8 +50,29 @@ const Community = () => {
   const migrationPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const migrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // The group ID format for NIP-29
-  const groupId = communityId ? `peek-${communityId}` : null;
+  // Resolve UUID to h-tag for NIP-29 group
+  const [groupId, setGroupId] = useState<string | null>(null);
+
+  // Resolve UUID to group h-tag
+  useEffect(() => {
+    if (!communityId || !relayManager || !connected) {
+      setGroupId(null);
+      return;
+    }
+
+    const resolveGroupId = async () => {
+      const resolved = await relayManager.findGroupByUuid(communityId);
+      if (resolved) {
+        console.log(`[Community] Resolved UUID ${communityId} to group ${resolved}`);
+        setGroupId(resolved);
+      } else {
+        console.warn(`[Community] Could not resolve UUID ${communityId} to group`);
+        setGroupId(null);
+      }
+    };
+
+    resolveGroupId();
+  }, [communityId, relayManager, connected]);
 
   // Subscribe to group updates when connected
   useEffect(() => {
