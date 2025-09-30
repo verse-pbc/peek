@@ -97,22 +97,12 @@ describe('Migration Security Tests', () => {
       };
       const migrationEvent = finalizeEvent(migrationTemplate, oldIdentitySk);
 
-      // Spy on console.error to verify rejection
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       // Process the migration
       service['handleMigrationEvent'](migrationEvent as Event & { kind: 1776 });
 
-      // Verify rejection
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('P tag mismatch')
-      );
-
-      // Verify migration was NOT stored
+      // Verify migration was NOT stored (silently rejected)
       const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
       expect(migrations[oldIdentityPk]).toBeUndefined();
-
-      consoleSpy.mockRestore();
     });
   });
 
@@ -139,19 +129,16 @@ describe('Migration Security Tests', () => {
       const migrationEvent = finalizeEvent(migrationTemplate, oldIdentitySk);
 
       // Spy on console.error
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       // Process the migration
       service['handleMigrationEvent'](migrationEvent as Event & { kind: 1776 });
 
       // Verify rejection
-      expect(consoleSpy).toHaveBeenCalledWith('Invalid proof signature');
 
       // Verify migration was NOT stored
       const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
       expect(migrations[oldIdentityPk]).toBeUndefined();
 
-      consoleSpy.mockRestore();
     });
   });
 
@@ -177,19 +164,16 @@ describe('Migration Security Tests', () => {
       const migrationEvent = finalizeEvent(migrationTemplate, oldIdentitySk);
 
       // Spy on console.error
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       // Process the migration
       service['handleMigrationEvent'](migrationEvent as Event & { kind: 1776 });
 
       // Verify rejection
-      expect(consoleSpy).toHaveBeenCalledWith('Proof doesn\'t point back to old pubkey');
 
       // Verify migration was NOT stored
       const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
       expect(migrations[oldIdentityPk]).toBeUndefined();
 
-      consoleSpy.mockRestore();
     });
   });
 
@@ -214,19 +198,16 @@ describe('Migration Security Tests', () => {
       const migrationEvent = finalizeEvent(migrationTemplate, oldIdentitySk);
 
       // Spy on console.error
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       // Process the migration
       service['handleMigrationEvent'](migrationEvent as Event & { kind: 1776 });
 
       // Verify rejection
-      expect(consoleSpy).toHaveBeenCalledWith('Proof is not a migration event');
 
       // Verify migration was NOT stored
       const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
       expect(migrations[oldIdentityPk]).toBeUndefined();
 
-      consoleSpy.mockRestore();
     });
   });
 
@@ -263,19 +244,16 @@ describe('Migration Security Tests', () => {
       };
 
       // Spy on console.error
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       // Process the migration
       service['handleMigrationEvent'](corruptedEvent as Event & { kind: 1776 });
 
       // Verify rejection
-      expect(consoleSpy).toHaveBeenCalledWith('Invalid migration event signature');
 
       // Verify migration was NOT stored
       const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
       expect(migrations[oldIdentityPk]).toBeUndefined();
 
-      consoleSpy.mockRestore();
     });
   });
 
@@ -305,17 +283,14 @@ describe('Migration Security Tests', () => {
       const migrationEvent = finalizeEvent(migrationTemplate, oldIdentitySk);
 
       // Process the migration
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       service['handleMigrationEvent'](migrationEvent as Event & { kind: 1776 });
 
       // Should fail on proof signature verification
-      expect(consoleSpy).toHaveBeenCalledWith('Invalid proof signature');
 
       // Verify migration was NOT stored
       const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
       expect(migrations[oldIdentityPk]).toBeUndefined();
 
-      consoleSpy.mockRestore();
     });
   });
 });

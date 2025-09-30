@@ -45,11 +45,9 @@ export class IdentityMigrationService {
     // Verify outer event signature
     try {
       if (!verifyEvent(event)) {
-        console.error('Invalid migration event signature');
         return;
       }
     } catch {
-      console.error('Invalid migration event signature');
       return;
     }
 
@@ -59,25 +57,22 @@ export class IdentityMigrationService {
     let proofEvent: Event;
     try {
       proofEvent = JSON.parse(event.content);
-    } catch (e) {
-      console.error('Invalid proof JSON:', e);
+    } catch {
+      // Silently skip invalid migration events (e.g., test events)
       return;
     }
 
     // Verify proof signature
     try {
       if (!verifyEvent(proofEvent)) {
-        console.error('Invalid proof signature');
         return;
       }
     } catch {
-      console.error('Invalid proof signature');
       return;
     }
 
     // Verify proof is kind 1776
     if (proofEvent.kind !== MIGRATION_KIND) {
-      console.error('Proof is not a migration event');
       return;
     }
 
@@ -89,14 +84,12 @@ export class IdentityMigrationService {
       .some(t => t[0] === 'p' && t[1] === oldPubkey);
 
     if (!proofPointsToOld) {
-      console.error('Proof doesn\'t point back to old pubkey');
       return;
     }
 
     // Verify consistency: outer p tag matches proof signer
     const claimedNewPubkey = event.tags.find(t => t[0] === 'p')?.[1];
     if (claimedNewPubkey !== newPubkey) {
-      console.error(`P tag mismatch: claims ${claimedNewPubkey} but proof signed by ${newPubkey}`);
       return;
     }
 
