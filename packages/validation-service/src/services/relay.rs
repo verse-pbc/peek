@@ -664,27 +664,22 @@ impl RelayService {
             .await?;
 
         if let Some(event) = events.first() {
-            // Extract the d-tag which contains the group h-tag
-            for tag in event.tags.iter() {
-                if let TagKind::Custom(tag_name) = tag.kind() {
-                    if tag_name.as_ref() == "d" {
-                        if let Some(group_id) = tag.content() {
-                            let group_id_string = group_id.to_string();
-                            tracing::info!(
-                                "[find_group_by_uuid] Found group {} for UUID {}",
-                                group_id_string,
-                                uuid
-                            );
-                            // Cache for future lookups
-                            self.uuid_to_group_cache
-                                .write()
-                                .await
-                                .insert(*uuid, group_id_string.clone());
-                            return Ok(Some(group_id_string));
-                        }
-                    }
-                }
+            // Extract the d-tag (identifier) which contains the group h-tag
+            if let Some(group_id) = event.tags.identifier() {
+                let group_id_string = group_id.to_string();
+                tracing::info!(
+                    "[find_group_by_uuid] Found group {} for UUID {}",
+                    group_id_string,
+                    uuid
+                );
+                // Cache for future lookups
+                self.uuid_to_group_cache
+                    .write()
+                    .await
+                    .insert(*uuid, group_id_string.clone());
+                return Ok(Some(group_id_string));
             }
+
             tracing::warn!(
                 "[find_group_by_uuid] Found event but no d-tag for UUID {}",
                 uuid
