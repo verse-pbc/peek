@@ -38,6 +38,27 @@ const hasNip07Extension = (): boolean => {
   return typeof window !== 'undefined' && window.nostr !== undefined;
 };
 
+// Check if NIP-07 extension supports nip44
+export const hasNip44Support = (): boolean => {
+  return hasNip07Extension() && window.nostr!.nip44 !== undefined;
+};
+
+// NIP-07 nip44 encrypt wrapper
+export const nip07Encrypt = async (pubkey: string, plaintext: string): Promise<string> => {
+  if (!hasNip44Support()) {
+    throw new Error('NIP-07 extension does not support nip44 encryption');
+  }
+  return window.nostr!.nip44!.encrypt(pubkey, plaintext);
+};
+
+// NIP-07 nip44 decrypt wrapper
+export const nip07Decrypt = async (pubkey: string, ciphertext: string): Promise<string> => {
+  if (!hasNip44Support()) {
+    throw new Error('NIP-07 extension does not support nip44 decryption');
+  }
+  return window.nostr!.nip44!.decrypt(pubkey, ciphertext);
+};
+
 // Hook for Nostr login
 export const useNostrLogin = () => {
   const [identity, setIdentity] = React.useState<StoredIdentity | null>(null);

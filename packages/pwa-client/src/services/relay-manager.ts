@@ -866,7 +866,8 @@ export class RelayManager {
    */
   subscribeToGiftWraps(
     recipientPubkey: string,
-    handler: (event: Event) => void
+    handler: (event: Event) => void,
+    onlyAfterEose = true // Only process events after EOSE by default
   ): string {
     if (!this.relay) {
       throw new Error('Not connected to relay');
@@ -880,13 +881,23 @@ export class RelayManager {
       limit: 100, // Additional safety limit to avoid fetching too many events
     };
 
+    let eoseReceived = false;
+
     const sub = this.relay.subscribe([filter], {
       onevent: (event) => {
         console.log(`[RelayManager] Received gift wrap: ${event.id}`);
+
+        // If onlyAfterEose is true, skip events until EOSE is received
+        if (onlyAfterEose && !eoseReceived) {
+          console.debug(`[RelayManager] Skipping historical gift wrap (before EOSE): ${event.id}`);
+          return;
+        }
+
         handler(event);
       },
       oneose: () => {
         console.log(`[RelayManager] End of stored gift wraps for ${recipientPubkey}`);
+        eoseReceived = true;
       }
     });
 

@@ -19,8 +19,8 @@ import {
   Crown,
   MessageSquare
 } from 'lucide-react';
-import { useNostrLogin } from '../lib/nostrify-shim';
-import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
+import { useNostrLogin, hasNip44Support, nip07Encrypt, nip07Decrypt } from '../lib/nostrify-shim';
+import { NostrLocationService, type LocationValidationResponse, type EncryptionHelper } from '../services/nostr-location';
 import { hexToBytes, bytesToHex } from '../lib/hex';
 import { getPublicKey, generateSecretKey } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
@@ -159,35 +159,62 @@ export const JoinFlow: React.FC = () => {
 
     try {
       // Create a temporary NostrLocationService for fetching preview
-      let secretKey: Uint8Array;
+      let secretKey: Uint8Array | null = null;
       let publicKey: string;
+      let encryptionHelper: EncryptionHelper | undefined;
 
       if (identity?.secretKey && pubkey) {
-        // Always use the user's real pubkey for consistency
         publicKey = pubkey;
 
-        // Check if using NIP-07 browser extension
-        if (identity.secretKey === 'NIP07_EXTENSION') {
-          // For NIP-07 users, we need an encryption key for the gift wrap
+        // Check if using NIP-07 browser extension with nip44 support
+        if (identity.secretKey === 'NIP07_EXTENSION' && hasNip44Support()) {
+          // Use NIP-07 nip44 encryption with real identity
+          console.log('[JoinFlow] Using NIP-07 nip44 encryption with real identity (preview)');
+
+          // For gift wrap decryption, we still need a local key since the wrap uses ephemeral keys
+          // But for the seal (inner layer), we'll use NIP-07
           const ANON_KEY = 'peek_anonymous_identity';
           const anonIdentity = localStorage.getItem(ANON_KEY);
 
           if (!anonIdentity) {
             const newSecretKey = generateSecretKey();
             const newPublicKey = getPublicKey(newSecretKey);
-
             localStorage.setItem(ANON_KEY, JSON.stringify({
               secretKey: bytesToHex(newSecretKey),
               publicKey: newPublicKey,
               createdAt: Date.now()
             }));
-
             secretKey = newSecretKey;
-            console.log('[JoinFlow] Generated encryption key for NIP-07 user (preview)');
           } else {
             const parsed = JSON.parse(anonIdentity);
             secretKey = hexToBytes(parsed.secretKey);
-            console.log('[JoinFlow] Using existing encryption key for NIP-07 user (preview)');
+          }
+
+          // Set up NIP-07 encryption helper
+          encryptionHelper = {
+            encrypt: nip07Encrypt,
+            decrypt: nip07Decrypt
+          };
+        } else if (identity.secretKey === 'NIP07_EXTENSION') {
+          // NIP-07 without nip44 support - use anonymous identity
+          console.log('[JoinFlow] NIP-07 extension without nip44 - using anonymous identity');
+          const ANON_KEY = 'peek_anonymous_identity';
+          const anonIdentity = localStorage.getItem(ANON_KEY);
+
+          if (!anonIdentity) {
+            const newSecretKey = generateSecretKey();
+            const newPublicKey = getPublicKey(newSecretKey);
+            localStorage.setItem(ANON_KEY, JSON.stringify({
+              secretKey: bytesToHex(newSecretKey),
+              publicKey: newPublicKey,
+              createdAt: Date.now()
+            }));
+            secretKey = newSecretKey;
+            publicKey = newPublicKey;
+          } else {
+            const parsed = JSON.parse(anonIdentity);
+            secretKey = hexToBytes(parsed.secretKey);
+            publicKey = parsed.publicKey;
           }
         } else {
           // User has real keys, use them
@@ -228,7 +255,8 @@ export const JoinFlow: React.FC = () => {
       const nostrService = new NostrLocationService(
         secretKey,
         publicKey,
-        relayManager
+        relayManager,
+        encryptionHelper
       );
 
       console.log('Fetching community preview via gift wrap:', {
@@ -324,46 +352,67 @@ export const JoinFlow: React.FC = () => {
       return;
     }
 
-    let secretKey: Uint8Array;
+    let secretKey: Uint8Array | null = null;
     let userPubkey: string;
-    let encryptionKey: Uint8Array; // Key used for encryption (may differ from signing key)
+    let encryptionHelper: EncryptionHelper | undefined;
 
     if (identity?.secretKey && pubkey) {
-      // Always use the user's real pubkey for the validation request
       userPubkey = pubkey;
 
-      // Check if using NIP-07 browser extension
-      if (identity.secretKey === 'NIP07_EXTENSION') {
-        // For NIP-07 users, we need an encryption key for the gift wrap
-        // but the rumor will use their real pubkey
+      // Check if using NIP-07 browser extension with nip44 support
+      if (identity.secretKey === 'NIP07_EXTENSION' && hasNip44Support()) {
+        // Use NIP-07 nip44 encryption with real identity
+        console.log('[JoinFlow] Using NIP-07 nip44 encryption with real identity (validation)');
+
+        // For gift wrap decryption, we still need a local key since the wrap uses ephemeral keys
         const ANON_KEY = 'peek_anonymous_identity';
         const anonIdentity = localStorage.getItem(ANON_KEY);
 
         if (!anonIdentity) {
           const newSecretKey = generateSecretKey();
           const newPublicKey = getPublicKey(newSecretKey);
-
           localStorage.setItem(ANON_KEY, JSON.stringify({
             secretKey: bytesToHex(newSecretKey),
             publicKey: newPublicKey,
             createdAt: Date.now(),
             isAutoGenerated: true
           }));
-
-          encryptionKey = newSecretKey;
-          console.log('[JoinFlow] Generated encryption key for NIP-07 user');
+          secretKey = newSecretKey;
         } else {
           const parsed = JSON.parse(anonIdentity);
-          encryptionKey = hexToBytes(parsed.secretKey);
-          console.log('[JoinFlow] Using existing encryption key for NIP-07 user');
+          secretKey = hexToBytes(parsed.secretKey);
         }
 
-        // Use encryption key as secret key for the service
-        secretKey = encryptionKey;
+        // Set up NIP-07 encryption helper
+        encryptionHelper = {
+          encrypt: nip07Encrypt,
+          decrypt: nip07Decrypt
+        };
+      } else if (identity.secretKey === 'NIP07_EXTENSION') {
+        // NIP-07 without nip44 support - use anonymous identity
+        console.log('[JoinFlow] NIP-07 extension without nip44 - using anonymous identity');
+        const ANON_KEY = 'peek_anonymous_identity';
+        const anonIdentity = localStorage.getItem(ANON_KEY);
+
+        if (!anonIdentity) {
+          const newSecretKey = generateSecretKey();
+          const newPublicKey = getPublicKey(newSecretKey);
+          localStorage.setItem(ANON_KEY, JSON.stringify({
+            secretKey: bytesToHex(newSecretKey),
+            publicKey: newPublicKey,
+            createdAt: Date.now(),
+            isAutoGenerated: true
+          }));
+          secretKey = newSecretKey;
+          userPubkey = newPublicKey;
+        } else {
+          const parsed = JSON.parse(anonIdentity);
+          secretKey = hexToBytes(parsed.secretKey);
+          userPubkey = parsed.publicKey;
+        }
       } else {
         // User has real keys, use them for both signing and encryption
         secretKey = hexToBytes(identity.secretKey);
-        encryptionKey = secretKey;
       }
     } else {
       // User is not logged in, use the same anonymous identity as RelayContext
@@ -383,13 +432,11 @@ export const JoinFlow: React.FC = () => {
         }));
 
         secretKey = newSecretKey;
-        encryptionKey = secretKey;
         userPubkey = newPublicKey;
         console.log('[JoinFlow] Generated new anonymous identity for validation:', newPublicKey.slice(0, 8) + '...');
       } else {
         const parsed = JSON.parse(anonIdentity);
         secretKey = hexToBytes(parsed.secretKey);
-        encryptionKey = secretKey;
         userPubkey = parsed.publicKey;
         console.log('[JoinFlow] Using existing anonymous identity for validation:', userPubkey.slice(0, 8) + '...');
       }
@@ -405,15 +452,17 @@ export const JoinFlow: React.FC = () => {
         communityId,
         accuracy: location.accuracy,
         userPubkey,
-        usingNIP07: identity?.secretKey === 'NIP07_EXTENSION'
+        usingNIP07: identity?.secretKey === 'NIP07_EXTENSION',
+        hasNip44: hasNip44Support()
       });
 
-      // NostrLocationService will use secretKey for encryption
-      // and userPubkey for the rumor's pubkey field
+      // NostrLocationService will use secretKey for gift wrap decryption
+      // and encryptionHelper (if provided) for seal encryption/decryption
       const nostrService = new NostrLocationService(
         secretKey,
         userPubkey,
-        relayManager
+        relayManager,
+        encryptionHelper
       );
 
       // Send validation request via NIP-59 gift wrap
