@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
@@ -120,6 +120,10 @@ const Home = () => {
   const [mapCenter, setMapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF, will update with user location
   const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
   const discoveryServiceRef = useRef<DiscoveryService | null>(null);
+
+  // Dev mode detection - show "Create Test Community" button when ?dev=true
+  const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
+  const isDevMode = urlParams.get('dev') === 'true';
 
   useSeoMeta({
     title: 'Peek - Location-Based Communities',
@@ -313,6 +317,11 @@ const Home = () => {
     }
   }, [toast]);
 
+  const handleCreateTestCommunity = useCallback(() => {
+    const uuid = crypto.randomUUID();
+    navigate(`/c/${uuid}?dev=true`);
+  }, [navigate]);
+
   if (!user || !pubkey) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cream">
@@ -366,7 +375,18 @@ const Home = () => {
               <h1 className="text-xl sm:text-2xl font-rubik font-bold text-navy">Peek</h1>
             </div>
 
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
+              {isDevMode && (
+                <Button
+                  onClick={handleCreateTestCommunity}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 text-navy border-coral hover:bg-coral/10"
+                >
+                  <MapPin className="h-4 w-4" />
+                  <span className="hidden sm:inline">Create Test</span>
+                </Button>
+              )}
               <UserIdentityButton />
             </div>
           </div>
