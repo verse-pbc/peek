@@ -306,7 +306,7 @@ export class NostrLocationService {
         }
         const properSecretKey = ArrayBuffer.isView(this.secretKey)
           ? this.secretKey
-          : new Uint8Array(Object.values(this.secretKey as any).filter((v: any) => typeof v === 'number') as number[]);
+          : new Uint8Array(Object.values(this.secretKey as object).filter((v: unknown) => typeof v === 'number') as number[]);
         return finalizeEvent(seal, properSecretKey);
       }
       throw error;
