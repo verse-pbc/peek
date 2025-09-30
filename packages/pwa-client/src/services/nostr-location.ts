@@ -20,6 +20,12 @@ const LOCATION_VALIDATION_RESPONSE_KIND = 27493;
 const SEAL_KIND = 13;
 const GIFT_WRAP_KIND = 1059;
 
+// Encryption helper interface for pluggable encryption (local or NIP-07)
+export interface EncryptionHelper {
+  encrypt(pubkey: string, plaintext: string): Promise<string>;
+  decrypt(pubkey: string, ciphertext: string): Promise<string>;
+}
+
 // Relay configuration - use test relay in test mode, production otherwise
 // const DEFAULT_RELAYS = import.meta.env.VITE_RELAY_URL
 //   ? [import.meta.env.VITE_RELAY_URL as string]
@@ -164,12 +170,19 @@ function getEventHash(event: UnsignedEvent): string {
 
 export class NostrLocationService {
   private relayManager: RelayManager;
-  private secretKey: Uint8Array;
+  private secretKey: Uint8Array | null;
   private publicKey: string;
   private isTestMode: boolean;
+  private encryptionHelper?: EncryptionHelper;
 
-  constructor(secretKey: Uint8Array, publicKey: string, relayManager: RelayManager) {
+  constructor(
+    secretKey: Uint8Array | null,
+    publicKey: string,
+    relayManager: RelayManager,
+    encryptionHelper?: EncryptionHelper
+  ) {
     this.relayManager = relayManager;
+    this.encryptionHelper = encryptionHelper;
 
     // In test mode, secretKey might come through as a regular object
     // due to vitest environment issues - ensure it's a proper Uint8Array
@@ -219,27 +232,42 @@ export class NostrLocationService {
   /**
    * Create a sealed event (kind 13) containing a rumor
    */
-  private createSeal(
+  private async createSeal(
     rumor: Rumor,
     recipientPubkey: string
-  ): Event {
+  ): Promise<Event> {
     try {
-      // Ensure secretKey is proper Uint8Array for NIP-44
-      const secretKey = this.isTestMode && !ArrayBuffer.isView(this.secretKey)
-        ? new Uint8Array(Object.values(this.secretKey).filter(v => typeof v === 'number') as number[])
-        : this.secretKey;
+      let encryptedContent: string;
 
-      // Get conversation key for NIP-44 encryption
-      const conversationKey = nip44.getConversationKey(
-        secretKey,
-        recipientPubkey
-      );
+      // Use custom encryption helper if provided (e.g., NIP-07)
+      if (this.encryptionHelper) {
+        encryptedContent = await this.encryptionHelper.encrypt(
+          recipientPubkey,
+          JSON.stringify(rumor)
+        );
+      } else {
+        // Fall back to local nip44 encryption
+        if (!this.secretKey) {
+          throw new Error('No secret key available for encryption');
+        }
 
-      // Encrypt the rumor
-      const encryptedContent = nip44.encrypt(
-        JSON.stringify(rumor),
-        conversationKey
-      );
+        // Ensure secretKey is proper Uint8Array for NIP-44
+        const secretKey = this.isTestMode && !ArrayBuffer.isView(this.secretKey)
+          ? new Uint8Array(Object.values(this.secretKey).filter(v => typeof v === 'number') as number[])
+          : this.secretKey;
+
+        // Get conversation key for NIP-44 encryption
+        const conversationKey = nip44.getConversationKey(
+          secretKey,
+          recipientPubkey
+        );
+
+        // Encrypt the rumor
+        encryptedContent = nip44.encrypt(
+          JSON.stringify(rumor),
+          conversationKey
+        );
+      }
 
       // Create and sign the seal
       const seal: EventTemplate = {
@@ -249,7 +277,18 @@ export class NostrLocationService {
         created_at: randomNow() // Random time for privacy
       };
 
-      return finalizeEvent(seal, secretKey);
+      // Sign with NIP-07 if using encryption helper, otherwise use local key
+      if (this.encryptionHelper && typeof window !== 'undefined' && window.nostr?.signEvent) {
+        return await window.nostr.signEvent(seal) as Event;
+      } else {
+        if (!this.secretKey) {
+          throw new Error('No secret key available for signing');
+        }
+        const secretKey = this.isTestMode && !ArrayBuffer.isView(this.secretKey)
+          ? new Uint8Array(Object.values(this.secretKey).filter(v => typeof v === 'number') as number[])
+          : this.secretKey;
+        return finalizeEvent(seal, secretKey);
+      }
     } catch (error: unknown) {
       // If we encounter Uint8Array issues in test mode, try to work around them
       if (this.isTestMode && (error instanceof Error && error.message?.includes('Uint8Array'))) {
@@ -262,9 +301,12 @@ export class NostrLocationService {
           created_at: randomNow()
         };
         // Ensure secretKey is a proper Uint8Array for finalizeEvent
+        if (!this.secretKey) {
+          throw new Error('No secret key available for test mode seal');
+        }
         const properSecretKey = ArrayBuffer.isView(this.secretKey)
           ? this.secretKey
-          : new Uint8Array(Object.values(this.secretKey).filter(v => typeof v === 'number') as number[]);
+          : new Uint8Array(Object.values(this.secretKey as object).filter((v: unknown) => typeof v === 'number') as number[]);
         return finalizeEvent(seal, properSecretKey);
       }
       throw error;
@@ -340,7 +382,7 @@ export class NostrLocationService {
   /**
    * Unwrap a gift wrap and unseal the inner rumor
    */
-  private unwrapAndUnseal(giftWrap: Event): Rumor | null {
+  private async unwrapAndUnseal(giftWrap: Event): Promise<Rumor | null> {
     try {
       console.log('📦 Received gift wrap to unwrap:', {
         id: giftWrap.id,
@@ -349,7 +391,11 @@ export class NostrLocationService {
         tags: giftWrap.tags
       });
 
-      // First, decrypt the gift wrap to get the seal
+      // First, decrypt the gift wrap to get the seal (always uses local nip44 since wrap uses ephemeral key)
+      if (!this.secretKey) {
+        throw new Error('No secret key available for decryption');
+      }
+
       const conversationKey = nip44.getConversationKey(
         this.secretKey,
         giftWrap.pubkey
@@ -373,16 +419,26 @@ export class NostrLocationService {
         return null;
       }
 
-      // Decrypt the seal to get the rumor
-      const sealConversationKey = nip44.getConversationKey(
-        this.secretKey,
-        seal.pubkey
-      );
-
-      const decryptedSeal = nip44.decrypt(
-        seal.content,
-        sealConversationKey
-      );
+      // Decrypt the seal to get the rumor (use custom helper if available)
+      let decryptedSeal: string;
+      if (this.encryptionHelper) {
+        decryptedSeal = await this.encryptionHelper.decrypt(
+          seal.pubkey,
+          seal.content
+        );
+      } else {
+        if (!this.secretKey) {
+          throw new Error('No secret key available for seal decryption');
+        }
+        const sealConversationKey = nip44.getConversationKey(
+          this.secretKey,
+          seal.pubkey
+        );
+        decryptedSeal = nip44.decrypt(
+          seal.content,
+          sealConversationKey
+        );
+      }
 
       const rumor = JSON.parse(decryptedSeal) as Rumor;
       console.log('💬 Decrypted inner content (rumor):', {
@@ -395,7 +451,12 @@ export class NostrLocationService {
 
       return rumor;
     } catch (error) {
-      console.error('Failed to unwrap gift wrap:', error);
+      // Silent handling for MAC errors (gift wrap not meant for us)
+      if (error instanceof Error && error.message?.includes('MAC')) {
+        console.debug('Gift wrap MAC error - not encrypted for our key');
+      } else {
+        console.error('Failed to unwrap gift wrap:', error);
+      }
       return null;
     }
   }
@@ -425,7 +486,7 @@ export class NostrLocationService {
       const responsePromise = this.waitForValidationResponse(rumor.id);
 
       // Seal it for the validation service
-      const seal = this.createSeal(rumor, VALIDATION_SERVICE_PUBKEY);
+      const seal = await this.createSeal(rumor, VALIDATION_SERVICE_PUBKEY);
 
       // Gift wrap it
       const giftWrap = this.createGiftWrap(seal, VALIDATION_SERVICE_PUBKEY);
@@ -475,7 +536,7 @@ export class NostrLocationService {
       const responsePromise = this.waitForServiceResponse(rumor.id, 'preview_response');
 
       // Seal it for the validation service
-      const seal = this.createSeal(rumor, VALIDATION_SERVICE_PUBKEY);
+      const seal = await this.createSeal(rumor, VALIDATION_SERVICE_PUBKEY);
 
       // Gift wrap it
       const giftWrap = this.createGiftWrap(seal, VALIDATION_SERVICE_PUBKEY);
@@ -538,10 +599,10 @@ export class NostrLocationService {
             });
 
             // Try to unwrap and unseal
-            const rumor = this.unwrapAndUnseal(event);
+            const rumor = await this.unwrapAndUnseal(event);
 
             if (!rumor) {
-              console.error('Failed to unwrap gift wrap event');
+              console.debug('Failed to unwrap gift wrap event - likely not for us or invalid MAC');
               return;
             }
 
