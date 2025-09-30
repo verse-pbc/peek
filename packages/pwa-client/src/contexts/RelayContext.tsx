@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef } from 'r
 import { RelayManager } from '@/services/relay-manager';
 import { GroupManager } from '@/services/group-manager';
 import { IdentityMigrationService } from '@/services/identity-migration';
-import { finalizeEvent, type EventTemplate, type VerifiedEvent } from 'nostr-tools';
+import { finalizeEvent, type EventTemplate, type VerifiedEvent, nip19 } from 'nostr-tools';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { hexToBytes, bytesToHex } from '@/lib/hex';
 import { useNostrLogin } from '@/lib/nostrify-shim';
@@ -50,64 +50,95 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   }, [identity]);
 
   useEffect(() => {
-    // Initialize relay manager
-    const relayUrl = import.meta.env.VITE_RELAY_URL || 'ws://localhost:8080';
-    const manager = new RelayManager({
-      url: relayUrl,
-      autoConnect: false // We'll connect manually after setting up auth
-    });
+    const initializeRelay = async () => {
+      // Initialize relay manager
+      const relayUrl = import.meta.env.VITE_RELAY_URL || 'ws://localhost:8080';
+      const manager = new RelayManager({
+        url: relayUrl,
+        autoConnect: false
+      });
 
-    let secretKeyBytes: Uint8Array;
-    let publicKeyHex: string;
-    let usingExtension = false;
+      let secretKeyBytes: Uint8Array | undefined;
+      let publicKeyHex: string | undefined;
+      let usingExtension = false;
 
-    // Set up NIP-42 authentication
-    // First check if we have a stored personal identity (in case hook hasn't loaded yet)
-    const STORAGE_KEY = 'peek_nostr_identity';
-    const storedIdentity = localStorage.getItem(STORAGE_KEY);
-    const personalIdentity = storedIdentity ? JSON.parse(storedIdentity) : null;
+      const STORAGE_KEY = 'peek_nostr_identity';
 
-    if ((identity?.secretKey && identity?.publicKey) || (personalIdentity?.secretKey && personalIdentity?.publicKey)) {
-      const authIdentity = identity || personalIdentity;
-      // Check if using NIP-07 extension
-      if (authIdentity.secretKey === 'NIP07_EXTENSION') {
-        // Using browser extension for signing
+      // Check if NIP-07 extension is actively available
+      if (typeof window !== 'undefined' && window.nostr) {
+        try {
+          // Get current pubkey from extension
+          const extensionPubkey = await window.nostr.getPublicKey();
+
+        // Check if cached identity matches extension
+        const storedIdentity = localStorage.getItem(STORAGE_KEY);
+        const cached = storedIdentity ? JSON.parse(storedIdentity) : null;
+
+        if (!cached || cached.publicKey !== extensionPubkey || cached.secretKey !== 'NIP07_EXTENSION') {
+          // Sync localStorage with extension
+          const npub = nip19.npubEncode(extensionPubkey);
+          const syncedIdentity = {
+            secretKey: 'NIP07_EXTENSION',
+            publicKey: extensionPubkey,
+            npub
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedIdentity));
+          console.log(`[RelayContext] Synced localStorage with NIP-07 extension: ${npub}`);
+        }
+
         usingExtension = true;
-        publicKeyHex = authIdentity.publicKey;
+        publicKeyHex = extensionPubkey;
         console.log('[RelayContext] Using NIP-07 browser extension for auth');
-      } else {
+      } catch (err) {
+        console.error('[RelayContext] Failed to get pubkey from extension:', err);
+        // Fall through to localStorage check
+      }
+    }
+
+    // If not using extension, check stored identity
+    if (!usingExtension) {
+      const storedIdentity = localStorage.getItem(STORAGE_KEY);
+      const personalIdentity = storedIdentity ? JSON.parse(storedIdentity) : null;
+
+      if ((identity?.secretKey && identity?.publicKey) || (personalIdentity?.secretKey && personalIdentity?.publicKey)) {
+        const authIdentity = identity || personalIdentity;
         // Use existing user identity
         console.log('[RelayContext] Using existing user identity for auth');
         secretKeyBytes = hexToBytes(authIdentity.secretKey);
         publicKeyHex = authIdentity.publicKey;
-      }
-    } else {
-      // Generate anonymous identity for new users
-      const ANON_KEY = 'peek_anonymous_identity';
-      const anonIdentity = localStorage.getItem(ANON_KEY);
-
-      if (anonIdentity) {
-        // Use existing anonymous identity
-        const parsed = JSON.parse(anonIdentity);
-        secretKeyBytes = hexToBytes(parsed.secretKey);
-        publicKeyHex = parsed.publicKey;
-        console.log('[RelayContext] Using existing anonymous identity:', publicKeyHex.slice(0, 8) + '...');
       } else {
-        // Generate new anonymous identity
-        secretKeyBytes = generateSecretKey();
-        publicKeyHex = getPublicKey(secretKeyBytes);
+        // Generate anonymous identity for new users
+        const ANON_KEY = 'peek_anonymous_identity';
+        const anonIdentity = localStorage.getItem(ANON_KEY);
 
-        // Store for persistence
-        localStorage.setItem(ANON_KEY, JSON.stringify({
-          secretKey: bytesToHex(secretKeyBytes),
-          publicKey: publicKeyHex,
-          createdAt: Date.now(),
-          isAutoGenerated: true
-        }));
+        if (anonIdentity) {
+          // Use existing anonymous identity
+          const parsed = JSON.parse(anonIdentity);
+          secretKeyBytes = hexToBytes(parsed.secretKey);
+          publicKeyHex = parsed.publicKey;
+          console.log('[RelayContext] Using existing anonymous identity:', publicKeyHex!.slice(0, 8) + '...');
+        } else {
+          // Generate new anonymous identity
+          secretKeyBytes = generateSecretKey();
+          publicKeyHex = getPublicKey(secretKeyBytes);
 
-        console.log('[RelayContext] Generated new anonymous identity:', publicKeyHex.slice(0, 8) + '...');
+          // Store for persistence
+          localStorage.setItem(ANON_KEY, JSON.stringify({
+            secretKey: bytesToHex(secretKeyBytes),
+            publicKey: publicKeyHex,
+            createdAt: Date.now(),
+            isAutoGenerated: true
+          }));
+
+          console.log('[RelayContext] Generated new anonymous identity:', publicKeyHex!.slice(0, 8) + '...');
+        }
       }
     }
+
+      if (!publicKeyHex) {
+        console.error('[RelayContext] Failed to initialize identity');
+        return;
+      }
 
     // Set up relay manager with auth
     manager.setUserPubkey(publicKeyHex);
@@ -209,7 +240,10 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       gm.dispose();
       manager.dispose();
     };
-  }, []); // Only create RelayManager once - use identityRef for dynamic identity access
+    };
+
+    initializeRelay();
+  }, []);
 
   const connect = async () => {
     if (managerRef.current) {

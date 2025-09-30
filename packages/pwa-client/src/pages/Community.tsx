@@ -104,13 +104,29 @@ const Community = () => {
           });
         } else if (event.kind === 39002) { // GROUP_MEMBERS event
           const memberCount = event.tags.filter(t => t[0] === 'p').length;
+          console.log('Updating member count from kind 39002 event:', memberCount);
           setCommunityData(prev => prev ? { ...prev, memberCount } : prev);
+        } else if (event.kind === 9000) { // PUT_USER event (real-time member addition)
+          // Extract h-tag to verify it's for this group
+          const hTag = event.tags.find(t => t[0] === 'h')?.[1];
+          if (hTag === groupId) {
+            console.log('New member added (kind 9000), refreshing member count');
+            // Trigger a refresh by incrementing member count optimistically
+            setCommunityData(prev => {
+              if (!prev) return prev;
+              return { ...prev, memberCount: prev.memberCount + 1 };
+            });
+            // Also refresh from GroupManager to get accurate count
+            if (groupManager) {
+              groupManager.refreshGroup(groupId);
+            }
+          }
         }
       });
 
       return () => unsubscribe();
     }
-  }, [relayManager, connected, groupId]);
+  }, [relayManager, connected, groupId, groupManager]);
 
   // Verify user has access to this community
   useEffect(() => {
