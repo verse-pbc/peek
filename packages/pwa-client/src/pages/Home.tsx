@@ -121,7 +121,7 @@ const Home = () => {
   const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
   const discoveryServiceRef = useRef<DiscoveryService | null>(null);
 
-  // Dev mode detection - show "Create Test Community" button when ?dev=true
+  // Dev mode detection - show "Create Dev Test Community" button when ?dev=true
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
   const isDevMode = urlParams.get('dev') === 'true';
 
@@ -384,7 +384,7 @@ const Home = () => {
                   className="gap-2 text-navy border-coral hover:bg-coral/10"
                 >
                   <MapPin className="h-4 w-4" />
-                  <span className="hidden sm:inline">Create Test</span>
+                  <span className="hidden sm:inline">Create Dev Test</span>
                 </Button>
               )}
               <UserIdentityButton />
