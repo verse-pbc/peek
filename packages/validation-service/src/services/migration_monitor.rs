@@ -26,17 +26,18 @@ impl MigrationMonitor {
     }
 
     /// Start monitoring for migration events
-    pub async fn start_monitoring(&self) -> AnyResult<()> {
+    /// NOTE: This creates the subscription, but events are handled by the
+    /// NostrValidationHandler's notification handler
+    pub async fn start_monitoring(&self, client: &Client) -> AnyResult<()> {
         info!(
             "Starting migration monitor for kind {} events",
             MIGRATION_KIND
         );
 
-        // Subscribe to all migration events
-        let filter = Filter::new().kind(Kind::Custom(MIGRATION_KIND)).limit(0); // Get all events
+        // Subscribe to all migration events using the shared client
+        let filter = Filter::new().kind(Kind::Custom(MIGRATION_KIND)).limit(0);
 
-        let relay_service = self.relay_service.read().await;
-        relay_service.client().subscribe(filter, None).await?;
+        client.subscribe(filter, None).await?;
 
         info!("Subscribed to migration events (kind {})", MIGRATION_KIND);
         Ok(())

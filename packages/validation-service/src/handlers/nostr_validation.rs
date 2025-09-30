@@ -167,8 +167,8 @@ impl NostrValidationHandler {
     pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
         info!("Starting NIP-59 gift wrap listener and migration monitor");
 
-        // Start migration monitor
-        self.migration_monitor.start_monitoring().await?;
+        // Start migration monitor using the same client as gift wrap listener
+        self.migration_monitor.start_monitoring(&self.client).await?;
 
         // Subscribe to gift wraps for our service pubkey using limit(0) like the bot example
         // Gift wraps are tagged with #p for the recipient
