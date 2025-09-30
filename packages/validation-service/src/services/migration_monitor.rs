@@ -161,16 +161,33 @@ impl MigrationMonitor {
                 group_id, old_pubkey, new_pubkey
             );
 
-            // Add new member first
+            // Check if old member is an admin
+            let is_admin = self
+                .check_if_admin(&group_id, old_pubkey)
+                .await
+                .unwrap_or(false);
+            info!(
+                "Old member {} admin status in group {}: {}",
+                old_pubkey, group_id, is_admin
+            );
+
+            // Add new member first with same admin status as old member
+            // This ensures groups always have at least one admin
             match relay_service
-                .add_group_member(&group_id, new_pubkey, false)
+                .add_group_member(&group_id, new_pubkey, is_admin)
                 .await
             {
-                Ok(_) => info!("Added {} to group {}", new_pubkey, group_id),
-                Err(e) => error!("Failed to add {} to group {}: {}", new_pubkey, group_id, e),
+                Ok(_) => info!(
+                    "Added {} to group {} (admin: {})",
+                    new_pubkey, group_id, is_admin
+                ),
+                Err(e) => {
+                    error!("Failed to add {} to group {}: {}", new_pubkey, group_id, e);
+                    continue; // Skip removing old member if add failed
+                }
             }
 
-            // Then remove old member
+            // Only remove old member after successful add
             match relay_service
                 .remove_group_member(&group_id, old_pubkey)
                 .await
@@ -216,6 +233,50 @@ impl MigrationMonitor {
         }
 
         Ok(groups)
+    }
+
+    /// Check if a pubkey is an admin in a specific group
+    async fn check_if_admin(&self, group_id: &str, pubkey: &str) -> AnyResult<bool> {
+        // Query for group admin events (kind 39001) for this group
+        let filter = Filter::new()
+            .kind(Kind::Custom(39001)) // GROUP_ADMINS kind
+            .identifier(group_id)
+            .limit(1);
+
+        use std::time::Duration;
+        let relay_service = self.relay_service.read().await;
+        let events = relay_service
+            .client()
+            .fetch_events(filter, Duration::from_secs(5))
+            .await?;
+
+        // Check if pubkey exists in the admin list with any role
+        for event in events {
+            for tag in event.tags.iter() {
+                if let TagKind::SingleLetter(single_letter) = tag.kind() {
+                    if single_letter.character == Alphabet::P {
+                        // Admin p tags have format: ["p", "<pubkey>", "<role>"]
+                        if let Some(admin_pubkey) = tag.content() {
+                            if admin_pubkey == pubkey {
+                                // Check if there's a role (admins have at least 2 elements after "p")
+                                let tag_vec = tag.clone().to_vec();
+                                if tag_vec.len() >= 3 {
+                                    info!(
+                                        "Found {} as admin in group {} with role: {:?}",
+                                        pubkey,
+                                        group_id,
+                                        tag_vec.get(2)
+                                    );
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     /// Resolve an identity through its migration chain
