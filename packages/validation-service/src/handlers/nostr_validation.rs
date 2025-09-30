@@ -140,6 +140,9 @@ impl NostrValidationHandler {
             client.add_relay(relay_url).await?;
         }
 
+        // Enable automatic authentication for NIP-42
+        client.automatic_authentication(true);
+
         client.connect().await;
         info!(
             "Connected to {} relays for gift wrap reception",
