@@ -255,11 +255,9 @@ const Home = () => {
     };
 
     fetchCommunities();
-    const pollInterval = setInterval(fetchCommunities, 2000);
 
     return () => {
       isActive = false;
-      clearInterval(pollInterval);
     };
   }, [groupManager, toast]);
 
