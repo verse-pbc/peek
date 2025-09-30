@@ -12,23 +12,12 @@ pub struct CommunityMetadata {
 
 /// Service for managing community metadata using relay as storage
 pub struct CommunityService {
-    relay_service: Arc<RelayService>,
+    relay_service: Arc<tokio::sync::RwLock<RelayService>>,
 }
 
 impl CommunityService {
-    pub async fn new(
-        relay_url: &str,
-        relay_secret_key: &str,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let relay_service =
-            RelayService::new(relay_url.to_string(), relay_secret_key.to_string()).await?;
-
-        // Load existing communities from relay on startup
-        relay_service.load_all_communities().await?;
-
-        Ok(Self {
-            relay_service: Arc::new(relay_service),
-        })
+    pub fn new(relay_service: Arc<tokio::sync::RwLock<RelayService>>) -> Self {
+        Self { relay_service }
     }
 
     /// Get community metadata by ID
@@ -36,7 +25,7 @@ impl CommunityService {
         tracing::info!("[CommunityService::get] Looking up group for UUID {}", id);
 
         // Look up the group ID from UUID using NIP-73 i-tag
-        let group_id = match self.relay_service.find_group_by_uuid(id).await {
+        let group_id = match self.relay_service.read().await.find_group_by_uuid(id).await {
             Ok(Some(gid)) => gid,
             Ok(None) => {
                 tracing::info!("[CommunityService::get] No group found for UUID {}", id);
@@ -59,7 +48,13 @@ impl CommunityService {
         );
 
         // Try to get NIP-29 group metadata first
-        if let Ok(group_meta) = self.relay_service.get_group_metadata(&group_id).await {
+        if let Ok(group_meta) = self
+            .relay_service
+            .read()
+            .await
+            .get_group_metadata(&group_id)
+            .await
+        {
             tracing::info!("[CommunityService::get] Retrieved metadata for {}: name='{}', members={}, geohash={:?}, display_geohash={:?}",
                 group_id, group_meta.name, group_meta.member_count, group_meta.geohash, group_meta.display_geohash);
             // If group exists and has no members, it's essentially "new" for the first user
@@ -115,7 +110,13 @@ impl CommunityService {
         );
 
         // Look up the group ID from UUID
-        let group_id = match self.relay_service.find_group_by_uuid(community_id).await {
+        let group_id = match self
+            .relay_service
+            .read()
+            .await
+            .find_group_by_uuid(community_id)
+            .await
+        {
             Ok(Some(gid)) => gid,
             Ok(None) => {
                 tracing::info!(
@@ -138,7 +139,13 @@ impl CommunityService {
             group_id
         );
 
-        if let Ok(group_meta) = self.relay_service.get_group_metadata(&group_id).await {
+        if let Ok(group_meta) = self
+            .relay_service
+            .read()
+            .await
+            .get_group_metadata(&group_id)
+            .await
+        {
             tracing::info!("[group_exists_without_geohash] Group {} metadata: members={}, geohash={:?}, display_geohash={:?}",
                 group_id, group_meta.member_count, group_meta.geohash, group_meta.display_geohash);
 
@@ -182,6 +189,8 @@ impl CommunityService {
         // Create new community on relay
         let _group_id = self
             .relay_service
+            .write()
+            .await
             .create_group(
                 community_id,
                 format!("Community {}", &community_id.to_string()[..8]),

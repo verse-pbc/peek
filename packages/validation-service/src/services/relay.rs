@@ -626,14 +626,6 @@ impl RelayService {
         }
     }
 
-    /// Load all communities from relay on startup
-    pub async fn load_all_communities(&self) -> Result<()> {
-        // Communities are now tracked entirely through NIP-29 group metadata
-        // No need to load encrypted metadata
-        tracing::info!("Communities are now loaded directly from NIP-29 groups");
-        Ok(())
-    }
-
     /// Find a group's h-tag by its UUID using NIP-73 i-tag
     /// Returns the group_id (h-tag) if found, None otherwise
     pub async fn find_group_by_uuid(&self, uuid: &Uuid) -> Result<Option<String>> {
