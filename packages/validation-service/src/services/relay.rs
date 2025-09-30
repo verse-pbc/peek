@@ -665,9 +665,10 @@ impl RelayService {
 
         if let Some(event) = events.first() {
             // Extract the d-tag which contains the group h-tag
+            // Note: d-tag is a SingleLetter tag, not a Custom tag
             for tag in event.tags.iter() {
-                if let TagKind::Custom(tag_name) = tag.kind() {
-                    if tag_name.as_ref() == "d" {
+                if let TagKind::SingleLetter(single_letter) = tag.kind() {
+                    if single_letter.character == Alphabet::D {
                         if let Some(group_id) = tag.content() {
                             let group_id_string = group_id.to_string();
                             tracing::info!(
