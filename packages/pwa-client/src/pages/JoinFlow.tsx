@@ -534,6 +534,12 @@ export const JoinFlow: React.FC = () => {
           is_admin: response.is_admin
         });
 
+        // Cache the UUID → h-tag mapping for future lookups
+        if (response.group_id && relayManager && communityId) {
+          relayManager.cacheUuidToGroup(communityId, response.group_id);
+          console.log(`Cached UUID ${communityId} → group ${response.group_id}`);
+        }
+
         // If user is admin, immediately update the cache
         if (response.is_admin && response.group_id && groupManager && pubkey) {
           groupManager.setInitialAdminStatus(response.group_id, pubkey);
