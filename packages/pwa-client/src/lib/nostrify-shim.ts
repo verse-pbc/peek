@@ -68,7 +68,17 @@ export const useNostrLogin = () => {
     if (stored) {
       try {
         const parsed = JSON.parse(stored) as StoredIdentity;
-        setIdentity(parsed);
+
+        // Migrate old identities without isAnonymous flag
+        if (parsed.isAnonymous === undefined) {
+          // If it's NIP-07 or has a real secret key, it's not anonymous
+          const migrated = { ...parsed, isAnonymous: false };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+          console.log('Migrated identity to include isAnonymous flag');
+          setIdentity(migrated);
+        } else {
+          setIdentity(parsed);
+        }
       } catch (err) {
         console.error('Failed to parse stored identity:', err);
       }
