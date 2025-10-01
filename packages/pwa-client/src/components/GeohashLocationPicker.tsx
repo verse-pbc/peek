@@ -6,7 +6,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
-import { MapPin, Navigation, Hash, Map as MapIcon, CheckCircle } from 'lucide-react';
+import { MapPin, Navigation, Hash } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import {
   validateGeohash,
@@ -229,18 +229,14 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="real" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="real">
               <Navigation className="h-4 w-4 mr-2" />
               Real GPS
             </TabsTrigger>
-            <TabsTrigger value="geohash">
-              <Hash className="h-4 w-4 mr-2" />
-              Geohash
-            </TabsTrigger>
             <TabsTrigger value="map">
-              <MapIcon className="h-4 w-4 mr-2" />
-              Map
+              <Hash className="h-4 w-4 mr-2" />
+              Geohash + Map
             </TabsTrigger>
           </TabsList>
 
@@ -258,11 +254,12 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
             </Button>
           </TabsContent>
 
-          {/* Geohash Input Tab */}
-          <TabsContent value="geohash" className="space-y-4">
+          {/* Combined Geohash + Map Tab */}
+          <TabsContent value="map" className="space-y-4">
+            {/* Geohash Input at top */}
             <div className="space-y-2">
               <Label htmlFor="geohash-input" className="flex items-center justify-between">
-                <span>Geohash (Level 8)</span>
+                <span>Enter Geohash (Level 8)</span>
                 <span className={`text-sm font-medium ${status.color}`}>
                   {status.text}
                 </span>
@@ -274,7 +271,7 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
                 onChange={(e) => handleGeohashInputChange(e.target.value)}
                 placeholder="9q8yy1uj"
                 maxLength={10}
-                className={`font-mono ${
+                className={`font-mono text-lg ${
                   status.valid
                     ? 'border-green-500 focus-visible:ring-green-500'
                     : geohashInput.length > 8
@@ -283,39 +280,11 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
                 }`}
               />
               <p className="text-xs text-muted-foreground">
-                Enter exactly 8 characters (0-9, b-z except a,i,l,o)
+                Type or click map cells • Level 8 covers ~38m × 19m area
               </p>
             </div>
 
-            {selectedGeohash && (
-              <Alert className="border-green-200 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-900">
-                  Valid level 8 geohash: <span className="font-mono font-bold">{selectedGeohash}</span>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Button
-              onClick={handleOverrideWithGeohash}
-              className="w-full"
-              size="lg"
-              disabled={!selectedGeohash}
-            >
-              <MapPin className="h-5 w-5 mr-2" />
-              Override Location
-            </Button>
-          </TabsContent>
-
-          {/* Map Tab */}
-          <TabsContent value="map" className="space-y-4">
-            <Alert>
-              <MapIcon className="h-4 w-4" />
-              <AlertDescription>
-                Click a geohash cell on the map to select it. Zoom in for better precision.
-              </AlertDescription>
-            </Alert>
-
+            {/* Map with Grid */}
             <div className="h-96 w-full rounded-lg overflow-hidden border">
               <MapContainer
                 center={mapCenter}
@@ -331,25 +300,16 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
               </MapContainer>
             </div>
 
-            {selectedGeohash && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-green-900">Selected:</span>
-                  </div>
-                  <span className="font-mono font-bold text-green-900">{selectedGeohash}</span>
-                </div>
-                <Button
-                  onClick={handleOverrideWithGeohash}
-                  className="w-full"
-                  size="lg"
-                >
-                  <MapPin className="h-5 w-5 mr-2" />
-                  Override with {selectedGeohash}
-                </Button>
-              </div>
-            )}
+            {/* Override Button */}
+            <Button
+              onClick={handleOverrideWithGeohash}
+              className="w-full"
+              size="lg"
+              disabled={!selectedGeohash}
+            >
+              <MapPin className="h-5 w-5 mr-2" />
+              {selectedGeohash ? `Override with ${selectedGeohash}` : 'Override Location'}
+            </Button>
           </TabsContent>
         </Tabs>
       </CardContent>

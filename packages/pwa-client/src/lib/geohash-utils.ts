@@ -46,6 +46,9 @@ export function latLngToGeohash(lat: number, lng: number, precision: number = 8)
  * Get bounding box for a geohash
  */
 export function getGeohashBounds(hash: string): GeohashBounds {
+  if (!hash || !validateGeohash(hash)) {
+    throw new Error(`Invalid geohash: ${hash}`);
+  }
   const bbox = geohash.decode_bbox(hash);
   return {
     minLat: bbox[0],
@@ -90,20 +93,34 @@ export function getGeohashesInBounds(
 
   for (let lat = bounds.south; lat <= bounds.north; lat += latStep) {
     for (let lng = bounds.west; lng <= bounds.east; lng += lngStep) {
-      const hash = latLngToGeohash(lat, lng, precision);
-      hashes.add(hash);
+      try {
+        const hash = latLngToGeohash(lat, lng, precision);
+        if (hash && validateGeohash(hash)) {
+          hashes.add(hash);
 
-      // Also add neighbors to ensure full coverage
-      const neighbors = getGeohashNeighbors(hash);
-      neighbors.forEach(n => hashes.add(n));
+          // Also add neighbors to ensure full coverage
+          try {
+            const neighbors = getGeohashNeighbors(hash);
+            neighbors.forEach(n => {
+              if (n && validateGeohash(n)) {
+                hashes.add(n);
+              }
+            });
+          } catch (e) {
+            console.warn('Failed to get neighbors for hash:', hash, e);
+          }
+        }
 
-      if (hashes.size >= maxCells) {
-        return Array.from(hashes).slice(0, maxCells);
+        if (hashes.size >= maxCells) {
+          return Array.from(hashes).filter(h => h && validateGeohash(h)).slice(0, maxCells);
+        }
+      } catch (e) {
+        console.warn('Failed to encode geohash for', lat, lng, e);
       }
     }
   }
 
-  return Array.from(hashes);
+  return Array.from(hashes).filter(h => h && validateGeohash(h));
 }
 
 /**
