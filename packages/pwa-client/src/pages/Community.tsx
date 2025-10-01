@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CommunityFeed } from '../components/CommunityFeed';
 import { AdminPanel } from '../components/AdminPanel';
@@ -19,6 +19,8 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
+import { useMigrationState } from '../hooks/useMigrationState';
+import { useMigrationPolling } from '../hooks/useMigrationPolling';
 
 interface CommunityData {
   groupId: string;
@@ -43,33 +45,14 @@ const Community = () => {
   const [communityData, setCommunityData] = useState<CommunityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isMigrating, setIsMigrating] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const { relayManager, groupManager, connected, waitForConnection} = useRelayManager();
-
-  // Refs for migration polling cleanup
-  const migrationPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const migrationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Resolve UUID to h-tag for NIP-29 group
   const [groupId, setGroupId] = useState<string | null>(null);
 
-  // Check migration state IMMEDIATELY on mount to prevent error flashing
-  useEffect(() => {
-    const migratingState = localStorage.getItem('identity_migrating');
-    if (migratingState) {
-      try {
-        const state = JSON.parse(migratingState);
-        // If we're migrating any groups, set the flag
-        if (state.groups && state.groups.length > 0) {
-          setIsMigrating(true);
-          console.log('[Community] Migration in progress, groups:', state.groups);
-        }
-      } catch (e) {
-        console.warn('[Community] Failed to parse migration state:', e);
-      }
-    }
-  }, []); // Run once on mount
+  // Migration state management (data-oriented hook)
+  const { isMigrating, clearMigration } = useMigrationState(groupId);
 
   // Resolve UUID to group h-tag
   useEffect(() => {
@@ -146,156 +129,63 @@ const Community = () => {
     }
   }, [relayManager, connected, groupId, groupManager]);
 
-  // Verify user has access to this community
-  useEffect(() => {
-    if (!pubkey || !groupId || !groupManager || !connected) {
-      if (!pubkey && !isMigrating) {
-        // Only show login error if not in migration state
-        setLoading(false);
-        setError('Please login to access communities');
+  // Verify membership and load community data
+  const verifyCommunityAccess = useCallback(async () => {
+    if (!pubkey || !groupId || !groupManager) return;
+
+    setLoading(true);
+    setError(null);
+
+    await waitForConnection();
+
+    // Check cache first
+    let isMember = groupManager.isGroupMember(groupId);
+    let isAdmin = groupManager.isGroupAdmin(groupId);
+
+    // Check localStorage for admin status if not in cache
+    if (!isAdmin) {
+      const joinedGroupsStr = localStorage.getItem('joinedGroups');
+      if (joinedGroupsStr) {
+        try {
+          const joinedGroups = JSON.parse(joinedGroupsStr);
+          const groupInfo = joinedGroups.find((g: { groupId?: string; communityId?: string }) =>
+            g.groupId === groupId || g.communityId === communityId
+          );
+          if (groupInfo?.isAdmin) {
+            groupManager.setInitialAdminStatus(groupId, pubkey);
+            isAdmin = true;
+          }
+        } catch (e) {
+          console.error('Error parsing joinedGroups:', e);
+        }
       }
-      // Still loading if we're waiting for connection or group manager (or migrating)
+    }
+
+    console.log('Initial cache check:', { groupId, isMember, isAdmin, userPubkey: pubkey });
+
+    // If not in cache and NOT migrating, check relay
+    if (!isMember && !isMigrating) {
+      console.log('Member not in cache, checking relay directly...');
+      isMember = await groupManager.checkMembershipDirectly(groupId);
+      console.log('Direct relay check result:', { groupId, isMember, userPubkey: pubkey });
+    } else if (!isMember && isMigrating) {
+      console.log('Identity migration in progress, skipping relay check');
+    }
+
+    // Handle non-members (not migrating)
+    if (!isMember && !isMigrating) {
+      const message = 'You are not a member of this community. Please scan the QR code at the physical location to join.';
+      setError(message);
+      setLoading(false);
+      navigate('/', { state: { message } });
       return;
     }
 
-    const verifyCommunityAccess = async () => {
-      setLoading(true);
-      setError(null);
-
-      // Wait for connection to be established
-      await waitForConnection();
-
-      // First check cache for fast initial display
-      let isMember = groupManager.isGroupMember(groupId);
-      let isAdmin = groupManager.isGroupAdmin(groupId);
-
-      // If not admin in cache, check localStorage as fallback
-      if (!isAdmin) {
-        const joinedGroupsStr = localStorage.getItem('joinedGroups');
-        if (joinedGroupsStr) {
-          try {
-            const joinedGroups = JSON.parse(joinedGroupsStr);
-            const groupInfo = joinedGroups.find((g: { groupId?: string; communityId?: string }) =>
-              g.groupId === groupId || g.communityId === communityId
-            );
-            if (groupInfo?.isAdmin) {
-              // Set initial admin status from localStorage
-              groupManager.setInitialAdminStatus(groupId, pubkey);
-              isAdmin = true;
-              console.log('Set admin status from localStorage for group:', groupId);
-            }
-          } catch (e) {
-            console.error('Error parsing joinedGroups:', e);
-          }
-        }
-      }
-
-      console.log('Initial cache check:', {
-        groupId,
-        isMember,
-        isAdmin,
-        userPubkey: pubkey
-      });
-
-      // Check if we're in the middle of a migration BEFORE doing relay checks
-      const migratingState = localStorage.getItem('identity_migrating');
-      const isCurrentlyMigrating = (() => {
-        if (!migratingState) return false;
-        try {
-          const state = JSON.parse(migratingState);
-          // Check if this group is in the migration list
-          return state.groups && state.groups.includes(groupId);
-        } catch {
-          return false;
-        }
-      })();
-
-      // Update state to show migration UI
-      setIsMigrating(isCurrentlyMigrating);
-
-      // If not in cache and NOT migrating, do authoritative check from relay
-      if (!isMember && !isCurrentlyMigrating) {
-        console.log('Member not in cache, checking relay directly...');
-        isMember = await groupManager.checkMembershipDirectly(groupId);
-
-        console.log('Direct relay check result:', {
-          groupId,
-          isMember,
-          userPubkey: pubkey
-        });
-      } else if (!isMember && isCurrentlyMigrating) {
-        console.log('Identity migration in progress, skipping relay check');
-      }
-
-      // Handle membership verification results
-      if (!isMember && !isCurrentlyMigrating) {
-        // User is not a member according to relay and not migrating
-        const message = 'You are not a member of this community. Please scan the QR code at the physical location to join.';
-
-        setError(message);
-        setLoading(false);
-
-        // Redirect to home with appropriate message
-        navigate('/', {
-          state: { message }
-        });
-        return;
-      }
-
-      if (isCurrentlyMigrating && !isMember) {
-        // Migration in progress - keep loading state and poll for membership update
-        console.log('Identity migration in progress, waiting for membership update...');
-
-        // Clear any existing polling intervals
-        if (migrationPollIntervalRef.current) {
-          clearInterval(migrationPollIntervalRef.current);
-        }
-        if (migrationTimeoutRef.current) {
-          clearTimeout(migrationTimeoutRef.current);
-        }
-
-        // Poll for membership update every 2 seconds
-        migrationPollIntervalRef.current = setInterval(async () => {
-          const updatedIsMember = await groupManager.checkMembershipDirectly(groupId);
-
-          if (updatedIsMember) {
-            console.log('Migration complete - membership confirmed!');
-
-            // Clear polling
-            if (migrationPollIntervalRef.current) {
-              clearInterval(migrationPollIntervalRef.current);
-              migrationPollIntervalRef.current = null;
-            }
-            if (migrationTimeoutRef.current) {
-              clearTimeout(migrationTimeoutRef.current);
-              migrationTimeoutRef.current = null;
-            }
-
-            // Clear migration state
-            localStorage.removeItem('identity_migrating');
-
-            // Re-trigger the access verification to load community data
-            verifyCommunityAccess();
-          }
-        }, 2000);
-
-        // Timeout after 30 seconds
-        migrationTimeoutRef.current = setTimeout(() => {
-          if (migrationPollIntervalRef.current) {
-            clearInterval(migrationPollIntervalRef.current);
-            migrationPollIntervalRef.current = null;
-          }
-
-          console.warn('Migration polling timed out');
-
-          // Clear migration state and retry
-          localStorage.removeItem('identity_migrating');
-          verifyCommunityAccess();
-        }, 30000);
-
-        // Keep loading state true - don't proceed to load community data yet
-        return;
-      }
+    // If migrating and not member yet, polling hook will handle it
+    if (isMigrating && !isMember) {
+      console.log('Identity migration in progress, waiting for membership update...');
+      return; // Keep loading state
+    }
 
       // User is a member - load community data
       try {
@@ -350,22 +240,41 @@ const Community = () => {
       } finally {
         setLoading(false);
       }
-    };
+  }, [pubkey, groupId, communityId, groupManager, navigate, waitForConnection, isMigrating]);
 
-    verifyCommunityAccess();
+  // Migration polling (data-oriented hook)
+  useMigrationPolling(
+    async () => {
+      if (!groupManager || !groupId) return false;
+      return await groupManager.checkMembershipDirectly(groupId);
+    },
+    () => {
+      console.log('Migration complete - membership confirmed!');
+      clearMigration();
+      verifyCommunityAccess();
+    },
+    () => {
+      console.warn('Migration polling timed out');
+      clearMigration();
+      verifyCommunityAccess();
+    },
+    {
+      enabled: isMigrating && !communityData?.isMember
+    }
+  );
 
-    // Cleanup function to clear migration polling intervals
-    return () => {
-      if (migrationPollIntervalRef.current) {
-        clearInterval(migrationPollIntervalRef.current);
-        migrationPollIntervalRef.current = null;
-      }
-      if (migrationTimeoutRef.current) {
-        clearTimeout(migrationTimeoutRef.current);
-        migrationTimeoutRef.current = null;
-      }
-    };
-  }, [pubkey, groupId, communityId, groupManager, connected, navigate, waitForConnection, isMigrating]);
+  // Verify access when dependencies change
+  useEffect(() => {
+    if (!pubkey && !isMigrating) {
+      setLoading(false);
+      setError('Please login to access communities');
+      return;
+    }
+
+    if (pubkey && groupId && groupManager && connected) {
+      verifyCommunityAccess();
+    }
+  }, [pubkey, groupId, groupManager, connected, isMigrating, verifyCommunityAccess]);
 
   const handleBack = () => {
     navigate('/');
