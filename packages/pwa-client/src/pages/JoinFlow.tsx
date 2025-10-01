@@ -18,12 +18,17 @@ import {
   Crown,
   MessageSquare
 } from 'lucide-react';
-import { useNostrLogin, hasNip44Support, nip07Encrypt, nip07Decrypt } from '../lib/nostrify-shim';
-import { NostrLocationService, type LocationValidationResponse, type EncryptionHelper } from '../services/nostr-location';
-import { hexToBytes, bytesToHex } from '../lib/hex';
-import { getPublicKey, generateSecretKey } from 'nostr-tools';
+import { useNostrLogin } from '../lib/nostrify-shim';
+import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
 import { useToast } from '@/hooks/useToast';
 import { useRelayManager } from '@/contexts/RelayContext';
+import { setupNostrIdentity } from '../lib/nostr-identity-helper';
+import { parseValidationError, parseExceptionError } from '../lib/join-flow-errors';
+import {
+  isCommunityMember,
+  upsertJoinedGroup,
+  hasAccessedCommunity
+} from '../services/community-storage';
 
 // Types that were previously from API
 export interface CommunityPreviewData {
@@ -98,8 +103,7 @@ export const JoinFlow: React.FC = () => {
   } | null>(null);
 
   // Check if this is likely a first scan (for immediate title display)
-  const accessedCommunities = JSON.parse(localStorage.getItem('accessedCommunities') || '[]');
-  const isLikelyFirstScan = !accessedCommunities.includes(communityId);
+  const isLikelyFirstScan = !hasAccessedCommunity(communityId!);
 
   // Ensure developer mode stays enabled based on URL param
   useEffect(() => {
@@ -130,10 +134,7 @@ export const JoinFlow: React.FC = () => {
     if (!communityId) return;
 
     // Check if user is already a member of this community
-    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-    const existingMembership = joinedGroups.find((g: { communityId: string }) => g.communityId === communityId);
-
-    if (existingMembership) {
+    if (isCommunityMember(communityId)) {
       console.log('User is already a member, redirecting to community page');
       // Skip join flow, go directly to community
       navigate(`/community/${communityId}`, { replace: true });
@@ -159,104 +160,18 @@ export const JoinFlow: React.FC = () => {
     if (!communityId) return;
 
     try {
-      // Create a temporary NostrLocationService for fetching preview
-      let secretKey: Uint8Array | null = null;
-      let publicKey: string;
-      let encryptionHelper: EncryptionHelper | undefined;
-
-      if (identity?.secretKey && pubkey) {
-        publicKey = pubkey;
-
-        // Check if using NIP-07 browser extension with nip44 support
-        if (identity.secretKey === 'NIP07_EXTENSION' && hasNip44Support()) {
-          // Use NIP-07 nip44 encryption with real identity
-          console.log('[JoinFlow] Using NIP-07 nip44 encryption with real identity (preview)');
-
-          // For gift wrap decryption, we still need a local key since the wrap uses ephemeral keys
-          // But for the seal (inner layer), we'll use NIP-07
-          const ANON_KEY = 'peek_anonymous_identity';
-          const anonIdentity = localStorage.getItem(ANON_KEY);
-
-          if (!anonIdentity) {
-            const newSecretKey = generateSecretKey();
-            const newPublicKey = getPublicKey(newSecretKey);
-            localStorage.setItem(ANON_KEY, JSON.stringify({
-              secretKey: bytesToHex(newSecretKey),
-              publicKey: newPublicKey,
-              createdAt: Date.now()
-            }));
-            secretKey = newSecretKey;
-          } else {
-            const parsed = JSON.parse(anonIdentity);
-            secretKey = hexToBytes(parsed.secretKey);
-          }
-
-          // Set up NIP-07 encryption helper
-          encryptionHelper = {
-            encrypt: nip07Encrypt,
-            decrypt: nip07Decrypt
-          };
-        } else if (identity.secretKey === 'NIP07_EXTENSION') {
-          // NIP-07 without nip44 support - use anonymous key for encryption but real pubkey for identity
-          console.log('[JoinFlow] NIP-07 extension without nip44 - using anonymous encryption with real pubkey (preview)');
-          const ANON_KEY = 'peek_anonymous_identity';
-          const anonIdentity = localStorage.getItem(ANON_KEY);
-
-          if (!anonIdentity) {
-            const newSecretKey = generateSecretKey();
-            const newPublicKey = getPublicKey(newSecretKey);
-            localStorage.setItem(ANON_KEY, JSON.stringify({
-              secretKey: bytesToHex(newSecretKey),
-              publicKey: newPublicKey,
-              createdAt: Date.now()
-            }));
-            secretKey = newSecretKey;
-          } else {
-            const parsed = JSON.parse(anonIdentity);
-            secretKey = hexToBytes(parsed.secretKey);
-          }
-          // IMPORTANT: Keep real pubkey for identity (publicKey stays as the real one from line 167)
-        } else {
-          // User has real keys, use them
-          secretKey = hexToBytes(identity.secretKey);
-        }
-      } else {
-        // User is not logged in, use the same anonymous identity as RelayContext
-        const ANON_KEY = 'peek_anonymous_identity';
-        const anonIdentity = localStorage.getItem(ANON_KEY);
-
-        if (!anonIdentity) {
-          // Generate new anonymous identity (matching RelayContext)
-          const newSecretKey = generateSecretKey();
-          const newPublicKey = getPublicKey(newSecretKey);
-
-          localStorage.setItem(ANON_KEY, JSON.stringify({
-            secretKey: bytesToHex(newSecretKey),
-            publicKey: newPublicKey,
-            createdAt: Date.now(),
-            isAutoGenerated: true
-          }));
-
-          secretKey = newSecretKey;
-          publicKey = newPublicKey;
-          console.log('[JoinFlow] Generated new anonymous identity:', newPublicKey.slice(0, 8) + '...');
-        } else {
-          const parsed = JSON.parse(anonIdentity);
-          secretKey = hexToBytes(parsed.secretKey);
-          publicKey = parsed.publicKey;
-          console.log('[JoinFlow] Using existing anonymous identity:', publicKey.slice(0, 8) + '...');
-        }
-      }
+      // Set up identity and encryption using data-oriented helper (pure function)
+      const identitySetup = setupNostrIdentity(identity, pubkey);
 
       if (!relayManager) {
         throw new Error('Relay manager not initialized');
       }
 
       const nostrService = new NostrLocationService(
-        secretKey,
-        publicKey,
+        identitySetup.secretKey,
+        identitySetup.publicKey,
         relayManager,
-        encryptionHelper
+        identitySetup.encryptionHelper
       );
 
       console.log('Fetching community preview via gift wrap:', {
@@ -356,97 +271,10 @@ export const JoinFlow: React.FC = () => {
       return;
     }
 
-    let secretKey: Uint8Array | null = null;
-    let userPubkey: string;
-    let encryptionHelper: EncryptionHelper | undefined;
-
-    if (identity?.secretKey && pubkey) {
-      userPubkey = pubkey;
-
-      // Check if using NIP-07 browser extension with nip44 support
-      if (identity.secretKey === 'NIP07_EXTENSION' && hasNip44Support()) {
-        // Use NIP-07 nip44 encryption with real identity
-        console.log('[JoinFlow] Using NIP-07 nip44 encryption with real identity (validation)');
-
-        // For gift wrap decryption, we still need a local key since the wrap uses ephemeral keys
-        const ANON_KEY = 'peek_anonymous_identity';
-        const anonIdentity = localStorage.getItem(ANON_KEY);
-
-        if (!anonIdentity) {
-          const newSecretKey = generateSecretKey();
-          const newPublicKey = getPublicKey(newSecretKey);
-          localStorage.setItem(ANON_KEY, JSON.stringify({
-            secretKey: bytesToHex(newSecretKey),
-            publicKey: newPublicKey,
-            createdAt: Date.now(),
-            isAutoGenerated: true
-          }));
-          secretKey = newSecretKey;
-        } else {
-          const parsed = JSON.parse(anonIdentity);
-          secretKey = hexToBytes(parsed.secretKey);
-        }
-
-        // Set up NIP-07 encryption helper
-        encryptionHelper = {
-          encrypt: nip07Encrypt,
-          decrypt: nip07Decrypt
-        };
-      } else if (identity.secretKey === 'NIP07_EXTENSION') {
-        // NIP-07 without nip44 support - use anonymous key for encryption but real pubkey for identity
-        console.log('[JoinFlow] NIP-07 extension without nip44 - using anonymous encryption with real pubkey');
-        const ANON_KEY = 'peek_anonymous_identity';
-        const anonIdentity = localStorage.getItem(ANON_KEY);
-
-        if (!anonIdentity) {
-          const newSecretKey = generateSecretKey();
-          const newPublicKey = getPublicKey(newSecretKey);
-          localStorage.setItem(ANON_KEY, JSON.stringify({
-            secretKey: bytesToHex(newSecretKey),
-            publicKey: newPublicKey,
-            createdAt: Date.now(),
-            isAutoGenerated: true
-          }));
-          secretKey = newSecretKey;
-        } else {
-          const parsed = JSON.parse(anonIdentity);
-          secretKey = hexToBytes(parsed.secretKey);
-        }
-        // IMPORTANT: Keep real pubkey for group membership (userPubkey stays as the real one)
-      } else {
-        // User has real keys, use them for both signing and encryption
-        secretKey = hexToBytes(identity.secretKey);
-      }
-    } else {
-      // User is not logged in, use the same anonymous identity as RelayContext
-      const ANON_KEY = 'peek_anonymous_identity';
-      const anonIdentity = localStorage.getItem(ANON_KEY);
-
-      if (!anonIdentity) {
-        // Generate new anonymous identity (matching RelayContext)
-        const newSecretKey = generateSecretKey();
-        const newPublicKey = getPublicKey(newSecretKey);
-
-        localStorage.setItem(ANON_KEY, JSON.stringify({
-          secretKey: bytesToHex(newSecretKey),
-          publicKey: newPublicKey,
-          createdAt: Date.now(),
-          isAutoGenerated: true
-        }));
-
-        secretKey = newSecretKey;
-        userPubkey = newPublicKey;
-        console.log('[JoinFlow] Generated new anonymous identity for validation:', newPublicKey.slice(0, 8) + '...');
-      } else {
-        const parsed = JSON.parse(anonIdentity);
-        secretKey = hexToBytes(parsed.secretKey);
-        userPubkey = parsed.publicKey;
-        console.log('[JoinFlow] Using existing anonymous identity for validation:', userPubkey.slice(0, 8) + '...');
-      }
-    }
+    // Set up identity and encryption using data-oriented helper (pure function)
+    const identitySetup = setupNostrIdentity(identity, pubkey);
 
     try {
-
       if (!relayManager) {
         throw new Error('Relay manager not initialized');
       }
@@ -454,18 +282,17 @@ export const JoinFlow: React.FC = () => {
       console.log('Validating location via gift wrap:', {
         communityId,
         accuracy: location.accuracy,
-        userPubkey,
-        usingNIP07: identity?.secretKey === 'NIP07_EXTENSION',
-        hasNip44: hasNip44Support()
+        userPubkey: identitySetup.publicKey,
+        usingAnonymous: identitySetup.usingAnonymous
       });
 
       // NostrLocationService will use secretKey for gift wrap decryption
       // and encryptionHelper (if provided) for seal encryption/decryption
       const nostrService = new NostrLocationService(
-        secretKey,
-        userPubkey,
+        identitySetup.secretKey,
+        identitySetup.publicKey,
         relayManager,
-        encryptionHelper
+        identitySetup.encryptionHelper
       );
 
       // Send validation request via NIP-59 gift wrap
@@ -480,12 +307,7 @@ export const JoinFlow: React.FC = () => {
         setCurrentStep(JoinStep.SUCCESS);
 
         // Check if this is a re-validation (user already in localStorage)
-        const existingGroups = JSON.parse(
-          localStorage.getItem('joinedGroups') || '[]'
-        );
-        const wasAlreadyMember = existingGroups.some(
-          (g: { communityId: string }) => g.communityId === communityId
-        );
+        const wasAlreadyMember = isCommunityMember(communityId);
 
         // Show appropriate toast message
         if (wasAlreadyMember && !response.is_admin) {
@@ -504,33 +326,14 @@ export const JoinFlow: React.FC = () => {
           });
         }
 
-        // Store the group information for later use
+        // Store the group information using data-oriented storage service
         if (response.group_id && response.relay_url) {
-          // Check if this group is already in localStorage
-          const existingGroups = JSON.parse(
-            localStorage.getItem('joinedGroups') || '[]'
-          );
-          const existingIndex = existingGroups.findIndex(
-            (g: { communityId: string }) => g.communityId === communityId
-          );
-
-          const groupInfo = {
+          upsertJoinedGroup({
             communityId,
             groupId: response.group_id,
-            relayUrl: response.relay_url,
-            isAdmin: response.is_admin || false,
-            joinedAt: existingIndex >= 0 ? existingGroups[existingIndex].joinedAt : Date.now()
-          };
-
-          if (existingIndex >= 0) {
-            // Update existing entry
-            existingGroups[existingIndex] = groupInfo;
-          } else {
-            // Add new entry
-            existingGroups.push(groupInfo);
-          }
-
-          localStorage.setItem('joinedGroups', JSON.stringify(existingGroups));
+            location: capturedLocation || forcedLocation || undefined,
+            isAdmin: response.is_admin || false
+          });
         }
 
         console.log('Successfully joined community!', {
@@ -551,65 +354,20 @@ export const JoinFlow: React.FC = () => {
           console.log('Set initial admin status in cache for group:', response.group_id);
         }
       } else {
-        // Validation failed - show specific error
+        // Validation failed - parse error using data-oriented function
         const errorMessage = response.error || 'Location validation failed';
         const errorCode = response.error_code || 'VALIDATION_FAILED';
 
-        // Parse specific error types for better UX
-        let userMessage = errorMessage;
-        let canRetry = true;
-
-        if (errorCode === 'LOCATION_INVALID') {
-          if (errorMessage.includes('Too far from location')) {
-            userMessage = errorMessage; // Already user-friendly
-            canRetry = true;
-          } else if (errorMessage.includes('GPS accuracy too poor')) {
-            userMessage = errorMessage; // Already user-friendly
-            canRetry = true;
-          }
-        } else if (errorCode === 'INVALID_ID') {
-          userMessage = 'Invalid QR code format';
-          canRetry = false;
-        } else if (errorCode === 'COMMUNITY_ERROR') {
-          userMessage = 'Failed to access community information';
-          canRetry = true;
-        }
-
-        setError({
-          message: userMessage,
-          code: errorCode,
-          canRetry
-        });
+        const parsedError = parseValidationError(errorMessage, errorCode);
+        setError(parsedError);
         setCurrentStep(JoinStep.ERROR);
       }
     } catch (err: unknown) {
       console.error('Location validation error:', err);
 
-      // Check for relay connection issues
-      if ((err as Error).message?.includes('not initialized') || (err as Error).message?.includes('not connected')) {
-        setError({
-          message: 'Connection issue. Please wait a moment and try again.',
-          code: 'NETWORK_ERROR',
-          canRetry: true
-        });
-        setCurrentStep(JoinStep.ERROR);
-        return;
-      }
-
-      // Check for timeout
-      if ((err as Error).message?.includes('timeout') || (err as Error).message?.includes('Validation timeout')) {
-        setError({
-          message: 'Validation timed out. The service may be unavailable.',
-          code: 'TIMEOUT',
-          canRetry: true
-        });
-      } else {
-        setError({
-          message: 'Failed to validate location. Please check your connection and try again.',
-          code: 'NETWORK_ERROR',
-          canRetry: true
-        });
-      }
+      // Parse exception using data-oriented function
+      const parsedError = parseExceptionError(err);
+      setError(parsedError);
       setCurrentStep(JoinStep.ERROR);
     }
   }, [communityId, identity?.secretKey, pubkey, relayManager, toast]);
