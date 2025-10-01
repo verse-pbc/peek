@@ -251,11 +251,13 @@ const Community = () => {
     () => {
       console.log('Migration complete - membership confirmed!');
       clearMigration();
+      setCommunityData(null); // Clear to allow re-fetch with updated membership
       verifyCommunityAccess();
     },
     () => {
       console.warn('Migration polling timed out');
       clearMigration();
+      setCommunityData(null); // Clear to allow re-fetch
       verifyCommunityAccess();
     },
     {
@@ -275,10 +277,12 @@ const Community = () => {
       return;
     }
 
-    if (pubkey && groupId && groupManager && connected) {
+    // Only run verification if we don't have community data yet
+    // Once loaded, event listeners handle updates to prevent stale cache overwrites
+    if (pubkey && groupId && groupManager && connected && !communityData) {
       verifyCommunityAccess();
     }
-  }, [pubkey, groupId, groupManager, connected, verifyCommunityAccess]);
+  }, [pubkey, groupId, groupManager, connected, communityData, verifyCommunityAccess]);
 
   const handleBack = () => {
     navigate('/');
