@@ -133,7 +133,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           (identity?.secretKey && identity?.publicKey) ||
           (personalIdentity?.secretKey && personalIdentity?.publicKey)
         ) {
-          const authIdentity = identity || personalIdentity;
+          // Prioritize personalIdentity (user's real identity) over anonymous
+          const authIdentity = personalIdentity || identity;
 
           // Check if this is actually a NIP-07 extension identity
           if (authIdentity.secretKey === 'NIP07_EXTENSION') {
