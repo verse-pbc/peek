@@ -1,0 +1,34 @@
+/* Geohash label styles matching hashstr.com */
+.geohash-label {
+  background: rgba(96, 165, 250, 0.9) !important;
+  border: none !important;
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 10px !important;
+  padding: 1px 4px !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+
+.geohash-label::before {
+  display: none !important;
+}
+
+.geohash-label-selected {
+  background: #4ade80 !important;
+  border: none !important;
+  color: white !important;
+  font-weight: bold !important;
+  font-size: 12px !important;
+  padding: 3px 8px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+  white-space: nowrap !important;
+}
+
+.geohash-label-selected::before {
+  display: none !important;
+}
+
+.leaflet-interactive:hover {
+  cursor: pointer !important;
+}

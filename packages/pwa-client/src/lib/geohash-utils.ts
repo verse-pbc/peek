@@ -77,50 +77,57 @@ export function getGeohashNeighbors(hash: string): string[] {
 }
 
 /**
- * Generate all level 8 geohashes visible in map bounds
- * Returns array limited to maxCells to prevent performance issues
+ * Generate all geohashes visible in map bounds
+ * Algorithm matches hashstr.com implementation
  */
 export function getGeohashesInBounds(
   bounds: { north: number; south: number; east: number; west: number },
   precision: number = 8,
-  maxCells: number = 100
+  maxCells: number = 200
 ): string[] {
   const hashes: Set<string> = new Set();
 
-  // Sample points across the viewport
-  const latStep = (bounds.north - bounds.south) / 10;
-  const lngStep = (bounds.east - bounds.west) / 10;
+  try {
+    // Get corner geohashes
+    const sw = latLngToGeohash(bounds.south, bounds.west, precision);
+    const ne = latLngToGeohash(bounds.north, bounds.east, precision);
 
-  for (let lat = bounds.south; lat <= bounds.north; lat += latStep) {
-    for (let lng = bounds.west; lng <= bounds.east; lng += lngStep) {
-      try {
-        const hash = latLngToGeohash(lat, lng, precision);
-        if (hash && validateGeohash(hash)) {
-          hashes.add(hash);
+    if (!sw || !ne) return [];
 
-          // Also add neighbors to ensure full coverage
-          try {
-            const neighbors = getGeohashNeighbors(hash);
-            neighbors.forEach(n => {
-              if (n && validateGeohash(n)) {
-                hashes.add(n);
-              }
-            });
-          } catch (e) {
-            console.warn('Failed to get neighbors for hash:', hash, e);
+    // Get bounds of corner cells
+    const swBounds = getGeohashBounds(sw);
+    const neBounds = getGeohashBounds(ne);
+
+    // Calculate cell dimensions
+    const cellWidth = swBounds.maxLng - swBounds.minLng;
+    const cellHeight = swBounds.maxLat - swBounds.minLat;
+
+    // Generate grid by stepping through cells
+    let cellCount = 0;
+    for (let lat = swBounds.minLat; lat <= neBounds.maxLat + cellHeight && cellCount < maxCells; lat += cellHeight * 0.99) {
+      for (let lng = swBounds.minLng; lng <= neBounds.maxLng + cellWidth && cellCount < maxCells; lng += cellWidth * 0.99) {
+        try {
+          const hash = latLngToGeohash(lat, lng, precision);
+          if (hash && validateGeohash(hash)) {
+            const hashBounds = getGeohashBounds(hash);
+            // Check if this geohash intersects with viewport
+            if (hashBounds.maxLat >= bounds.south && hashBounds.minLat <= bounds.north &&
+                hashBounds.maxLng >= bounds.west && hashBounds.minLng <= bounds.east) {
+              hashes.add(hash);
+              cellCount++;
+            }
           }
+        } catch {
+          // Skip invalid cells
         }
-
-        if (hashes.size >= maxCells) {
-          return Array.from(hashes).filter(h => h && validateGeohash(h)).slice(0, maxCells);
-        }
-      } catch (e) {
-        console.warn('Failed to encode geohash for', lat, lng, e);
       }
     }
-  }
 
-  return Array.from(hashes).filter(h => h && validateGeohash(h));
+    return Array.from(hashes);
+  } catch (e) {
+    console.error('Failed to generate geohash grid:', e);
+    return [];
+  }
 }
 
 /**
