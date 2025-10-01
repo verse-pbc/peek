@@ -113,9 +113,16 @@ function GeohashGridOverlay({
               const validCells = getGeohashNeighbors(selectedHash);
               isValidNeighbor = validCells.includes(hash) && !isSelected;
 
-              // Debug: log neighbor checking
+              // Debug: log neighbor checking for first cell
               if (hash === geohashes[0] && selectedHash) {
                 console.log(`Validation area: selected=${selectedHash}, neighbors=${validCells.length}, showArea=${showValidationArea}`);
+                console.log(`Valid cells array:`, validCells);
+                console.log(`First 3 rendered hashes:`, geohashes.slice(0, 3));
+              }
+
+              // Debug: log when a neighbor matches
+              if (isValidNeighbor && geohashes.indexOf(hash) < 3) {
+                console.log(`Found neighbor match: ${hash} is in valid cells`);
               }
             } catch (e) {
               console.warn('Failed to get neighbors for', selectedHash, e);
