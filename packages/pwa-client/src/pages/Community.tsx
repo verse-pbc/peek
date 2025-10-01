@@ -84,6 +84,12 @@ const Community = () => {
       // Listen for group metadata updates
       const unsubscribe = relayManager.onEvent(`group-metadata-${groupId}`, (event) => {
         if (event.kind === 39000) { // GROUP_METADATA event
+          // Manually trigger GroupManager's metadata handler to update its cache
+          // This is needed because group-specific subscriptions don't trigger global kind:39000 handler
+          if (groupManager) {
+            groupManager.handleMetadataEvent(event);
+          }
+
           // Update the name when metadata changes
           const nameTag = event.tags.find(t => t[0] === 'name');
           if (nameTag && nameTag[1]) {
@@ -237,6 +243,12 @@ const Community = () => {
         // (GroupManager event handler might have processed 39000 event by now)
         setTimeout(() => {
           const updatedMetadata = groupManager.getGroupMetadata(groupId);
+          console.log('[Community] ⏰ Timeout fired, checking GroupManager cache:', {
+            hasUpdatedMetadata: !!updatedMetadata,
+            updatedName: updatedMetadata?.name,
+            currentName: community.name
+          });
+
           if (updatedMetadata?.name && updatedMetadata.name !== community.name) {
             console.log('[Community] 🔄 Updating name from GroupManager cache:', updatedMetadata.name);
             setCommunityData(prev => prev ? { ...prev, name: updatedMetadata.name! } : prev);

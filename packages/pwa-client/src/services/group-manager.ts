@@ -110,7 +110,8 @@ export class GroupManager {
     });
   }
 
-  private handleMetadataEvent(event: Event) {
+  // Made public for Community.tsx to update cache from group-specific subscriptions
+  handleMetadataEvent(event: Event) {
     const groupId = event.tags.find(t => t[0] === 'd')?.[1];
     if (!groupId) return;
 
@@ -121,6 +122,8 @@ export class GroupManager {
     const about = event.tags.find(t => t[0] === 'about')?.[1];
     const isPublic = event.tags.some(t => t[0] === 'public');
     const isOpen = event.tags.some(t => t[0] === 'open');
+
+    console.log('[GroupManager] 📝 Updating metadata cache for', groupId, 'name:', name);
 
     cache.metadata = {
       id: groupId,
