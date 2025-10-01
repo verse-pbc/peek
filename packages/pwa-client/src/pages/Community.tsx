@@ -43,8 +43,9 @@ const Community = () => {
   const [communityData, setCommunityData] = useState<CommunityData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const { relayManager, groupManager, connected, waitForConnection } = useRelayManager();
+  const { relayManager, groupManager, connected, waitForConnection} = useRelayManager();
 
   // Refs for migration polling cleanup
   const migrationPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,21 +179,9 @@ const Community = () => {
         userPubkey: pubkey
       });
 
-      // If not in cache, do authoritative check directly from relay
-      if (!isMember) {
-        console.log('Member not in cache, checking relay directly...');
-        isMember = await groupManager.checkMembershipDirectly(groupId);
-
-        console.log('Direct relay check result:', {
-          groupId,
-          isMember,
-          userPubkey: pubkey
-        });
-      }
-
-      // Check if we're in the middle of a migration
+      // Check if we're in the middle of a migration BEFORE doing relay checks
       const migratingState = localStorage.getItem('identity_migrating');
-      const isMigrating = (() => {
+      const isCurrentlyMigrating = (() => {
         if (!migratingState) return false;
         try {
           const state = JSON.parse(migratingState);
@@ -203,8 +192,25 @@ const Community = () => {
         }
       })();
 
+      // Update state to show migration UI
+      setIsMigrating(isCurrentlyMigrating);
+
+      // If not in cache and NOT migrating, do authoritative check from relay
+      if (!isMember && !isCurrentlyMigrating) {
+        console.log('Member not in cache, checking relay directly...');
+        isMember = await groupManager.checkMembershipDirectly(groupId);
+
+        console.log('Direct relay check result:', {
+          groupId,
+          isMember,
+          userPubkey: pubkey
+        });
+      } else if (!isMember && isCurrentlyMigrating) {
+        console.log('Identity migration in progress, skipping relay check');
+      }
+
       // Handle membership verification results
-      if (!isMember && !isMigrating) {
+      if (!isMember && !isCurrentlyMigrating) {
         // User is not a member according to relay and not migrating
         const message = 'You are not a member of this community. Please scan the QR code at the physical location to join.';
 
@@ -218,7 +224,7 @@ const Community = () => {
         return;
       }
 
-      if (isMigrating && !isMember) {
+      if (isCurrentlyMigrating && !isMember) {
         // Migration in progress - keep loading state and poll for membership update
         console.log('Identity migration in progress, waiting for membership update...');
 
@@ -353,18 +359,7 @@ const Community = () => {
     }
   };
 
-  // Check if we're in migration mode
-  const migratingState = localStorage.getItem('identity_migrating');
-  const isMigrating = (() => {
-    if (!migratingState) return false;
-    try {
-      const state = JSON.parse(migratingState);
-      return state.groups && state.groups.includes(groupId);
-    } catch {
-      return false;
-    }
-  })();
-
+  // Use the state variable set during access verification
   if (loading || (isMigrating && !communityData)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
