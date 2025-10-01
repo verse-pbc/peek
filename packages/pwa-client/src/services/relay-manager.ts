@@ -83,6 +83,7 @@ export class RelayManager {
   private authHandler?: (authEvent: EventTemplate) => Promise<VerifiedEvent>;
   private eventSigner?: (event: EventTemplate) => Promise<VerifiedEvent>;
   private uuidToGroupCache: Map<string, string>; // UUID -> h-tag cache
+  private readonly UUID_CACHE_KEY = 'uuid_to_group_cache';
 
   constructor(options: RelayConnectionOptions) {
     this.pool = new SimplePool();
@@ -95,7 +96,9 @@ export class RelayManager {
     this.maxReconnectAttempts = options.maxReconnectAttempts || 10;
     this.reconnectAttempts = 0;
     this.isConnecting = false;
-    this.uuidToGroupCache = new Map();
+
+    // Load UUID cache from localStorage
+    this.uuidToGroupCache = this.loadUuidCache();
 
     if (options.autoConnect !== false) {
       this.connect();
@@ -290,6 +293,35 @@ export class RelayManager {
   }
 
   /**
+   * Load UUID cache from localStorage
+   */
+  private loadUuidCache(): Map<string, string> {
+    try {
+      const stored = localStorage.getItem(this.UUID_CACHE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        console.log(`[RelayManager] Loaded ${Object.keys(parsed).length} UUID mappings from cache`);
+        return new Map(Object.entries(parsed));
+      }
+    } catch (error) {
+      console.warn('[RelayManager] Failed to load UUID cache:', error);
+    }
+    return new Map();
+  }
+
+  /**
+   * Save UUID cache to localStorage
+   */
+  private saveUuidCache(): void {
+    try {
+      const obj = Object.fromEntries(this.uuidToGroupCache);
+      localStorage.setItem(this.UUID_CACHE_KEY, JSON.stringify(obj));
+    } catch (error) {
+      console.warn('[RelayManager] Failed to save UUID cache:', error);
+    }
+  }
+
+  /**
    * Find a group's h-tag by its UUID using NIP-73 i-tag
    * Returns the group_id (h-tag) if found, null otherwise
    */
@@ -327,8 +359,9 @@ export class RelayManager {
       const dTag = events[0].tags.find(t => t[0] === 'd')?.[1];
       if (dTag) {
         console.log(`[RelayManager] Found group ${dTag} for UUID ${uuid}`);
-        // Cache the mapping
+        // Cache the mapping and persist to localStorage
         this.uuidToGroupCache.set(uuid, dTag);
+        this.saveUuidCache();
         return dTag;
       }
 
@@ -345,6 +378,7 @@ export class RelayManager {
    */
   cacheUuidToGroup(uuid: string, groupId: string): void {
     this.uuidToGroupCache.set(uuid, groupId);
+    this.saveUuidCache();
   }
 
   /**
