@@ -40,14 +40,28 @@ function GeohashGridOverlay({
 
   const updateGeohashes = useCallback(() => {
     const bounds = map.getBounds();
-    const hashes = getGeohashesInBounds({
+    const mapBounds = {
       north: bounds.getNorth(),
       south: bounds.getSouth(),
       east: bounds.getEast(),
       west: bounds.getWest()
-    }, 8, 200); // Level 8, max 200 cells like hashstr.com
+    };
+    console.log('Map bounds:', mapBounds);
 
+    const hashes = getGeohashesInBounds(mapBounds, 8, 200);
     console.log(`Generated ${hashes.length} geohash cells`);
+
+    // Debug first hash
+    if (hashes.length > 0) {
+      const firstHash = hashes[0];
+      try {
+        const bbox = getGeohashBounds(firstHash);
+        console.log(`First cell ${firstHash} bounds:`, bbox);
+      } catch (e) {
+        console.error('Error getting bounds for first hash:', e);
+      }
+    }
+
     setGeohashes(hashes);
   }, [map]);
 
@@ -64,12 +78,15 @@ function GeohashGridOverlay({
     <>
       {geohashes.map((hash) => {
         try {
-          const bounds = getGeohashBounds(hash);
+          const bbox = getGeohashBounds(hash);
+          // Leaflet Polygon expects [[lat, lng], [lat, lng], ...]
+          // Create rectangle: SW -> SE -> NE -> NW -> SW (close polygon)
           const positions: [number, number][] = [
-            [bounds.minLat, bounds.minLng], // SW
-            [bounds.minLat, bounds.maxLng], // SE
-            [bounds.maxLat, bounds.maxLng], // NE
-            [bounds.maxLat, bounds.minLng], // NW
+            [bbox.minLat, bbox.minLng], // SW corner
+            [bbox.minLat, bbox.maxLng], // SE corner
+            [bbox.maxLat, bbox.maxLng], // NE corner
+            [bbox.maxLat, bbox.minLng], // NW corner
+            [bbox.minLat, bbox.minLng], // Close polygon back to SW
           ];
 
           const isSelected = hash === selectedHash;
@@ -86,7 +103,10 @@ function GeohashGridOverlay({
                 fillOpacity: isSelected ? 0.3 : 0.05
               }}
               eventHandlers={{
-                click: () => onCellClick(hash),
+                click: () => {
+                  console.log('Polygon clicked:', hash, 'bounds:', bbox);
+                  onCellClick(hash);
+                },
                 mouseover: (e) => {
                   if (!isSelected) {
                     e.target.setStyle({ fillOpacity: 0.2, weight: 1.5 });
@@ -302,9 +322,11 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
             <div className="h-96 w-full rounded-lg overflow-hidden border">
               <MapContainer
                 center={mapCenter}
-                zoom={16}
+                zoom={18}
                 className="h-full w-full"
                 zoomControl={true}
+                minZoom={17}
+                maxZoom={19}
               >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
