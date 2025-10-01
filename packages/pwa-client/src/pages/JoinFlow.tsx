@@ -15,7 +15,6 @@ import {
   Loader2,
   Shield,
   XCircle,
-  Code2,
   Crown,
   MessageSquare
 } from 'lucide-react';
@@ -719,24 +718,6 @@ export const JoinFlow: React.FC = () => {
       {/* Location Permission Step */}
       {currentStep === JoinStep.LOCATION && (
         <div className="space-y-6">
-          {/* Developer mode toggle - only when enabled */}
-          {devModeEnabled && (
-            <div className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-yellow-600" />
-                <span className="text-sm font-medium text-yellow-900">Developer Mode</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDeveloperMode(!developerMode)}
-                className="text-xs"
-              >
-                {developerMode ? 'Hide' : 'Show'} Test Location Map
-              </Button>
-            </div>
-          )}
-
           {/* Geohash location picker - only when developer mode is enabled */}
           {developerMode && (
             <GeohashLocationPicker
@@ -769,20 +750,6 @@ export const JoinFlow: React.FC = () => {
             </>
           )}
 
-          {/* Show a button to use real location when in dev mode */}
-          {!forcedLocation && developerMode && (
-            <div className="flex flex-col items-center gap-2 p-4 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50">
-              <p className="text-sm font-medium text-orange-900">Or use your real location instead of test location:</p>
-              <Button
-                onClick={() => setDeveloperMode(false)}
-                variant="outline"
-                className="border-orange-300 hover:bg-orange-100"
-              >
-                <MapPin className="h-4 w-4 mr-2" />
-                Use Real GPS Location
-              </Button>
-            </div>
-          )}
 
           {/* Show forced location info */}
           {forcedLocation && (
