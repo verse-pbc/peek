@@ -105,9 +105,8 @@ export const UserIdentityButton: React.FC = () => {
       };
       localStorage.setItem('identity_migrating', JSON.stringify(migratingState));
 
-      // Switch to new identity
+      // Switch to new identity (unified single key)
       localStorage.setItem('peek_nostr_identity', JSON.stringify(newIdentity));
-      localStorage.removeItem('peek_anonymous_identity');
 
       toast({
         title: "Identity migration published",
@@ -140,7 +139,6 @@ export const UserIdentityButton: React.FC = () => {
       } else {
         console.log('[UserIdentityButton] Not anonymous or no relay manager, reloading...');
         // Should not happen - only anonymous users can upgrade
-        localStorage.removeItem('peek_anonymous_identity');
         window.location.reload();
       }
     } catch (error) {
@@ -167,13 +165,12 @@ export const UserIdentityButton: React.FC = () => {
   };
 
   const handleLogout = () => {
-    // Clear all identity data
+    // Clear all identity data (unified single key)
     localStorage.removeItem('peek_nostr_identity');
-    localStorage.removeItem('peek_anonymous_identity');
     localStorage.removeItem('joinedGroups');
     localStorage.removeItem('identity_migrations');
 
-    // Navigate to home and reload for fresh start
+    // Navigate to home and reload for fresh anonymous identity
     window.location.href = '/';
   };
 
