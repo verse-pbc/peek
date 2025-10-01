@@ -338,7 +338,7 @@ const Community = () => {
   // Use the state variable set during access verification
   if (loading || (isMigrating && !communityData)) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -356,7 +356,7 @@ const Community = () => {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="flex items-center gap-2 text-destructive">
@@ -395,9 +395,9 @@ const Community = () => {
   const fromJoin = location.state?.fromJoin === true;
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
+      <div className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -406,15 +406,15 @@ const Community = () => {
                   onClick={handleBack}
                   variant="ghost"
                   size="sm"
-                  className="gap-2 text-navy hover:bg-coral/10"
+                  className="gap-2 hover:bg-coral/10"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
               )}
               <div className={fromJoin ? 'ml-0' : ''}>
-                <h1 className="text-xl font-rubik font-semibold text-navy">{communityData.name}</h1>
-                <div className="flex items-center gap-4 text-sm text-navy/60">
+                <h1 className="text-xl font-rubik font-semibold">{communityData.name}</h1>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
                     {communityData.memberCount} members
@@ -438,7 +438,7 @@ const Community = () => {
                   onClick={handleAdminClick}
                   variant="outline"
                   size="sm"
-                  className="gap-2 text-navy border-coral/30 hover:bg-coral/10"
+                  className="gap-2 border-coral/30 hover:bg-coral/10"
                 >
                   <Settings className="h-4 w-4" />
                   Manage
@@ -453,29 +453,29 @@ const Community = () => {
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="grid gap-6">
           {/* Community Info Card */}
-          <Card className="border-0 shadow-lg bg-white/95">
+          <Card className="border-0 shadow-lg bg-card">
             <CardHeader className="bg-gradient-to-br from-coral/5 to-peach/5">
-              <CardTitle className="font-rubik text-navy">Welcome to the Community</CardTitle>
-              <CardDescription className="text-navy/60">
+              <CardTitle className="font-rubik">Welcome to the Community</CardTitle>
+              <CardDescription>
                 This is a location-based group for people who have visited this place
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4 pt-4">
-                <Alert className="border-mint/20 bg-mint/5">
+                <Alert className="border-mint/20 bg-mint/5 dark:bg-mint/10 dark:border-mint/30">
                   <MapPin className="h-4 w-4 text-mint" />
-                  <AlertTitle className="text-navy">Location Verified Community</AlertTitle>
-                  <AlertDescription className="text-navy/70">
+                  <AlertTitle>Location Verified Community</AlertTitle>
+                  <AlertDescription>
                     All members have physically visited this location.
                     New members must be present at the location to join.
                   </AlertDescription>
                 </Alert>
 
                 {communityData.isAdmin && (
-                  <Alert className="border-coral/20 bg-coral/5">
+                  <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
                     <Crown className="h-4 w-4 text-coral" />
-                    <AlertTitle className="text-navy">You're the Founder</AlertTitle>
-                    <AlertDescription className="text-navy/70">
+                    <AlertTitle>You're the Founder</AlertTitle>
+                    <AlertDescription>
                       You have admin privileges for this community.
                       You can manage members and moderate content.
                     </AlertDescription>

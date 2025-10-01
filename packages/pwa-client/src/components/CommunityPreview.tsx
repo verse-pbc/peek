@@ -189,36 +189,36 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         {/* Location info */}
         {previewData.location_name && (
           <div className="flex items-center gap-3 text-sm">
-            <MapPin className="h-4 w-4 text-gray-500" />
+            <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium">{previewData.location_name}</span>
           </div>
         )}
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex items-center gap-2 text-gray-600 mb-1">
+          <div className="bg-muted rounded-lg p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Users className="h-4 w-4" />
               <span className="text-xs font-medium uppercase">Members</span>
             </div>
             <p className="text-2xl font-bold">
               {previewData.member_count}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {formatMemberCount(previewData.member_count)}
             </p>
           </div>
 
-          <div className="border border-gray-200/50 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-gray-400 mb-1">
+          <div className="border border-border rounded-xl p-4">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Calendar className="h-3.5 w-3.5" />
               <span className="text-xs font-medium uppercase">Created</span>
             </div>
-            <p className="text-base font-semibold text-gray-600">
+            <p className="text-base font-semibold">
               {formatDate(previewData.created_at)}
             </p>
             {previewData.admin_count && (
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {previewData.admin_count} admin{previewData.admin_count !== 1 ? 's' : ''}
               </p>
             )}
@@ -227,11 +227,11 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
 
         {/* First scanner notice */}
         {isFirstScanner && (
-          <Alert className="border-purple-200 bg-purple-50">
-            <CheckCircle className="h-4 w-4 text-purple-600" />
-            <AlertDescription className="text-purple-900">
+          <Alert className="border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-900/20">
+            <CheckCircle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+            <AlertDescription className="text-purple-900 dark:text-purple-100">
               <strong>You're the first person to scan this QR code!</strong><br />
-              You'll automatically become the community admin and can manage members, 
+              You'll automatically become the community admin and can manage members,
               settings, and moderation.
             </AlertDescription>
           </Alert>
