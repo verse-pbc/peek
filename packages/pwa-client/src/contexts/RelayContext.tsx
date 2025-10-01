@@ -79,8 +79,14 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       // Check if NIP-07 extension is actively available
       if (typeof window !== "undefined" && window.nostr) {
         try {
-          // Get current pubkey from extension
-          const extensionPubkey = await window.nostr.getPublicKey();
+          console.log("[RelayContext] Requesting pubkey from NIP-07 extension...");
+          // Get current pubkey from extension with timeout
+          const extensionPubkey = await Promise.race([
+            window.nostr.getPublicKey(),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error("Extension getPublicKey timeout")), 5000)
+            )
+          ]);
 
           // Check if cached identity matches extension
           const storedIdentity = localStorage.getItem(STORAGE_KEY);
@@ -128,10 +134,19 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           (personalIdentity?.secretKey && personalIdentity?.publicKey)
         ) {
           const authIdentity = identity || personalIdentity;
-          // Use existing user identity
-          console.log("[RelayContext] Using existing user identity for auth");
-          secretKeyBytes = hexToBytes(authIdentity.secretKey);
-          publicKeyHex = authIdentity.publicKey;
+
+          // Check if this is actually a NIP-07 extension identity
+          if (authIdentity.secretKey === 'NIP07_EXTENSION') {
+            // Extension identity but extension check failed - use public key only
+            console.log("[RelayContext] NIP-07 identity detected, using public key without secret key");
+            publicKeyHex = authIdentity.publicKey;
+            // secretKeyBytes remains undefined - extension will handle signing
+          } else {
+            // Use existing user identity
+            console.log("[RelayContext] Using existing user identity for auth");
+            secretKeyBytes = hexToBytes(authIdentity.secretKey);
+            publicKeyHex = authIdentity.publicKey;
+          }
         } else {
           // Generate anonymous identity for new users
           const ANON_KEY = "peek_anonymous_identity";
@@ -178,7 +193,13 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       // Set up relay manager with auth
       manager.setUserPubkey(publicKeyHex);
 
-      if (usingExtension) {
+      // Check if we should use NIP-07 (either actively detected or stored identity is NIP-07)
+      const storedIdentity = localStorage.getItem("peek_nostr_identity");
+      const parsedIdentity = storedIdentity ? JSON.parse(storedIdentity) : null;
+      const isNIP07Identity = parsedIdentity?.secretKey === "NIP07_EXTENSION";
+      const shouldUseExtension = usingExtension || isNIP07Identity;
+
+      if (shouldUseExtension) {
         // Use NIP-07 extension for signing
         manager.setAuthHandler(async (authEvent: EventTemplate) => {
           console.log(
