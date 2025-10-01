@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Polygon, Tooltip, useMapEvents, useMap } from 'react-leaflet';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -26,6 +26,22 @@ interface GeohashLocationPickerProps {
     timestamp: number;
   }) => void;
   initialLocation?: { latitude: number; longitude: number };
+}
+
+// Component to handle map re-centering when center changes
+function MapCenterController({ center }: { center: [number, number] }) {
+  const map = useMap();
+  const prevCenter = useRef(center);
+
+  useEffect(() => {
+    // Only fly to new center if it changed
+    if (prevCenter.current[0] !== center[0] || prevCenter.current[1] !== center[1]) {
+      map.flyTo(center, map.getZoom());
+      prevCenter.current = center;
+    }
+  }, [center, map]);
+
+  return null;
 }
 
 // Component to track map bounds and generate geohashes
@@ -93,8 +109,17 @@ function GeohashGridOverlay({
           // Only show validation area at precision 8
           let isValidNeighbor = false;
           if (selectedHash && showValidationArea) {
-            const validCells = getGeohashNeighbors(selectedHash);
-            isValidNeighbor = validCells.includes(hash) && !isSelected;
+            try {
+              const validCells = getGeohashNeighbors(selectedHash);
+              isValidNeighbor = validCells.includes(hash) && !isSelected;
+
+              // Debug: log neighbor checking
+              if (hash === geohashes[0] && selectedHash) {
+                console.log(`Validation area: selected=${selectedHash}, neighbors=${validCells.length}, showArea=${showValidationArea}`);
+              }
+            } catch (e) {
+              console.warn('Failed to get neighbors for', selectedHash, e);
+            }
           }
 
           // Color scheme:
@@ -169,16 +194,16 @@ function GeohashGridOverlay({
   );
 }
 
-// Calculate geohash precision based on zoom level (matches hashstr.com)
+// Calculate geohash precision based on zoom level (extends hashstr.com to level 8)
 const getPrecisionForZoom = (zoom: number): number => {
   if (zoom < 3) return 1;
   if (zoom < 6) return 2;
   if (zoom < 9) return 3;
   if (zoom < 12) return 4;
   if (zoom < 15) return 5;
-  if (zoom < 18) return 6;
-  if (zoom < 20) return 7;
-  return 8; // Peek validation level
+  if (zoom < 17) return 6;
+  if (zoom < 18) return 7;
+  return 8; // Peek validation level (zoom 18+)
 };
 
 export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
@@ -190,7 +215,7 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
   const [selectedGeohash, setSelectedGeohash] = useState<string | null>(null);
   const [isLoadingGPS, setIsLoadingGPS] = useState(true);
   const [mapCenter, setMapCenter] = useState<[number, number]>([37.7749, -122.4194]);
-  const [currentZoom, setCurrentZoom] = useState(20);
+  const [currentZoom, setCurrentZoom] = useState(18);
   const [currentPrecision, setCurrentPrecision] = useState(8);
 
   // Get user's real GPS location and pre-select their geohash
@@ -241,6 +266,15 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
     // Auto-select if exactly 8 chars and valid
     if (cleaned.length === 8 && validateGeohash(cleaned)) {
       setSelectedGeohash(cleaned);
+
+      // Re-center map on the selected geohash
+      try {
+        const center = geohashToLatLng(cleaned);
+        setMapCenter([center.lat, center.lng]);
+        console.log(`Re-centered map to ${cleaned}: ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`);
+      } catch (e) {
+        console.warn('Failed to decode geohash for map center:', e);
+      }
     } else {
       setSelectedGeohash(null);
     }
@@ -345,16 +379,17 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
           ) : (
             <MapContainer
               center={mapCenter}
-              zoom={20}
+              zoom={18}
               className="h-full w-full"
               zoomControl={true}
               minZoom={1}
-              maxZoom={21}
+              maxZoom={19}
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
+              <MapCenterController center={mapCenter} />
               <GeohashGridOverlay
                 onCellClick={handleMapCellClick}
                 selectedHash={selectedGeohash}
