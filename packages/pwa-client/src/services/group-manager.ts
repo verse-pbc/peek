@@ -791,8 +791,14 @@ export class GroupManager {
           metadata
         };
 
-        userGroups.push(userGroup);
-        console.log(`[GroupManager] Added user group:`, userGroup);
+        // Check for duplicates before adding
+        const isDuplicate = userGroups.some(g => g.communityId === communityId);
+        if (!isDuplicate) {
+          userGroups.push(userGroup);
+          console.log(`[GroupManager] Added user group:`, userGroup);
+        } else {
+          console.log(`[GroupManager] Skipping duplicate group:`, communityId);
+        }
       }
 
       console.log(`[GroupManager] Returning ${userGroups.length} user groups`);
