@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LocationPermission } from '../components/LocationPermission';
 import { CommunityPreview } from '../components/CommunityPreview';
-import { ForceLocationMap } from '../components/ForceLocationMap';
+import { GeohashLocationPicker } from '../components/GeohashLocationPicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -737,13 +737,14 @@ export const JoinFlow: React.FC = () => {
             </div>
           )}
 
-          {/* Force location map - only when developer mode is enabled */}
+          {/* Geohash location picker - only when developer mode is enabled */}
           {developerMode && (
-            <ForceLocationMap
+            <GeohashLocationPicker
               onLocationSelected={(location) => {
                 setForcedLocation(location);
                 handleLocationCaptured(location);
               }}
+              initialLocation={capturedLocation || undefined}
             />
           )}
 
