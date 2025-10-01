@@ -62,17 +62,16 @@ export function getGeohashBounds(hash: string): GeohashBounds {
  * Get all neighboring geohashes (8 surrounding + center = 9 total)
  */
 export function getGeohashNeighbors(hash: string): string[] {
-  const neighbors = geohash.neighbors(hash);
   return [
-    neighbors.n,
-    neighbors.ne,
-    neighbors.e,
-    neighbors.se,
-    neighbors.s,
-    neighbors.sw,
-    neighbors.w,
-    neighbors.nw,
-    hash // Include center
+    geohash.neighbor(hash, [1, 0]),   // north
+    geohash.neighbor(hash, [1, 1]),   // northeast
+    geohash.neighbor(hash, [0, 1]),   // east
+    geohash.neighbor(hash, [-1, 1]),  // southeast
+    geohash.neighbor(hash, [-1, 0]),  // south
+    geohash.neighbor(hash, [-1, -1]), // southwest
+    geohash.neighbor(hash, [0, -1]),  // west
+    geohash.neighbor(hash, [1, -1]),  // northwest
+    hash // center
   ];
 }
 
