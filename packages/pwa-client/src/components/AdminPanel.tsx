@@ -48,19 +48,13 @@ import { NIP29_KINDS } from '@/services/relay-manager';
 import { GroupManager, type GroupMetadata } from '@/services/group-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
-import { nip19, finalizeEvent, EventTemplate, type VerifiedEvent } from 'nostr-tools';
-import { hexToBytes } from '@/lib/hex';
+import { EventTemplate } from 'nostr-tools';
+import { resolveSecretKey } from '@/lib/secret-key-utils';
 import { useToast } from '@/hooks/useToast';
 import { UserProfile } from '@/components/UserProfile';
 import { useBatchProfiles } from '@/contexts/ProfileContext';
-
-interface Member {
-  pubkey: string;
-  npub: string;
-  isAdmin: boolean;
-  isMuted: boolean;
-  joinedAt?: number;
-}
+import { getOrderedMembers, type Member } from '@/lib/member-utils';
+import { useEventSigner } from '@/hooks/useEventSigner';
 
 interface AdminPanelProps {
   groupId: string;
@@ -104,31 +98,20 @@ export function AdminPanel({
   const memberPubkeys = members.map(m => m.pubkey);
   useBatchProfiles(memberPubkeys);
 
+  // Event signer (data-oriented hook)
+  const signEvent = useEventSigner(identity);
+
   // Initialize group manager with shared relay manager
   useEffect(() => {
     if (!relayManager || !identity) return;
 
     const groupMgr = new GroupManager(relayManager, migrationService!);
 
-    // Set up event signer for NIP-07 support
-    if (identity.secretKey === 'NIP07_EXTENSION') {
-      groupMgr.setEventSigner(async (event: EventTemplate) => {
-        if (!window.nostr) {
-          throw new Error('Browser extension not available');
-        }
-        const signedEvent = await window.nostr.signEvent(event);
-        return signedEvent as VerifiedEvent;
-      });
-    } else {
-      groupMgr.setEventSigner(async (event: EventTemplate) => {
-        const secretKey = hexToBytes(identity.secretKey);
-        const signedEvent = finalizeEvent(event, secretKey) as VerifiedEvent;
-        return signedEvent;
-      });
-    }
+    // Set up event signer using the hook
+    groupMgr.setEventSigner(signEvent);
 
     setGroupManager(groupMgr);
-  }, [relayManager, identity]);
+  }, [relayManager, identity, migrationService, signEvent]);
 
   // Subscribe to connection status from context
   useEffect(() => {
@@ -185,38 +168,16 @@ export function AdminPanel({
 
     const fetchMembers = async () => {
       setLoading(true);
-      const memberMap = new Map<string, Member>();
 
       try {
         // Wait for initial sync (subscription already handled above)
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // Get group state from relay manager
+        // Get group state and transform to ordered members (data-oriented)
         const groupState = relayManager.getGroupState(groupId);
+        const orderedMembers = getOrderedMembers(groupState);
 
-        if (groupState) {
-          // Process members from group state
-          for (const [pubkey, _member] of groupState.members) {
-            memberMap.set(pubkey, {
-              pubkey,
-              npub: nip19.npubEncode(pubkey),
-              isAdmin: groupState.admins.has(pubkey),
-              isMuted: false, // TODO: Track mute state
-              joinedAt: Date.now() / 1000 // TODO: Get actual join time
-            });
-          }
-        }
-
-        // Members will be fetched without metadata initially
-        const memberList = Array.from(memberMap.values());
-
-        setMembers(memberList.sort((a, b) => {
-          // Sort admins first, then by join date
-          if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1;
-          return (b.joinedAt || 0) - (a.joinedAt || 0);
-        }));
-
-        // Mark as fetched
+        setMembers(orderedMembers);
         setHasFetchedMembers(true);
       } catch (error) {
         console.error('Error fetching members:', error);
@@ -240,28 +201,8 @@ export function AdminPanel({
 
     const handleMemberUpdate = () => {
       const groupState = relayManager.getGroupState(groupId);
-      if (!groupState) return;
-
-      const memberMap = new Map<string, Member>();
-
-      // Process members from updated group state
-      for (const [pubkey, _member] of groupState.members) {
-        memberMap.set(pubkey, {
-          pubkey,
-          npub: nip19.npubEncode(pubkey),
-          isAdmin: groupState.admins.has(pubkey),
-          isMuted: false, // TODO: Track mute state
-          joinedAt: Date.now() / 1000 // TODO: Get actual join time
-        });
-      }
-
-      const memberList = Array.from(memberMap.values());
-
-      setMembers(memberList.sort((a, b) => {
-        // Sort admins first, then by join date
-        if (a.isAdmin !== b.isAdmin) return a.isAdmin ? -1 : 1;
-        return (b.joinedAt || 0) - (a.joinedAt || 0);
-      }));
+      const orderedMembers = getOrderedMembers(groupState);
+      setMembers(orderedMembers);
     };
 
     // Listen for member and admin updates
@@ -279,10 +220,7 @@ export function AdminPanel({
 
     setProcessingAction(memberPubkey);
     try {
-      // Pass undefined for secretKey if using NIP-07
-      const secretKey = identity.secretKey === 'NIP07_EXTENSION'
-        ? undefined
-        : hexToBytes(identity.secretKey);
+      const secretKey = resolveSecretKey(identity);
       await groupManager.addUser(groupId, memberPubkey, secretKey, ['admin']);
 
       // Update local state
@@ -311,10 +249,7 @@ export function AdminPanel({
 
     setProcessingAction(memberPubkey);
     try {
-      // Pass undefined for secretKey if using NIP-07
-      const secretKey = identity.secretKey === 'NIP07_EXTENSION'
-        ? undefined
-        : hexToBytes(identity.secretKey);
+      const secretKey = resolveSecretKey(identity);
       // Re-add user as regular member (no roles)
       await groupManager.addUser(groupId, memberPubkey, secretKey, []);
 
@@ -340,42 +275,23 @@ export function AdminPanel({
   };
 
   const muteMember = async (memberPubkey: string) => {
-    if (!relayManager || !identity) return;
+    if (!relayManager) return;
 
     setProcessingAction(memberPubkey);
     try {
-      // For now, mute/unmute still needs direct signing since it's not in GroupManager
-      // TODO: Move this to GroupManager for consistency
-      if (identity.secretKey === 'NIP07_EXTENSION') {
-        // Use NIP-07 for signing
-        const eventTemplate: EventTemplate = {
-          kind: NIP29_KINDS.DELETE_EVENT,
-          content: 'User muted',
-          tags: [
-            ['h', groupId],
-            ['p', memberPubkey]
-          ],
-          created_at: Math.floor(Date.now() / 1000)
-        };
-        const event = await window.nostr!.signEvent(eventTemplate) as VerifiedEvent;
-        await relayManager.publishEvent(event);
-      } else {
-        const secretKey = hexToBytes(identity.secretKey);
-        // Create NIP-29 mute user event (kind 9005)
-        const eventTemplate: EventTemplate = {
-          kind: NIP29_KINDS.DELETE_EVENT,
-          content: 'User muted',
-          tags: [
-            ['h', groupId],
-            ['p', memberPubkey]
-          ],
-          created_at: Math.floor(Date.now() / 1000)
-        };
-        const event = finalizeEvent(eventTemplate, secretKey);
-        await relayManager.publishEvent(event);
-      }
+      const eventTemplate: EventTemplate = {
+        kind: NIP29_KINDS.DELETE_EVENT,
+        content: 'User muted',
+        tags: [
+          ['h', groupId],
+          ['p', memberPubkey]
+        ],
+        created_at: Math.floor(Date.now() / 1000)
+      };
 
-      // Update local state
+      const event = await signEvent(eventTemplate);
+      await relayManager.publishEvent(event);
+
       setMembers(prev => prev.map(m =>
         m.pubkey === memberPubkey ? { ...m, isMuted: true } : m
       ));
@@ -397,42 +313,23 @@ export function AdminPanel({
   };
 
   const unmuteMember = async (memberPubkey: string) => {
-    if (!relayManager || !identity) return;
+    if (!relayManager) return;
 
     setProcessingAction(memberPubkey);
     try {
-      // For now, mute/unmute still needs direct signing since it's not in GroupManager
-      // TODO: Move this to GroupManager for consistency
-      if (identity.secretKey === 'NIP07_EXTENSION') {
-        // Use NIP-07 for signing
-        const eventTemplate: EventTemplate = {
-          kind: 9006, // Custom unmute event
-          content: 'User unmuted',
-          tags: [
-            ['h', groupId],
-            ['p', memberPubkey]
-          ],
-          created_at: Math.floor(Date.now() / 1000)
-        };
-        const event = await window.nostr!.signEvent(eventTemplate) as VerifiedEvent;
-        await relayManager.publishEvent(event);
-      } else {
-        const secretKey = hexToBytes(identity.secretKey);
-        // Note: NIP-29 doesn't have a standard unmute event, this would be custom
-        const eventTemplate: EventTemplate = {
-          kind: 9006, // Custom unmute event
-          content: 'User unmuted',
-          tags: [
-            ['h', groupId],
-            ['p', memberPubkey]
-          ],
-          created_at: Math.floor(Date.now() / 1000)
-        };
-        const event = finalizeEvent(eventTemplate, secretKey);
-        await relayManager.publishEvent(event);
-      }
+      const eventTemplate: EventTemplate = {
+        kind: 9006, // Custom unmute event
+        content: 'User unmuted',
+        tags: [
+          ['h', groupId],
+          ['p', memberPubkey]
+        ],
+        created_at: Math.floor(Date.now() / 1000)
+      };
 
-      // Update local state
+      const event = await signEvent(eventTemplate);
+      await relayManager.publishEvent(event);
+
       setMembers(prev => prev.map(m =>
         m.pubkey === memberPubkey ? { ...m, isMuted: false } : m
       ));
@@ -458,10 +355,7 @@ export function AdminPanel({
 
     setProcessingAction(memberPubkey);
     try {
-      // Pass undefined for secretKey if using NIP-07
-      const secretKey = identity.secretKey === 'NIP07_EXTENSION'
-        ? undefined
-        : hexToBytes(identity.secretKey);
+      const secretKey = resolveSecretKey(identity);
       await groupManager.removeUser(groupId, memberPubkey, secretKey, 'User removed from group');
 
       // Update local state
@@ -532,10 +426,7 @@ export function AdminPanel({
 
       // Only update if there are changes
       if (Object.keys(updates).length > 0) {
-        // Pass undefined for secretKey if using NIP-07
-        const secretKey = identity.secretKey === 'NIP07_EXTENSION'
-          ? undefined
-          : hexToBytes(identity.secretKey);
+        const secretKey = resolveSecretKey(identity);
 
         await groupManager.updateMetadata(groupId, secretKey, updates);
 
