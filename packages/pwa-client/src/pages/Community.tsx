@@ -233,6 +233,16 @@ const Community = () => {
 
         setCommunityData(community);
 
+        // After setting initial data, check again for updated metadata
+        // (GroupManager event handler might have processed 39000 event by now)
+        setTimeout(() => {
+          const updatedMetadata = groupManager.getGroupMetadata(groupId);
+          if (updatedMetadata?.name && updatedMetadata.name !== community.name) {
+            console.log('[Community] 🔄 Updating name from GroupManager cache:', updatedMetadata.name);
+            setCommunityData(prev => prev ? { ...prev, name: updatedMetadata.name! } : prev);
+          }
+        }, 100);
+
       } catch (err) {
         console.error('Error fetching community data:', err);
 
