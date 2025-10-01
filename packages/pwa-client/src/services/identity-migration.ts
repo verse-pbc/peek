@@ -107,7 +107,8 @@ export class IdentityMigrationService {
       migrations[oldPubkey] = newPubkey;
       localStorage.setItem('identity_migrations', JSON.stringify(migrations));
 
-      console.log(`✅ Valid migration stored: ${oldPubkey} -> ${newPubkey}`);
+      // Silently store valid migrations (reduce log noise)
+      // console.log(`✅ Valid migration stored: ${oldPubkey} -> ${newPubkey}`);
     }
   }
 
