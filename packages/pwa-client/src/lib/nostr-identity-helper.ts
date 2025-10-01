@@ -79,9 +79,17 @@ export function setupNostrIdentity(
     };
   }
 
-  // Case 4: No identity (shouldn't happen with unified storage)
-  // This case is now handled by nostrify-shim auto-creating anonymous identity
-  throw new Error('No identity available - this should not happen');
+  // Case 4: No identity yet (nostrify-shim still initializing)
+  // Generate ephemeral anonymous identity for this operation
+  console.warn('[setupNostrIdentity] No identity available, generating ephemeral key');
+  const ephemeral = generateEphemeralKey();
+
+  return {
+    secretKey: ephemeral.secretKey,
+    publicKey: ephemeral.publicKey,
+    encryptionHelper: undefined,
+    usingAnonymous: true
+  };
 }
 
 /**
