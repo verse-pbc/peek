@@ -133,6 +133,8 @@ const Community = () => {
   const verifyCommunityAccess = useCallback(async () => {
     if (!pubkey || !groupId || !groupManager) return;
 
+    console.log('[Community] verifyCommunityAccess called, has communityData:', !!communityData);
+
     setLoading(true);
     setError(null);
 
@@ -199,6 +201,8 @@ const Community = () => {
 
         const community: CommunityData = {
           groupId,
+          // Use metadata name if available, otherwise fallback to UUID
+          // Event listener will update with latest metadata from relay
           name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
           memberCount: finalMemberCount,
           isAdmin,
