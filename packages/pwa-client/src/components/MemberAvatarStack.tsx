@@ -52,7 +52,7 @@ export const MemberAvatarStack: React.FC<MemberAvatarStackProps> = ({
           {visibleMembers.map((pubkey, index) => (
             <Avatar
               key={pubkey}
-              className="h-8 w-8 border-2 border-white"
+              className="h-8 w-8 border-2 border-card"
               style={{ zIndex: visibleMembers.length - index }}
             >
               <AvatarFallback className={`text-xs text-white ${getMemberColor(pubkey)}`}>
@@ -61,7 +61,7 @@ export const MemberAvatarStack: React.FC<MemberAvatarStackProps> = ({
             </Avatar>
           ))}
           {remainingCount > 0 && (
-            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-200 border-2 border-white text-xs font-medium text-gray-700">
+            <div className="flex items-center justify-center h-8 w-8 rounded-full bg-muted border-2 border-card text-xs font-medium">
               +{remainingCount}
             </div>
           )}
@@ -76,14 +76,14 @@ export const MemberAvatarStack: React.FC<MemberAvatarStackProps> = ({
         </DialogHeader>
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {members.map((pubkey) => (
-            <div key={pubkey} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+            <div key={pubkey} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50">
               <Avatar className="h-10 w-10">
                 <AvatarFallback className={`text-sm text-white ${getMemberColor(pubkey)}`}>
                   {getMemberInitials(pubkey)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-mono truncate text-gray-700">
+                <p className="text-sm font-mono truncate">
                   {pubkey.slice(0, 16)}...{pubkey.slice(-8)}
                 </p>
               </div>

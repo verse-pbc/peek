@@ -8,9 +8,6 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 3000,
-    hmr: {
-      clientPort: 443,
-    },
     allowedHosts: [
       "localhost",
       "humorous-tiger-above.ngrok-free.app",

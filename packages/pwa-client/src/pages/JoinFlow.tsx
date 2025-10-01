@@ -458,7 +458,7 @@ export const JoinFlow: React.FC = () => {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
             <p className="text-lg font-medium">Loading community...</p>
-            <p className="text-sm text-gray-500 mt-2">Fetching community information</p>
+            <p className="text-sm text-muted-foreground mt-2">Fetching community information</p>
           </CardContent>
         </Card>
       )}
@@ -490,10 +490,10 @@ export const JoinFlow: React.FC = () => {
           {/* Normal location permission - show when not using forced location AND not in developer mode */}
           {!forcedLocation && !developerMode && (
             <>
-              <Alert className="border-blue-200 bg-blue-50">
-                <MapPin className="h-4 w-4 text-blue-600" />
-                <AlertTitle className="text-blue-900">Physical Presence Required</AlertTitle>
-                <AlertDescription className="text-blue-800">
+              <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
+                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertTitle className="text-blue-900 dark:text-blue-100">Physical Presence Required</AlertTitle>
+                <AlertDescription className="text-blue-800 dark:text-blue-200">
                   To join this community, you need to prove you're physically at the location.
                   Please ensure you're within 25 meters of the QR code location.
                 </AlertDescription>
@@ -511,10 +511,10 @@ export const JoinFlow: React.FC = () => {
 
           {/* Show forced location info */}
           {forcedLocation && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-900">Using Test Location</AlertTitle>
-              <AlertDescription className="text-green-800">
+            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertTitle className="text-green-900 dark:text-green-100">Using Test Location</AlertTitle>
+              <AlertDescription className="text-green-800 dark:text-green-200">
                 📍 {forcedLocation.latitude.toFixed(6)}, {forcedLocation.longitude.toFixed(6)}
                 <br />
                 🎯 Accuracy: {forcedLocation.accuracy}m
@@ -529,30 +529,30 @@ export const JoinFlow: React.FC = () => {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="relative mb-6">
-              <MapPin className="h-16 w-16 text-gray-400" />
+              <MapPin className="h-16 w-16 text-muted-foreground" />
               <Loader2 className="h-16 w-16 absolute inset-0 animate-spin text-primary" />
             </div>
             <p className="text-lg font-medium">Validating your location...</p>
             <div className="mt-4 space-y-2 text-center">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Sending encrypted location proof via Nostr
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 This may take up to 30 seconds
               </p>
             </div>
             {capturedLocation && (
               <div className="mt-6 space-y-1">
-                <div className="text-xs text-gray-500 font-mono">
+                <div className="text-xs text-muted-foreground font-mono">
                   📍 Accuracy: {capturedLocation.accuracy.toFixed(1)}m
                   {capturedLocation.accuracy <= 20 && (
-                    <span className="ml-2 text-green-600">✓ Good</span>
+                    <span className="ml-2 text-green-600 dark:text-green-400">✓ Good</span>
                   )}
                   {capturedLocation.accuracy > 20 && (
-                    <span className="ml-2 text-yellow-600">⚠ Low</span>
+                    <span className="ml-2 text-yellow-600 dark:text-yellow-400">⚠ Low</span>
                   )}
                 </div>
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-muted-foreground">
                   Lat: {capturedLocation.latitude.toFixed(6)},
                   Lng: {capturedLocation.longitude.toFixed(6)}
                 </div>
@@ -564,33 +564,33 @@ export const JoinFlow: React.FC = () => {
 
       {/* Success Step */}
       {currentStep === JoinStep.SUCCESS && validationResponse && (
-        <Card className="border-0 shadow-xl bg-white/95 backdrop-blur">
+        <Card className="border-0 shadow-xl bg-card backdrop-blur">
           <CardHeader className="text-center pb-2">
             <div className="mx-auto w-20 h-20 bg-mint/10 rounded-full flex items-center justify-center mb-4">
               <CheckCircle className="h-10 w-10 text-mint" />
             </div>
-            <CardTitle className="text-2xl font-rubik text-navy">
+            <CardTitle className="text-2xl font-rubik">
               Welcome to the Community!
             </CardTitle>
-            <CardDescription className="text-navy/60">
+            <CardDescription>
               You're now connected with this location
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {validationResponse.is_admin && (
-              <Alert className="border-coral/20 bg-coral/5">
+              <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
                 <Crown className="h-4 w-4 text-coral" />
-                <AlertTitle className="text-navy font-rubik">You're the Founder!</AlertTitle>
-                <AlertDescription className="text-navy/70">
+                <AlertTitle className="font-rubik">You're the Founder!</AlertTitle>
+                <AlertDescription>
                   As the first person here, you have admin privileges.
                   Shape the culture and vibe of your community.
                 </AlertDescription>
               </Alert>
             )}
 
-            <div className="bg-cream rounded-xl p-4">
-              <h3 className="font-rubik font-semibold text-navy mb-3">What happens now?</h3>
-              <ul className="space-y-2.5 text-sm text-navy/70">
+            <div className="bg-muted rounded-xl p-4">
+              <h3 className="font-rubik font-semibold mb-3">What happens now?</h3>
+              <ul className="space-y-2.5 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
                   <Users className="h-4 w-4 mt-0.5 text-coral" />
                   <span>Connect with others who visit this spot</span>
@@ -643,9 +643,9 @@ export const JoinFlow: React.FC = () => {
             </Alert>
 
             {error.code === 'LOCATION_TOO_FAR' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h3 className="font-medium text-yellow-900 mb-1">Tips:</h3>
-                <ul className="text-sm text-yellow-800 space-y-1">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
+                <h3 className="font-medium text-yellow-900 mb-1 dark:text-yellow-100">Tips:</h3>
+                <ul className="text-sm text-yellow-800 space-y-1 dark:text-yellow-200">
                   <li>• Make sure you're at the physical location</li>
                   <li>• Stand closer to where the QR code is displayed</li>
                   <li>• Enable high-accuracy mode in your GPS settings</li>
@@ -654,9 +654,9 @@ export const JoinFlow: React.FC = () => {
             )}
 
             {error.code === 'ACCURACY_TOO_LOW' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h3 className="font-medium text-yellow-900 mb-1">Improve GPS Accuracy:</h3>
-                <ul className="text-sm text-yellow-800 space-y-1">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
+                <h3 className="font-medium text-yellow-900 mb-1 dark:text-yellow-100">Improve GPS Accuracy:</h3>
+                <ul className="text-sm text-yellow-800 space-y-1 dark:text-yellow-200">
                   <li>• Move to an open area with clear sky view</li>
                   <li>• Enable Wi-Fi and Bluetooth for better positioning</li>
                   <li>• Wait a moment for GPS to stabilize</li>

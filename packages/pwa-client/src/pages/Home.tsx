@@ -324,21 +324,21 @@ const Home = () => {
 
   if (!user || !pubkey) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-cream">
-        <Card className="w-full max-w-md bg-white/95 backdrop-blur shadow-2xl border-0">
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md bg-card backdrop-blur shadow-2xl border-0">
           <CardHeader className="text-center pb-4">
             <div className="mx-auto w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mb-4">
               <MapPin className="h-10 w-10 text-coral" />
             </div>
-            <CardTitle className="text-3xl font-rubik text-navy">Welcome to Peek</CardTitle>
-            <CardDescription className="text-base text-navy/60">
+            <CardTitle className="text-3xl font-rubik">Welcome to Peek</CardTitle>
+            <CardDescription className="text-base">
               Connect with people at physical locations
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert className="border-coral/20 bg-coral/5">
+            <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
               <Sparkles className="h-4 w-4 text-coral" />
-              <AlertDescription className="text-navy/70">
+              <AlertDescription className="dark:text-foreground">
                 Scan a Peek QR code with your phone camera to join location-based communities.
                 No app installation required!
               </AlertDescription>
@@ -353,7 +353,7 @@ const Home = () => {
               Login with Nostr
             </Button>
 
-            <p className="text-xs text-center text-navy/50">
+            <p className="text-xs text-center text-muted-foreground">
               Use your existing Nostr account or create a new one
             </p>
           </CardContent>
@@ -363,16 +363,16 @@ const Home = () => {
   }
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-background">
       {/* Simplified Header */}
-      <header className="bg-white/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
+      <header className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="container mx-auto px-3 sm:px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-9 h-9 sm:w-10 sm:h-10 bg-coral rounded-full flex items-center justify-center">
                 <span className="text-white font-rubik text-lg sm:text-xl font-bold">P</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-rubik font-bold text-navy">Peek</h1>
+              <h1 className="text-xl sm:text-2xl font-rubik font-bold">Peek</h1>
             </div>
 
             <div className="flex items-center gap-2">
@@ -381,7 +381,7 @@ const Home = () => {
                   onClick={handleCreateTestCommunity}
                   variant="outline"
                   size="sm"
-                  className="gap-2 text-navy border-coral hover:bg-coral/10"
+                  className="gap-2 border-coral hover:bg-coral/10"
                 >
                   <MapPin className="h-4 w-4" />
                   <span className="hidden sm:inline">Create Dev Test</span>
@@ -417,15 +417,15 @@ const Home = () => {
       <main className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
         {/* Discovery Map Section */}
         <div className="mb-6">
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="bg-card rounded-2xl shadow-lg overflow-hidden">
             {/* Map Header */}
-            <div className="p-4 border-b border-gray-100">
+            <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-rubik font-bold text-navy">
+                  <h2 className="text-xl font-rubik font-bold">
                     Discover Communities
                   </h2>
-                  <p className="text-sm text-navy/60">
+                  <p className="text-sm text-muted-foreground">
                     {discoveryMap ? `${discoveryMap.points.length} spots nearby` : 'Loading map...'}
                   </p>
                 </div>
@@ -433,7 +433,7 @@ const Home = () => {
                   onClick={handleFlyToLocation}
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-2 text-navy border-coral/30 hover:bg-coral/10"
+                  className="flex items-center gap-2 border-coral/30 hover:bg-coral/10"
                   title="Center on my location"
                 >
                   <Navigation className="h-4 w-4" />
@@ -467,7 +467,7 @@ const Home = () => {
         {/* Your Communities Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-rubik font-bold text-navy">
+            <h2 className="text-2xl font-rubik font-bold">
               Your Communities
             </h2>
             <Badge className="bg-coral/10 text-coral border-0 px-3 py-1">
@@ -476,30 +476,30 @@ const Home = () => {
           </div>
 
           {loading ? (
-            <Card className="bg-white/95 border-0 shadow-lg">
+            <Card className="bg-card border-0 shadow-lg">
               <CardContent className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-coral" />
               </CardContent>
             </Card>
           ) : communities.length === 0 ? (
-            <Card className="bg-white/95 border-0 shadow-lg">
+            <Card className="bg-card border-0 shadow-lg">
               <CardContent className="text-center py-12">
                 <div className="max-w-sm mx-auto space-y-4">
                   <div className="w-24 h-24 bg-coral/10 rounded-full flex items-center justify-center mx-auto">
                     <MapPin className="h-12 w-12 text-coral" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-rubik font-bold text-navy mb-2">
+                    <h3 className="text-xl font-rubik font-bold mb-2">
                       No communities yet
                     </h3>
-                    <p className="text-navy/60 mb-6">
+                    <p className="text-muted-foreground mb-6">
                       Find QR codes in the wild and scan them to join your first community!
                     </p>
                   </div>
 
-                  <Alert className="text-left bg-mint/10 border-mint/20">
+                  <Alert className="text-left bg-mint/10 border-mint/20 dark:bg-mint/20 dark:border-mint/30">
                     <Crown className="h-4 w-4 text-mint" />
-                    <AlertDescription className="text-navy/70">
+                    <AlertDescription className="dark:text-foreground">
                       <strong>Pro tip:</strong> Be the first to scan an unclaimed QR code
                       to become the founder with admin powers!
                     </AlertDescription>
@@ -512,16 +512,16 @@ const Home = () => {
               {communities.map((community) => (
                 <Card
                   key={community.groupId}
-                  className="cursor-pointer bg-white hover:shadow-xl transition-all duration-200 border-0 shadow-md overflow-hidden group"
+                  className="cursor-pointer bg-card hover:shadow-xl transition-all duration-200 border-0 shadow-md overflow-hidden group"
                   onClick={() => handleCommunityClick(community.groupId)}
                 >
                   <CardHeader className="pb-3 bg-gradient-to-br from-coral/5 to-peach/5">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg font-rubik text-navy line-clamp-1">
+                        <CardTitle className="text-lg font-rubik line-clamp-1">
                           {community.name}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2 mt-1 text-navy/60">
+                        <CardDescription className="flex items-center gap-2 mt-1">
                           <Users className="h-3 w-3" />
                           <span>{community.memberCount} members</span>
                         </CardDescription>
@@ -537,7 +537,7 @@ const Home = () => {
                   <CardContent className="pt-3">
                     <div className="space-y-3">
                       {community.location && (
-                        <div className="flex items-center gap-2 text-sm text-navy/50">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MapPin className="h-3 w-3" />
                           <span className="text-xs">
                             Location verified
@@ -546,7 +546,7 @@ const Home = () => {
                       )}
 
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-navy/50">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           <span>{formatTimeAgo(community.lastActivity)}</span>
                         </div>
