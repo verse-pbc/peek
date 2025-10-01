@@ -265,7 +265,11 @@ const Community = () => {
 
   // Verify access when dependencies change
   useEffect(() => {
-    if (!pubkey && !isMigrating) {
+    // Check localStorage directly (synchronous) to prevent error flash during migration
+    const migratingJson = localStorage.getItem('identity_migrating');
+    const isMigrationActive = !!migratingJson;
+
+    if (!pubkey && !isMigrationActive) {
       setLoading(false);
       setError('Please login to access communities');
       return;
@@ -274,7 +278,7 @@ const Community = () => {
     if (pubkey && groupId && groupManager && connected) {
       verifyCommunityAccess();
     }
-  }, [pubkey, groupId, groupManager, connected, isMigrating, verifyCommunityAccess]);
+  }, [pubkey, groupId, groupManager, connected, verifyCommunityAccess]);
 
   const handleBack = () => {
     navigate('/');
