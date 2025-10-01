@@ -15,6 +15,7 @@ import {
   getGeohashesInBounds
 } from '@/lib/geohash-utils';
 import 'leaflet/dist/leaflet.css';
+import './GeohashLocationPicker.css';
 
 interface GeohashLocationPickerProps {
   onLocationSelected: (location: {
@@ -27,9 +28,14 @@ interface GeohashLocationPickerProps {
 }
 
 // Component to track map bounds and generate geohashes
-function GeohashGridOverlay({ onCellClick }: { onCellClick: (hash: string) => void }) {
+function GeohashGridOverlay({
+  onCellClick,
+  selectedHash
+}: {
+  onCellClick: (hash: string) => void;
+  selectedHash: string | null;
+}) {
   const [geohashes, setGeohashes] = useState<string[]>([]);
-  const [selectedHash, setSelectedHash] = useState<string | null>(null);
   const map = useMap();
 
   const updateGeohashes = useCallback(() => {
@@ -39,7 +45,9 @@ function GeohashGridOverlay({ onCellClick }: { onCellClick: (hash: string) => vo
       south: bounds.getSouth(),
       east: bounds.getEast(),
       west: bounds.getWest()
-    }, 8, 50); // Level 8, max 50 cells
+    }, 8, 200); // Level 8, max 200 cells like hashstr.com
+
+    console.log(`Generated ${hashes.length} geohash cells`);
     setGeohashes(hashes);
   }, [map]);
 
@@ -52,49 +60,58 @@ function GeohashGridOverlay({ onCellClick }: { onCellClick: (hash: string) => vo
     zoomend: updateGeohashes
   });
 
-  const handleCellClick = (hash: string) => {
-    setSelectedHash(hash);
-    onCellClick(hash);
-  };
-
   return (
     <>
       {geohashes.map((hash) => {
-        const bounds = getGeohashBounds(hash);
-        const positions: [number, number][] = [
-          [bounds.minLat, bounds.minLng],
-          [bounds.minLat, bounds.maxLng],
-          [bounds.maxLat, bounds.maxLng],
-          [bounds.maxLat, bounds.minLng],
-        ];
+        try {
+          const bounds = getGeohashBounds(hash);
+          const positions: [number, number][] = [
+            [bounds.minLat, bounds.minLng], // SW
+            [bounds.minLat, bounds.maxLng], // SE
+            [bounds.maxLat, bounds.maxLng], // NE
+            [bounds.maxLat, bounds.minLng], // NW
+          ];
 
-        const isSelected = hash === selectedHash;
+          const isSelected = hash === selectedHash;
 
-        return (
-          <Polygon
-            key={hash}
-            positions={positions}
-            pathOptions={{
-              color: isSelected ? '#10b981' : '#3b82f6',
-              weight: isSelected ? 3 : 1,
-              fillColor: isSelected ? '#10b981' : '#3b82f6',
-              fillOpacity: isSelected ? 0.3 : 0.1
-            }}
-            eventHandlers={{
-              click: () => handleCellClick(hash),
-              mouseover: (e) => {
-                e.target.setStyle({ fillOpacity: 0.4 });
-              },
-              mouseout: (e) => {
-                e.target.setStyle({ fillOpacity: isSelected ? 0.3 : 0.1 });
-              }
-            }}
-          >
-            <Tooltip permanent direction="center" className="geohash-label">
-              {hash}
-            </Tooltip>
-          </Polygon>
-        );
+          return (
+            <Polygon
+              key={hash}
+              positions={positions}
+              pathOptions={{
+                color: isSelected ? '#4ade80' : '#60a5fa',
+                weight: isSelected ? 2 : 0.5,
+                opacity: isSelected ? 1 : 0.7,
+                fillColor: isSelected ? '#4ade80' : '#60a5fa',
+                fillOpacity: isSelected ? 0.3 : 0.05
+              }}
+              eventHandlers={{
+                click: () => onCellClick(hash),
+                mouseover: (e) => {
+                  if (!isSelected) {
+                    e.target.setStyle({ fillOpacity: 0.2, weight: 1.5 });
+                  }
+                },
+                mouseout: (e) => {
+                  if (!isSelected) {
+                    e.target.setStyle({ fillOpacity: 0.05, weight: 0.5 });
+                  }
+                }
+              }}
+            >
+              <Tooltip
+                permanent
+                direction="center"
+                className={isSelected ? 'geohash-label-selected' : 'geohash-label'}
+              >
+                {hash}
+              </Tooltip>
+            </Polygon>
+          );
+        } catch (e) {
+          console.warn('Failed to render geohash cell:', hash, e);
+          return null;
+        }
       })}
     </>
   );
@@ -195,12 +212,9 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
   }, [selectedGeohash, onLocationSelected, toast]);
 
   const handleMapCellClick = (hash: string) => {
+    console.log('Map cell clicked:', hash);
     setGeohashInput(hash);
     setSelectedGeohash(hash);
-    toast({
-      title: "Cell selected",
-      description: `Geohash: ${hash}`,
-    });
   };
 
   const getGeohashStatus = () => {
@@ -296,7 +310,10 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
-                <GeohashGridOverlay onCellClick={handleMapCellClick} />
+                <GeohashGridOverlay
+                  onCellClick={handleMapCellClick}
+                  selectedHash={selectedGeohash}
+                />
               </MapContainer>
             </div>
 
