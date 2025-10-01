@@ -54,6 +54,23 @@ const Community = () => {
   // Resolve UUID to h-tag for NIP-29 group
   const [groupId, setGroupId] = useState<string | null>(null);
 
+  // Check migration state IMMEDIATELY on mount to prevent error flashing
+  useEffect(() => {
+    const migratingState = localStorage.getItem('identity_migrating');
+    if (migratingState) {
+      try {
+        const state = JSON.parse(migratingState);
+        // If we're migrating any groups, set the flag
+        if (state.groups && state.groups.length > 0) {
+          setIsMigrating(true);
+          console.log('[Community] Migration in progress, groups:', state.groups);
+        }
+      } catch (e) {
+        console.warn('[Community] Failed to parse migration state:', e);
+      }
+    }
+  }, []); // Run once on mount
+
   // Resolve UUID to group h-tag
   useEffect(() => {
     if (!communityId || !relayManager || !connected) {
