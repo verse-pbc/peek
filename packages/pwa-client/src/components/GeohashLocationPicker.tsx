@@ -31,15 +31,21 @@ interface GeohashLocationPickerProps {
 // Component to track map bounds and generate geohashes
 function GeohashGridOverlay({
   onCellClick,
-  selectedHash
+  selectedHash,
+  precision,
+  showValidationArea,
+  onZoomChange
 }: {
   onCellClick: (hash: string) => void;
   selectedHash: string | null;
+  precision: number;
+  showValidationArea: boolean;
+  onZoomChange: (zoom: number) => void;
 }) {
   const [geohashes, setGeohashes] = useState<string[]>([]);
   const map = useMap();
 
-  const updateGeohashes = useCallback(() => {
+  const updateGeohashes = useCallback((currentPrecision: number) => {
     const bounds = map.getBounds();
     const mapBounds = {
       north: bounds.getNorth(),
@@ -47,32 +53,23 @@ function GeohashGridOverlay({
       east: bounds.getEast(),
       west: bounds.getWest()
     };
-    console.log('Map bounds:', mapBounds);
 
-    const hashes = getGeohashesInBounds(mapBounds, 8, 200);
-    console.log(`Generated ${hashes.length} geohash cells`);
-
-    // Debug first hash
-    if (hashes.length > 0) {
-      const firstHash = hashes[0];
-      try {
-        const bbox = getGeohashBounds(firstHash);
-        console.log(`First cell ${firstHash} bounds:`, bbox);
-      } catch (e) {
-        console.error('Error getting bounds for first hash:', e);
-      }
-    }
-
+    const hashes = getGeohashesInBounds(mapBounds, currentPrecision, 200);
+    console.log(`Zoom ${map.getZoom().toFixed(1)} → Precision ${currentPrecision} → ${hashes.length} cells`);
     setGeohashes(hashes);
   }, [map]);
 
   useEffect(() => {
-    updateGeohashes();
-  }, [updateGeohashes]);
+    updateGeohashes(precision);
+  }, [updateGeohashes, precision]);
 
   useMapEvents({
-    moveend: updateGeohashes,
-    zoomend: updateGeohashes
+    moveend: () => updateGeohashes(precision),
+    zoomend: () => {
+      const zoom = map.getZoom();
+      onZoomChange(zoom);
+      updateGeohashes(precision);
+    }
   });
 
   return (
@@ -93,8 +90,9 @@ function GeohashGridOverlay({
           const isSelected = hash === selectedHash;
 
           // Check if this cell is in the valid area (center + 8 neighbors)
+          // Only show validation area at precision 8
           let isValidNeighbor = false;
-          if (selectedHash) {
+          if (selectedHash && showValidationArea) {
             const validCells = getGeohashNeighbors(selectedHash);
             isValidNeighbor = validCells.includes(hash) && !isSelected;
           }
@@ -171,6 +169,18 @@ function GeohashGridOverlay({
   );
 }
 
+// Calculate geohash precision based on zoom level (matches hashstr.com)
+const getPrecisionForZoom = (zoom: number): number => {
+  if (zoom < 3) return 1;
+  if (zoom < 6) return 2;
+  if (zoom < 9) return 3;
+  if (zoom < 12) return 4;
+  if (zoom < 15) return 5;
+  if (zoom < 18) return 6;
+  if (zoom < 20) return 7;
+  return 8; // Peek validation level
+};
+
 export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
   onLocationSelected,
   initialLocation
@@ -180,6 +190,8 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
   const [selectedGeohash, setSelectedGeohash] = useState<string | null>(null);
   const [isLoadingGPS, setIsLoadingGPS] = useState(true);
   const [mapCenter, setMapCenter] = useState<[number, number]>([37.7749, -122.4194]);
+  const [currentZoom, setCurrentZoom] = useState(20);
+  const [currentPrecision, setCurrentPrecision] = useState(8);
 
   // Get user's real GPS location and pre-select their geohash
   useEffect(() => {
@@ -315,9 +327,13 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
                 : ''
             }`}
           />
-          <p className="text-xs text-muted-foreground">
-            Green area = valid join zone (center + 8 neighbors)
-          </p>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {currentPrecision === 8
+                ? 'Green area = valid join zone (center + 8 neighbors)'
+                : `Zoom: ${currentZoom.toFixed(1)} • Precision: ${currentPrecision}/8 • Zoom in to see validation area`}
+            </span>
+          </div>
         </div>
 
         {/* Map with Grid */}
@@ -329,11 +345,11 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
           ) : (
             <MapContainer
               center={mapCenter}
-              zoom={18}
+              zoom={20}
               className="h-full w-full"
               zoomControl={true}
-              minZoom={17}
-              maxZoom={19}
+              minZoom={1}
+              maxZoom={21}
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -342,6 +358,13 @@ export const GeohashLocationPicker: React.FC<GeohashLocationPickerProps> = ({
               <GeohashGridOverlay
                 onCellClick={handleMapCellClick}
                 selectedHash={selectedGeohash}
+                precision={currentPrecision}
+                showValidationArea={currentPrecision === 8}
+                onZoomChange={(zoom) => {
+                  setCurrentZoom(zoom);
+                  const newPrecision = getPrecisionForZoom(zoom);
+                  setCurrentPrecision(newPrecision);
+                }}
               />
             </MapContainer>
           )}
