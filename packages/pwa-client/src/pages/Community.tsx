@@ -149,11 +149,12 @@ const Community = () => {
   // Verify user has access to this community
   useEffect(() => {
     if (!pubkey || !groupId || !groupManager || !connected) {
-      if (!pubkey) {
+      if (!pubkey && !isMigrating) {
+        // Only show login error if not in migration state
         setLoading(false);
         setError('Please login to access communities');
       }
-      // Still loading if we're waiting for connection or group manager
+      // Still loading if we're waiting for connection or group manager (or migrating)
       return;
     }
 
@@ -364,7 +365,7 @@ const Community = () => {
         migrationTimeoutRef.current = null;
       }
     };
-  }, [pubkey, groupId, communityId, groupManager, connected, navigate, waitForConnection]);
+  }, [pubkey, groupId, communityId, groupManager, connected, navigate, waitForConnection, isMigrating]);
 
   const handleBack = () => {
     navigate('/');
