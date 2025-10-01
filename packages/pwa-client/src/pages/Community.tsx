@@ -87,8 +87,15 @@ const Community = () => {
           // Update the name when metadata changes
           const nameTag = event.tags.find(t => t[0] === 'name');
           if (nameTag && nameTag[1]) {
-            console.log('Updating community name from kind 39000 event:', nameTag[1]);
-            setCommunityData(prev => prev ? { ...prev, name: nameTag[1] } : prev);
+            console.log('[Community] 📝 Updating name from 39000 event:', nameTag[1], 'prev name:', communityData?.name);
+            setCommunityData(prev => {
+              if (!prev) {
+                console.log('[Community] ⚠️ Tried to update name but communityData is null!');
+                return prev;
+              }
+              console.log('[Community] ✅ Updated communityData.name to:', nameTag[1]);
+              return { ...prev, name: nameTag[1] };
+            });
           }
 
           // Also update other metadata if needed
@@ -195,6 +202,12 @@ const Community = () => {
         const metadata = groupManager.getGroupMetadata(groupId);
         const memberCount = groupManager.getResolvedMemberCount(groupId);
 
+        console.log('[Community] Loading community data from GroupManager:', {
+          groupId,
+          metadataName: metadata?.name,
+          hasMetadata: !!metadata
+        });
+
         // If members list is empty, we might not have synced yet
         // In that case, at least count ourselves
         const finalMemberCount = memberCount > 0 ? memberCount : 1;
@@ -208,6 +221,8 @@ const Community = () => {
           isAdmin,
           isMember: true
         };
+
+        console.log('[Community] Setting communityData with name:', community.name);
 
         // Get stored location from localStorage if available
         const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
