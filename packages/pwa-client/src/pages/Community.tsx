@@ -282,7 +282,7 @@ const Community = () => {
     if (pubkey && groupId && groupManager && connected && !communityData) {
       verifyCommunityAccess();
     }
-  }, [pubkey, groupId, groupManager, connected, communityData, verifyCommunityAccess]);
+  }, [pubkey, groupId, groupManager, connected, verifyCommunityAccess]);
 
   const handleBack = () => {
     navigate('/');
