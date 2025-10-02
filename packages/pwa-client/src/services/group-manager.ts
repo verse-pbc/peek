@@ -16,6 +16,7 @@ export interface GroupMetadata {
   about?: string;
   isPublic: boolean;
   isOpen: boolean;
+  createdAt?: number;
 }
 
 export interface GroupMember {
@@ -131,7 +132,8 @@ export class GroupManager {
       picture,
       about,
       isPublic,
-      isOpen
+      isOpen,
+      createdAt: event.created_at
     };
     cache.lastUpdated = Date.now();
   }
@@ -860,7 +862,8 @@ export class GroupManager {
         id: groupId,
         name: '',
         isPublic: false,
-        isOpen: false
+        isOpen: false,
+        createdAt: event.created_at
       };
 
       for (const tag of event.tags) {

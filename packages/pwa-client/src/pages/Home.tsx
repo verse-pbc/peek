@@ -40,6 +40,7 @@ interface Community {
   name: string;
   memberCount: number;
   lastActivity?: number;
+  createdAt?: number;
   isAdmin: boolean;
   unreadCount?: number;
   location?: {
@@ -183,14 +184,15 @@ const Home = () => {
             isAdmin: group.isAdmin,
             joinedAt: cachedGroupInfo?.joinedAt || Date.now() / 1000,
             lastActivity: lastActivity || undefined,
+            createdAt: group.metadata?.createdAt,
             location: cachedGroupInfo?.location
           };
         }));
 
-        // Sort by last activity (most recent first), fallback to joinedAt
+        // Sort by last activity (most recent first), fallback to createdAt, then joinedAt
         userCommunities.sort((a, b) => {
-          const aTime = a.lastActivity || a.joinedAt || 0;
-          const bTime = b.lastActivity || b.joinedAt || 0;
+          const aTime = a.lastActivity || a.createdAt || a.joinedAt || 0;
+          const bTime = b.lastActivity || b.createdAt || b.joinedAt || 0;
           return bTime - aTime;
         });
 
@@ -492,7 +494,7 @@ const Home = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          <span>{formatTimeAgo(community.lastActivity)}</span>
+                          <span>{formatTimeAgo(community.lastActivity || community.createdAt || community.joinedAt)}</span>
                         </div>
 
                         {community.unreadCount && community.unreadCount > 0 && (
