@@ -55,7 +55,7 @@ const Home = () => {
   const { user } = useNostrContext();
   const { pubkey, login } = useNostrLogin();
   const { toast } = useToast();
-  const { groupManager, connected } = useRelayManager();
+  const { groupManager, relayManager, connected } = useRelayManager();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejoinMessage, setRejoinMessage] = useState<string | null>(null);
@@ -145,7 +145,7 @@ const Home = () => {
   // Fetch user's communities
   useEffect(() => {
     // Wait for relay connection before fetching
-    if (!connected || !groupManager) {
+    if (!connected || !groupManager || !relayManager) {
       return;
     }
 
@@ -153,7 +153,7 @@ const Home = () => {
     let fetchCount = 0;
 
     const fetchCommunities = async () => {
-      if (!isActive || !groupManager) return;
+      if (!isActive || !groupManager || !relayManager) return;
       fetchCount++;
 
       if (fetchCount === 1) {
@@ -168,10 +168,13 @@ const Home = () => {
         console.log(`[Home] Found ${userGroups.length} communities from NIP-29 events`);
 
         // Convert to Community format for the UI
-        const userCommunities: Community[] = userGroups.map(group => {
+        const userCommunities: Community[] = await Promise.all(userGroups.map(async group => {
           // Try to get location from localStorage as fallback for UI
           const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
           const cachedGroupInfo = joinedGroups.find((g: { communityId: string }) => g.communityId === group.communityId);
+
+          // Fetch last activity using NIP-01 limit:1 semantics
+          const lastActivity = await relayManager.getGroupLastActivity(group.groupId);
 
           return {
             groupId: group.groupId,
@@ -179,12 +182,17 @@ const Home = () => {
             memberCount: group.memberCount,
             isAdmin: group.isAdmin,
             joinedAt: cachedGroupInfo?.joinedAt || Date.now() / 1000,
+            lastActivity: lastActivity || undefined,
             location: cachedGroupInfo?.location
           };
-        });
+        }));
 
-        // Sort by last activity (using joinedAt as fallback since we don't have lastActivity from NIP-29 yet)
-        userCommunities.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
+        // Sort by last activity (most recent first), fallback to joinedAt
+        userCommunities.sort((a, b) => {
+          const aTime = a.lastActivity || a.joinedAt || 0;
+          const bTime = b.lastActivity || b.joinedAt || 0;
+          return bTime - aTime;
+        });
 
         if (isActive) {
           console.log('[Home] Setting communities from NIP-29 events:', userCommunities);
@@ -214,7 +222,7 @@ const Home = () => {
     return () => {
       isActive = false;
     };
-  }, [connected, groupManager, toast]);
+  }, [connected, groupManager, relayManager, toast]);
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';

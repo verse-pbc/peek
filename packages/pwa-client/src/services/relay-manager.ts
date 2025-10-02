@@ -293,6 +293,28 @@ export class RelayManager {
   }
 
   /**
+   * Get the timestamp of the last activity (chat message) in a group
+   * Uses NIP-01 limit semantics: limit:1 returns the newest event by created_at
+   */
+  async getGroupLastActivity(groupId: string): Promise<number | null> {
+    try {
+      const events = await this.pool.querySync([this.relayUrl], {
+        kinds: [NIP29_KINDS.CHAT_MESSAGE],
+        '#h': [groupId],
+        limit: 1
+      });
+
+      if (events.length > 0) {
+        return events[0].created_at;
+      }
+      return null;
+    } catch (error) {
+      console.error(`[RelayManager] Error getting last activity for group ${groupId}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Load UUID cache from localStorage
    */
   private loadUuidCache(): Map<string, string> {
