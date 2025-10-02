@@ -33,7 +33,12 @@ export function TestApp({ children }: TestAppProps) {
           <NostrLoginProvider storageKey='test-login'>
             <NostrProvider>
               <NWCProvider>
-                <BrowserRouter>
+                <BrowserRouter
+                  future={{
+                    v7_startTransition: true,
+                    v7_relativeSplatPath: true,
+                  }}
+                >
                   {children}
                 </BrowserRouter>
               </NWCProvider>
