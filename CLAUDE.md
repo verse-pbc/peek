@@ -68,8 +68,35 @@ npm run generate-qr     # Create test QR code
 
 # Individual packages
 cd packages/pwa-client && npm run dev
-cd packages/validation-service && cargo run
+cd packages/validation-service && cargo run  # Always use 'cargo run' to auto-rebuild on changes
 ```
+
+## Nostr Tooling (Nak)
+
+### Nak Command Patterns
+When using nak (Nostr Army Knife) with authenticated relays:
+
+```bash
+# Query events (authenticated)
+nak req -k <kind> --tag <tag>=<value> -l <limit> --fpa --sec $COMMUNITIES2 <relay>
+
+# Send events (authenticated)
+nak event -k <kind> -t <tag>='<value>' --sec $COMMUNITIES2 -c "" <relay>
+
+# Examples
+nak req -k 39000 --tag d=peek-xyz -l 1 --fpa --sec $COMMUNITIES2 communities2.nos.social
+nak event -k 9002 -t h=peek-xyz -t name='My Group' --sec $COMMUNITIES2 -c "" communities2.nos.social
+```
+
+**Critical flags:**
+- `--fpa` = Force pubkey authentication (REQUIRED for private relays)
+- `--sec $VAR` = Use private key from environment variable (NEVER echo the variable)
+- Always use both `--fpa` and `--sec` together for authenticated requests
+
+**Common mistakes:**
+- Forgetting `--fpa` flag → auth fails
+- Using `--sec` without `--fpa` → request not authenticated
+- Echoing `$COMMUNITIES2` → exposes private key
 
 ## Spec-Kit Commands (Claude)
 - `/specify` - Create a new feature specification and branch
