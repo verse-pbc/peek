@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { AdminPanel } from "../components/AdminPanel";
+import { JoinFlow } from "./JoinFlow";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -41,11 +42,7 @@ interface CommunityData {
   isMember: boolean;
 }
 
-interface CommunityProps {
-  showWelcomeBack?: boolean;
-}
-
-const Community = ({ showWelcomeBack: _showWelcomeBack = false }: CommunityProps) => {
+const Community = () => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   const { pubkey } = useNostrLogin();
@@ -57,6 +54,7 @@ const Community = ({ showWelcomeBack: _showWelcomeBack = false }: CommunityProps
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showJoinFlow, setShowJoinFlow] = useState(false);
   const { relayManager, groupManager, connected, waitForConnection } =
     useRelayManager();
 
@@ -243,11 +241,9 @@ const Community = ({ showWelcomeBack: _showWelcomeBack = false }: CommunityProps
 
     // Handle non-members (not migrating)
     if (!isMember && !isMigrating) {
-      const message =
-        "You are not a member of this community. Please scan the QR code at the physical location to join.";
-      setError(message);
+      console.log("User is not a member, showing join flow");
+      setShowJoinFlow(true);
       setLoading(false);
-      navigate("/", { state: { message } });
       return;
     }
 
@@ -474,6 +470,18 @@ const Community = ({ showWelcomeBack: _showWelcomeBack = false }: CommunityProps
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  if (showJoinFlow) {
+    return (
+      <JoinFlow
+        onJoinSuccess={() => {
+          setShowJoinFlow(false);
+          setCommunityData(null);
+          setLoading(true);
+        }}
+      />
     );
   }
 

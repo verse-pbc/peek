@@ -66,7 +66,7 @@ interface JoinFlowError {
 }
 
 interface JoinFlowProps {
-  onJoinSuccess?: () => void;
+  onJoinSuccess: () => void;
 }
 
 export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
@@ -600,11 +600,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
             </div>
 
             <Button
-              onClick={() => {
-                if (onJoinSuccess) {
-                  onJoinSuccess();
-                }
-              }}
+              onClick={onJoinSuccess}
               className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
               size="lg"
             >
