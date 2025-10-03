@@ -240,7 +240,7 @@ const Home = () => {
   };
 
   const handleCommunityClick = (groupId: string) => {
-    navigate(`/community/${groupId}`);
+    navigate(`/c/${groupId}`);
   };
 
   const handleFlyToLocation = useCallback(() => {
@@ -410,11 +410,11 @@ const Home = () => {
           </div>
         </div>
 
-        {/* Your Communities Section */}
+        {/* My Communities Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-rubik font-bold">
-              Your Communities
+              My Communities
             </h2>
             <Badge className="bg-coral/10 text-coral border-0 px-3 py-1">
               {communities.length} joined

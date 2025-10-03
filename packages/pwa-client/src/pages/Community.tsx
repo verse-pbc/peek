@@ -1,26 +1,32 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { CommunityFeed } from '../components/CommunityFeed';
-import { AdminPanel } from '../components/AdminPanel';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { Badge } from '../components/ui/badge';
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { CommunityFeed } from "../components/CommunityFeed";
+import { AdminPanel } from "../components/AdminPanel";
+import { Button } from "../components/ui/button";
 import {
-  ArrowLeft,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import { Badge } from "../components/ui/badge";
+import {
+  LayoutGrid,
   Settings,
   MapPin,
   Users,
   AlertCircle,
   Loader2,
   Lock,
-  Crown
-} from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
-import { useNostrLogin } from '../lib/nostrify-shim';
-import { useRelayManager } from '../contexts/RelayContext';
-import { useMigrationState } from '../hooks/useMigrationState';
-import { useMigrationPolling } from '../hooks/useMigrationPolling';
+  Crown,
+} from "lucide-react";
+import { useToast } from "@/hooks/useToast";
+import { useNostrLogin } from "../lib/nostrify-shim";
+import { useRelayManager } from "../contexts/RelayContext";
+import { useMigrationState } from "../hooks/useMigrationState";
+import { useMigrationPolling } from "../hooks/useMigrationPolling";
 
 interface CommunityData {
   groupId: string;
@@ -35,18 +41,24 @@ interface CommunityData {
   isMember: boolean;
 }
 
-const Community = () => {
+interface CommunityProps {
+  showWelcomeBack?: boolean;
+}
+
+const Community = ({ showWelcomeBack: _showWelcomeBack = false }: CommunityProps) => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const { pubkey } = useNostrLogin();
   const { toast: _toast } = useToast();
 
-  const [communityData, setCommunityData] = useState<CommunityData | null>(null);
+  const [communityData, setCommunityData] = useState<CommunityData | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const { relayManager, groupManager, connected, waitForConnection} = useRelayManager();
+  const { relayManager, groupManager, connected, waitForConnection } =
+    useRelayManager();
 
   // Resolve UUID to h-tag for NIP-29 group
   const [groupId, setGroupId] = useState<string | null>(null);
@@ -64,10 +76,14 @@ const Community = () => {
     const resolveGroupId = async () => {
       const resolved = await relayManager.findGroupByUuid(communityId);
       if (resolved) {
-        console.log(`[Community] Resolved UUID ${communityId} to group ${resolved}`);
+        console.log(
+          `[Community] Resolved UUID ${communityId} to group ${resolved}`,
+        );
         setGroupId(resolved);
       } else {
-        console.warn(`[Community] Could not resolve UUID ${communityId} to group`);
+        console.warn(
+          `[Community] Could not resolve UUID ${communityId} to group`,
+        );
         setGroupId(null);
       }
     };
@@ -82,61 +98,86 @@ const Community = () => {
       relayManager.subscribeToGroup(groupId);
 
       // Listen for group metadata updates
-      const unsubscribe = relayManager.onEvent(`group-metadata-${groupId}`, (event) => {
-        if (event.kind === 39000) { // GROUP_METADATA event
-          // Manually trigger GroupManager's metadata handler to update its cache
-          // This is needed because group-specific subscriptions don't trigger global kind:39000 handler
-          if (groupManager) {
-            groupManager.handleMetadataEvent(event);
-          }
-
-          // Update the name when metadata changes
-          const nameTag = event.tags.find(t => t[0] === 'name');
-          if (nameTag && nameTag[1]) {
-            console.log('[Community] 📝 Updating name from 39000 event:', nameTag[1], 'prev name:', communityData?.name);
-            setCommunityData(prev => {
-              if (!prev) {
-                console.log('[Community] ⚠️ Tried to update name but communityData is null!');
-                return prev;
-              }
-              console.log('[Community] ✅ Updated communityData.name to:', nameTag[1]);
-              return { ...prev, name: nameTag[1] };
-            });
-          }
-
-          // Also update other metadata if needed
-          const aboutTag = event.tags.find(t => t[0] === 'about');
-          const pictureTag = event.tags.find(t => t[0] === 'picture');
-
-          setCommunityData(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              ...(aboutTag && aboutTag[1] ? { about: aboutTag[1] } : {}),
-              ...(pictureTag && pictureTag[1] ? { picture: pictureTag[1] } : {})
-            };
-          });
-        } else if (event.kind === 39002) { // GROUP_MEMBERS event
-          const memberCount = event.tags.filter(t => t[0] === 'p').length;
-          console.log('Updating member count from kind 39002 event:', memberCount);
-          setCommunityData(prev => prev ? { ...prev, memberCount } : prev);
-        } else if (event.kind === 9000) { // PUT_USER event (real-time member addition)
-          // Extract h-tag to verify it's for this group
-          const hTag = event.tags.find(t => t[0] === 'h')?.[1];
-          if (hTag === groupId) {
-            console.log('New member added (kind 9000), refreshing member count');
-            // Trigger a refresh by incrementing member count optimistically
-            setCommunityData(prev => {
-              if (!prev) return prev;
-              return { ...prev, memberCount: prev.memberCount + 1 };
-            });
-            // Also refresh from GroupManager to get accurate count
+      const unsubscribe = relayManager.onEvent(
+        `group-metadata-${groupId}`,
+        (event) => {
+          if (event.kind === 39000) {
+            // GROUP_METADATA event
+            // Manually trigger GroupManager's metadata handler to update its cache
+            // This is needed because group-specific subscriptions don't trigger global kind:39000 handler
             if (groupManager) {
-              groupManager.refreshGroup(groupId);
+              groupManager.handleMetadataEvent(event);
+            }
+
+            // Update the name when metadata changes
+            const nameTag = event.tags.find((t) => t[0] === "name");
+            if (nameTag && nameTag[1]) {
+              console.log(
+                "[Community] 📝 Updating name from 39000 event:",
+                nameTag[1],
+                "prev name:",
+                communityData?.name,
+              );
+              setCommunityData((prev) => {
+                if (!prev) {
+                  console.log(
+                    "[Community] ⚠️ Tried to update name but communityData is null!",
+                  );
+                  return prev;
+                }
+                console.log(
+                  "[Community] ✅ Updated communityData.name to:",
+                  nameTag[1],
+                );
+                return { ...prev, name: nameTag[1] };
+              });
+            }
+
+            // Also update other metadata if needed
+            const aboutTag = event.tags.find((t) => t[0] === "about");
+            const pictureTag = event.tags.find((t) => t[0] === "picture");
+
+            setCommunityData((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                ...(aboutTag && aboutTag[1] ? { about: aboutTag[1] } : {}),
+                ...(pictureTag && pictureTag[1]
+                  ? { picture: pictureTag[1] }
+                  : {}),
+              };
+            });
+          } else if (event.kind === 39002) {
+            // GROUP_MEMBERS event
+            const memberCount = event.tags.filter((t) => t[0] === "p").length;
+            console.log(
+              "Updating member count from kind 39002 event:",
+              memberCount,
+            );
+            setCommunityData((prev) =>
+              prev ? { ...prev, memberCount } : prev,
+            );
+          } else if (event.kind === 9000) {
+            // PUT_USER event (real-time member addition)
+            // Extract h-tag to verify it's for this group
+            const hTag = event.tags.find((t) => t[0] === "h")?.[1];
+            if (hTag === groupId) {
+              console.log(
+                "New member added (kind 9000), refreshing member count",
+              );
+              // Trigger a refresh by incrementing member count optimistically
+              setCommunityData((prev) => {
+                if (!prev) return prev;
+                return { ...prev, memberCount: prev.memberCount + 1 };
+              });
+              // Also refresh from GroupManager to get accurate count
+              if (groupManager) {
+                groupManager.refreshGroup(groupId);
+              }
             }
           }
-        }
-      });
+        },
+      );
 
       return () => unsubscribe();
     }
@@ -146,7 +187,10 @@ const Community = () => {
   const verifyCommunityAccess = useCallback(async () => {
     if (!pubkey || !groupId || !groupManager) return;
 
-    console.log('[Community] verifyCommunityAccess called, has communityData:', !!communityData);
+    console.log(
+      "[Community] verifyCommunityAccess called, has communityData:",
+      !!communityData,
+    );
 
     setLoading(true);
     setError(null);
@@ -159,129 +203,171 @@ const Community = () => {
 
     // Check localStorage for admin status if not in cache
     if (!isAdmin) {
-      const joinedGroupsStr = localStorage.getItem('joinedGroups');
+      const joinedGroupsStr = localStorage.getItem("joinedGroups");
       if (joinedGroupsStr) {
         try {
           const joinedGroups = JSON.parse(joinedGroupsStr);
-          const groupInfo = joinedGroups.find((g: { groupId?: string; communityId?: string }) =>
-            g.groupId === groupId || g.communityId === communityId
+          const groupInfo = joinedGroups.find(
+            (g: { groupId?: string; communityId?: string }) =>
+              g.groupId === groupId || g.communityId === communityId,
           );
           if (groupInfo?.isAdmin) {
             groupManager.setInitialAdminStatus(groupId, pubkey);
             isAdmin = true;
           }
         } catch (e) {
-          console.error('Error parsing joinedGroups:', e);
+          console.error("Error parsing joinedGroups:", e);
         }
       }
     }
 
-    console.log('Initial cache check:', { groupId, isMember, isAdmin, userPubkey: pubkey });
+    console.log("Initial cache check:", {
+      groupId,
+      isMember,
+      isAdmin,
+      userPubkey: pubkey,
+    });
 
     // If not in cache and NOT migrating, check relay
     if (!isMember && !isMigrating) {
-      console.log('Member not in cache, checking relay directly...');
+      console.log("Member not in cache, checking relay directly...");
       isMember = await groupManager.checkMembershipDirectly(groupId);
-      console.log('Direct relay check result:', { groupId, isMember, userPubkey: pubkey });
+      console.log("Direct relay check result:", {
+        groupId,
+        isMember,
+        userPubkey: pubkey,
+      });
     } else if (!isMember && isMigrating) {
-      console.log('Identity migration in progress, skipping relay check');
+      console.log("Identity migration in progress, skipping relay check");
     }
 
     // Handle non-members (not migrating)
     if (!isMember && !isMigrating) {
-      const message = 'You are not a member of this community. Please scan the QR code at the physical location to join.';
+      const message =
+        "You are not a member of this community. Please scan the QR code at the physical location to join.";
       setError(message);
       setLoading(false);
-      navigate('/', { state: { message } });
+      navigate("/", { state: { message } });
       return;
     }
 
     // If migrating and not member yet, polling hook will handle it
     if (isMigrating && !isMember) {
-      console.log('Identity migration in progress, waiting for membership update...');
+      console.log(
+        "Identity migration in progress, waiting for membership update...",
+      );
       return; // Keep loading state
     }
 
-      // User is a member - load community data
-      try {
-        // Get metadata from GroupManager
-        const metadata = groupManager.getGroupMetadata(groupId);
-        const memberCount = groupManager.getResolvedMemberCount(groupId);
+    // User is a member - load community data
+    try {
+      // Get metadata from GroupManager
+      const metadata = groupManager.getGroupMetadata(groupId);
+      const memberCount = groupManager.getResolvedMemberCount(groupId);
 
-        console.log('[Community] Loading community data from GroupManager:', {
-          groupId,
-          metadataName: metadata?.name,
-          hasMetadata: !!metadata
-        });
+      console.log("[Community] Loading community data from GroupManager:", {
+        groupId,
+        metadataName: metadata?.name,
+        hasMetadata: !!metadata,
+      });
 
-        // If members list is empty, we might not have synced yet
-        // In that case, at least count ourselves
-        const finalMemberCount = memberCount > 0 ? memberCount : 1;
+      // If members list is empty, we might not have synced yet
+      // In that case, at least count ourselves
+      const finalMemberCount = memberCount > 0 ? memberCount : 1;
 
-        const community: CommunityData = {
-          groupId,
-          // Use metadata name if available, otherwise fallback to UUID
-          // Event listener will update with latest metadata from relay
-          name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
-          memberCount: finalMemberCount,
-          isAdmin,
-          isMember: true
-        };
+      const community: CommunityData = {
+        groupId,
+        // Use metadata name if available, otherwise fallback to UUID
+        // Event listener will update with latest metadata from relay
+        name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
+        memberCount: finalMemberCount,
+        isAdmin,
+        isMember: true,
+      };
 
-        console.log('[Community] Setting communityData with name:', community.name);
+      console.log(
+        "[Community] Setting communityData with name:",
+        community.name,
+      );
 
-        // Get stored location from localStorage if available
-        const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-        const cachedGroupInfo = joinedGroups.find((g: { communityId: string }) => g.communityId === communityId);
-        if (cachedGroupInfo?.location) {
-          community.location = cachedGroupInfo.location;
-        }
+      // Get stored location from localStorage if available
+      const joinedGroups = JSON.parse(
+        localStorage.getItem("joinedGroups") || "[]",
+      );
+      const cachedGroupInfo = joinedGroups.find(
+        (g: { communityId: string }) => g.communityId === communityId,
+      );
+      if (cachedGroupInfo?.location) {
+        community.location = cachedGroupInfo.location;
+      }
 
-        setCommunityData(community);
+      setCommunityData(community);
 
-        // After setting initial data, check again for updated metadata
-        // (GroupManager event handler might have processed 39000 event by now)
-        setTimeout(() => {
-          const updatedMetadata = groupManager.getGroupMetadata(groupId);
-          console.log('[Community] ⏰ Timeout fired, checking GroupManager cache:', {
+      // After setting initial data, check again for updated metadata
+      // (GroupManager event handler might have processed 39000 event by now)
+      setTimeout(() => {
+        const updatedMetadata = groupManager.getGroupMetadata(groupId);
+        console.log(
+          "[Community] ⏰ Timeout fired, checking GroupManager cache:",
+          {
             hasUpdatedMetadata: !!updatedMetadata,
             updatedName: updatedMetadata?.name,
-            currentName: community.name
-          });
+            currentName: community.name,
+          },
+        );
 
-          if (updatedMetadata?.name && updatedMetadata.name !== community.name) {
-            console.log('[Community] 🔄 Updating name from GroupManager cache:', updatedMetadata.name);
-            setCommunityData(prev => prev ? { ...prev, name: updatedMetadata.name! } : prev);
-          }
-        }, 100);
-
-      } catch (err) {
-        console.error('Error fetching community data:', err);
-
-        // Check if this is a membership/access error
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        if (errorMessage.includes('not a member') ||
-            errorMessage.includes('access denied') ||
-            errorMessage.includes('authentication') ||
-            errorMessage.includes('unauthorized')) {
-          // User was likely removed from the group - clear stale localStorage
-          const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-          const filtered = joinedGroups.filter((g: { communityId: string }) => g.communityId !== communityId);
-          localStorage.setItem('joinedGroups', JSON.stringify(filtered));
-
-          // Redirect to home with message
-          navigate('/', {
-            state: {
-              message: 'You need to scan the QR code at the location to rejoin this community'
-            }
-          });
-        } else {
-          setError('Failed to load community data. Please try again.');
+        if (updatedMetadata?.name && updatedMetadata.name !== community.name) {
+          console.log(
+            "[Community] 🔄 Updating name from GroupManager cache:",
+            updatedMetadata.name,
+          );
+          setCommunityData((prev) =>
+            prev ? { ...prev, name: updatedMetadata.name! } : prev,
+          );
         }
-      } finally {
-        setLoading(false);
+      }, 100);
+    } catch (err) {
+      console.error("Error fetching community data:", err);
+
+      // Check if this is a membership/access error
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (
+        errorMessage.includes("not a member") ||
+        errorMessage.includes("access denied") ||
+        errorMessage.includes("authentication") ||
+        errorMessage.includes("unauthorized")
+      ) {
+        // User was likely removed from the group - clear stale localStorage
+        const joinedGroups = JSON.parse(
+          localStorage.getItem("joinedGroups") || "[]",
+        );
+        const filtered = joinedGroups.filter(
+          (g: { communityId: string }) => g.communityId !== communityId,
+        );
+        localStorage.setItem("joinedGroups", JSON.stringify(filtered));
+
+        // Redirect to home with message
+        navigate("/", {
+          state: {
+            message:
+              "You need to scan the QR code at the location to rejoin this community",
+          },
+        });
+      } else {
+        setError("Failed to load community data. Please try again.");
       }
-  }, [pubkey, groupId, communityId, groupManager, navigate, waitForConnection, isMigrating]);
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    pubkey,
+    groupId,
+    communityId,
+    groupManager,
+    navigate,
+    waitForConnection,
+    isMigrating,
+  ]);
 
   // Migration polling (data-oriented hook)
   useMigrationPolling(
@@ -290,31 +376,31 @@ const Community = () => {
       return await groupManager.checkMembershipDirectly(groupId);
     },
     () => {
-      console.log('Migration complete - membership confirmed!');
+      console.log("Migration complete - membership confirmed!");
       clearMigration();
       setCommunityData(null); // Clear to allow re-fetch with updated membership
       verifyCommunityAccess();
     },
     () => {
-      console.warn('Migration polling timed out');
+      console.warn("Migration polling timed out");
       clearMigration();
       setCommunityData(null); // Clear to allow re-fetch
       verifyCommunityAccess();
     },
     {
-      enabled: isMigrating && !communityData?.isMember
-    }
+      enabled: isMigrating && !communityData?.isMember,
+    },
   );
 
   // Verify access when dependencies change
   useEffect(() => {
     // Check localStorage directly (synchronous) to prevent error flash during migration
-    const migratingJson = localStorage.getItem('identity_migrating');
+    const migratingJson = localStorage.getItem("identity_migrating");
     const isMigrationActive = !!migratingJson;
 
     if (!pubkey && !isMigrationActive) {
       setLoading(false);
-      setError('Please login to access communities');
+      setError("Please login to access communities");
       return;
     }
 
@@ -326,7 +412,7 @@ const Community = () => {
   }, [pubkey, groupId, groupManager, connected, verifyCommunityAccess]);
 
   const handleBack = () => {
-    navigate('/');
+    navigate("/");
   };
 
   const handleAdminClick = () => {
@@ -343,10 +429,14 @@ const Community = () => {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
             <p className="text-lg font-medium">
-              {isMigrating ? 'Completing identity migration...' : 'Loading community...'}
+              {isMigrating
+                ? "Completing identity migration..."
+                : "Loading community..."}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              {isMigrating ? 'Updating your membership' : 'Verifying your access'}
+              {isMigrating
+                ? "Updating your membership"
+                : "Verifying your access"}
             </p>
           </CardContent>
         </Card>
@@ -371,11 +461,11 @@ const Community = () => {
             </Alert>
             <div className="mt-4 flex gap-2">
               <Button onClick={handleBack} variant="outline" className="flex-1">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Home
+                <LayoutGrid className="mr-2 h-4 w-4" />
+                My Communities
               </Button>
               <Button
-                onClick={() => navigate(`/join/${communityId}`)}
+                onClick={() => navigate(`/c/${communityId}`)}
                 className="flex-1"
               >
                 Join Community
@@ -391,9 +481,6 @@ const Community = () => {
     return null;
   }
 
-  // Check if user just joined from JoinFlow
-  const fromJoin = location.state?.fromJoin === true;
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -401,19 +488,19 @@ const Community = () => {
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {!fromJoin && (
-                <Button
-                  onClick={handleBack}
-                  variant="ghost"
-                  size="sm"
-                  className="gap-2 hover:bg-coral/10"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back
-                </Button>
-              )}
-              <div className={fromJoin ? 'ml-0' : ''}>
-                <h1 className="text-xl font-rubik font-semibold">{communityData.name}</h1>
+              <Button
+                onClick={handleBack}
+                variant="ghost"
+                size="sm"
+                className="gap-2 hover:bg-coral/10"
+              >
+                <LayoutGrid className="h-4 w-4" />
+                My Communities
+              </Button>
+              <div>
+                <h1 className="text-xl font-rubik font-semibold">
+                  {communityData.name}
+                </h1>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" />
@@ -455,9 +542,12 @@ const Community = () => {
           {/* Community Info Card */}
           <Card className="border-0 shadow-lg bg-card">
             <CardHeader className="bg-gradient-to-br from-coral/5 to-peach/5">
-              <CardTitle className="font-rubik">Welcome to the Community</CardTitle>
+              <CardTitle className="font-rubik">
+                Welcome to the Community
+              </CardTitle>
               <CardDescription>
-                This is a location-based group for people who have visited this place
+                This is a location-based group for people who have visited this
+                place
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -466,8 +556,8 @@ const Community = () => {
                   <MapPin className="h-4 w-4 text-mint" />
                   <AlertTitle>Location Verified Community</AlertTitle>
                   <AlertDescription>
-                    All members have physically visited this location.
-                    New members must be present at the location to join.
+                    All members have physically visited this location. New
+                    members must be present at the location to join.
                   </AlertDescription>
                 </Alert>
 
@@ -476,8 +566,8 @@ const Community = () => {
                     <Crown className="h-4 w-4 text-coral" />
                     <AlertTitle>You're the Founder</AlertTitle>
                     <AlertDescription>
-                      You have admin privileges for this community.
-                      You can manage members and moderate content.
+                      You have admin privileges for this community. You can
+                      manage members and moderate content.
                     </AlertDescription>
                   </Alert>
                 )}

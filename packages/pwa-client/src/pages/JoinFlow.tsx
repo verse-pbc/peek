@@ -65,7 +65,11 @@ interface JoinFlowError {
   canRetry: boolean;
 }
 
-export const JoinFlow: React.FC = () => {
+interface JoinFlowProps {
+  onJoinSuccess?: () => void;
+}
+
+export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   const { pubkey, login, identity } = useNostrLogin();
@@ -128,19 +132,6 @@ export const JoinFlow: React.FC = () => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [devModeEnabled, toast]);
-
-  // Check if user is already a member and skip join flow
-  useEffect(() => {
-    if (!communityId) return;
-
-    // Check if user is already a member of this community
-    if (isCommunityMember(communityId)) {
-      console.log('User is already a member, redirecting to community page');
-      // Skip join flow, go directly to community
-      navigate(`/community/${communityId}`, { replace: true });
-      return;
-    }
-  }, [communityId, navigate]);
 
   // Check if user is logged in (skip for initial preview)
   useEffect(() => {
@@ -609,7 +600,11 @@ export const JoinFlow: React.FC = () => {
             </div>
 
             <Button
-              onClick={() => navigate(`/community/${communityId}`, { state: { fromJoin: true } })}
+              onClick={() => {
+                if (onJoinSuccess) {
+                  onJoinSuccess();
+                }
+              }}
               className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
               size="lg"
             >
