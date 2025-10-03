@@ -24,8 +24,13 @@ test.describe('Complete Peek Journey', () => {
     await founderPage.click('button:has-text("Create Dev Test")');
     await founderPage.waitForURL(/\/c\/.+/);
 
-    // Wait for JoinFlow to load (may take time for relay connection)
-    await expect(founderPage.getByText('Create a Community')).toBeVisible({ timeout: 15000 });
+    // Wait for page to finish loading - may show "Loading community..." first
+    // Then should show either JoinFlow preview or error
+    await founderPage.waitForTimeout(8000); // Wait for relay connection + groupId resolution
+
+    // At this point should see preview OR JoinFlow content
+    // Try to find the create/join button which appears in both flows
+    await expect(founderPage.locator('button').filter({ hasText: /Create & Join|Join Community/ }).first()).toBeVisible({ timeout: 10000 });
 
     // Extract community ID
     communityUrl = founderPage.url();

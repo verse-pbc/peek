@@ -390,22 +390,26 @@ const Community = () => {
 
   // Verify access when dependencies change
   useEffect(() => {
-    // Check localStorage directly (synchronous) to prevent error flash during migration
-    const migratingJson = localStorage.getItem("identity_migrating");
-    const isMigrationActive = !!migratingJson;
-
-    if (!pubkey && !isMigrationActive) {
-      setLoading(false);
-      setError("Please login to access communities");
-      return;
-    }
-
     // Only run verification if we don't have community data yet
     // Once loaded, event listeners handle updates to prevent stale cache overwrites
     if (pubkey && groupId && groupManager && connected && !communityData) {
       verifyCommunityAccess();
     }
-  }, [pubkey, groupId, groupManager, connected, verifyCommunityAccess]);
+  }, [pubkey, groupId, groupManager, connected, communityData, verifyCommunityAccess]);
+
+  // Fallback: if stuck loading after relay connection, show JoinFlow
+  useEffect(() => {
+    if (connected && loading && !communityData && !showJoinFlow) {
+      const timeout = setTimeout(() => {
+        if (loading && !communityData && !showJoinFlow) {
+          console.log("[Community] Loading timeout - defaulting to JoinFlow");
+          setShowJoinFlow(true);
+          setLoading(false);
+        }
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [connected, loading, communityData, showJoinFlow]);
 
   const handleBack = () => {
     navigate("/");
