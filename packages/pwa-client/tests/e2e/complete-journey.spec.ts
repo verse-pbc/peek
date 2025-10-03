@@ -127,9 +127,10 @@ test.describe('Complete Peek Journey', () => {
     // Import new identity
     await nsecInput.fill(newIdentity.nsec);
 
-    // Click Import button (check both possible button texts)
-    const importBtn = founderPage.locator('button:has-text("Import")').first();
-    await importBtn.click();
+    // Click the Import button in the modal footer (not the tab)
+    // There are 2 "Import Identity" buttons: one is a tab, one is the submit button
+    // We need the submit button which is the second one
+    await founderPage.locator('button:has-text("Import Identity")').nth(1).click();
 
     // Wait for modal to close (migration success) - reduced timeout for faster feedback
     await expect(founderPage.getByRole('dialog')).not.toBeVisible({ timeout: 3000 });
