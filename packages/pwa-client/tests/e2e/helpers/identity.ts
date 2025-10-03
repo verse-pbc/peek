@@ -1,5 +1,5 @@
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
-import { bytesToHex } from '@noble/hashes/utils';
+import { bytesToHex } from '@noble/hashes/utils.js';
 
 export interface TestIdentity {
   secretKey: Uint8Array;
