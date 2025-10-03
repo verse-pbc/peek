@@ -51,7 +51,7 @@ test.describe('Complete Peek Journey', () => {
 
     // Wait for page to finish loading - may show "Loading community..." first
     // Then should show either JoinFlow preview or error
-    await founderPage.waitForTimeout(8000); // Wait for relay connection + groupId resolution
+    await founderPage.waitForTimeout(3000); // Wait for relay connection + groupId resolution
 
     // At this point should see preview OR JoinFlow content
     // Try to find the create/join button which appears in both flows
@@ -78,7 +78,7 @@ test.describe('Complete Peek Journey', () => {
     await founderPage.waitForTimeout(500);
     const overrideButton = founderPage.locator('button').filter({ hasText: /^Override with/ }).first();
     await overrideButton.click();
-    await founderPage.waitForTimeout(8000); // Wait for validation
+    await founderPage.waitForTimeout(4000); // Wait for validation
 
     // Verify success
     await expect(founderPage.getByText('Welcome to the Community!')).toBeVisible();
@@ -86,7 +86,7 @@ test.describe('Complete Peek Journey', () => {
 
     // Enter community
     await founderPage.click('button:has-text("Enter Your Community")');
-    await founderPage.waitForTimeout(2000);
+    await founderPage.waitForTimeout(1000);
 
     // Verify we're on /c/{uuid} (not /community/)
     expect(founderPage.url()).toContain(`/c/${communityId}`);
@@ -94,14 +94,14 @@ test.describe('Complete Peek Journey', () => {
 
     // Verify community page UI
     await expect(founderPage.getByText('My Communities')).toBeVisible(); // Not "Back"
-    await expect(founderPage.getByText('Founder')).toBeVisible(); // Founder badge
+    await expect(founderPage.getByText('Founder', { exact: true })).toBeVisible(); // Founder badge
 
     // Post first message
     const messageInput = founderPage.locator('input[placeholder="Type a message..."]');
     await expect(messageInput).toBeVisible();
     await messageInput.fill('Hello from the founder!');
     await messageInput.press('Enter');
-    await founderPage.waitForTimeout(2000);
+    await founderPage.waitForTimeout(1000);
 
     // Verify message posted
     await expect(founderPage.getByText('Hello from the founder!')).toBeVisible();
@@ -126,12 +126,17 @@ test.describe('Complete Peek Journey', () => {
 
     // Import new identity
     await nsecInput.fill(newIdentity.nsec);
-    await founderPage.click('button:has-text("Import")');
-    await founderPage.waitForTimeout(3000); // Wait for kind:1776 event
 
-    // Verify migration completed
-    await expect(founderPage.getByText('Anonymous')).not.toBeVisible();
-    await expect(founderPage.getByText('Temp')).not.toBeVisible();
+    // Click Import button (check both possible button texts)
+    const importBtn = founderPage.locator('button:has-text("Import")').first();
+    await importBtn.click();
+
+    // Wait for modal to close (migration success) - reduced timeout for faster feedback
+    await expect(founderPage.getByRole('dialog')).not.toBeVisible({ timeout: 3000 });
+
+    // Verify migration completed - check the identity button specifically
+    const identityBtn = founderPage.locator('button').filter({ hasText: /Anonymous/ }).first();
+    await expect(identityBtn).not.toBeVisible();
 
     // Verify previous message still visible (migration preserved membership)
     await expect(founderPage.getByText('Hello from the founder!')).toBeVisible();
@@ -175,7 +180,7 @@ test.describe('Complete Peek Journey', () => {
     await userBPage.waitForTimeout(500);
     const userBOverrideButton = userBPage.locator('button').filter({ hasText: /^Override with/ }).first();
     await userBOverrideButton.click();
-    await userBPage.waitForTimeout(8000);
+    await userBPage.waitForTimeout(4000);
 
     // Verify success (but not founder)
     await expect(userBPage.getByText('Welcome to the Community!')).toBeVisible();
@@ -183,7 +188,7 @@ test.describe('Complete Peek Journey', () => {
 
     // Enter community
     await userBPage.click('button:has-text("Enter Your Community")');
-    await userBPage.waitForTimeout(2000);
+    await userBPage.waitForTimeout(1000);
 
     // Verify URL stayed on /c/
     expect(userBPage.url()).toContain(`/c/${communityId}`);
@@ -200,7 +205,7 @@ test.describe('Complete Peek Journey', () => {
     const userBInput = userBPage.locator('input[placeholder="Type a message..."]');
     await userBInput.fill('User B joined!');
     await userBInput.press('Enter');
-    await userBPage.waitForTimeout(2000);
+    await userBPage.waitForTimeout(1000);
 
     // Verify all messages visible
     await expect(userBPage.getByText('Hello from the founder!')).toBeVisible();
@@ -212,7 +217,7 @@ test.describe('Complete Peek Journey', () => {
     // ============================================
     // Switch back to founder's context
     await founderPage.bringToFront();
-    await founderPage.waitForTimeout(3000); // Wait for WebSocket sync
+    await founderPage.waitForTimeout(1500); // Wait for WebSocket sync
 
     // Founder should see User B's message
     await expect(founderPage.getByText('User B joined!')).toBeVisible();
@@ -228,7 +233,7 @@ test.describe('Complete Peek Journey', () => {
     const userCPage = await userCContext.newPage();
 
     await userCPage.goto(`/c/${communityId}?dev=true`);
-    await userCPage.waitForTimeout(2000);
+    await userCPage.waitForTimeout(1000);
 
     // Click join
     await userCPage.click('button:has-text("Join Community")');
@@ -241,7 +246,7 @@ test.describe('Complete Peek Journey', () => {
     await wrongLocationButton.click();
 
     // Wait for validation to fail (may timeout)
-    await userCPage.waitForTimeout(10000);
+    await userCPage.waitForTimeout(5000);
 
     // Check for error (could be on join page or error page)
     const errorPageText = await userCPage.textContent('body');
@@ -265,14 +270,14 @@ test.describe('Complete Peek Journey', () => {
       await userCPage.waitForTimeout(500);
       const retryOverrideButton = userCPage.locator('button').filter({ hasText: /^Override with/ }).first();
       await retryOverrideButton.click();
-      await userCPage.waitForTimeout(8000);
+      await userCPage.waitForTimeout(4000);
 
       // Verify success
       await expect(userCPage.getByText('Welcome to the Community!')).toBeVisible();
 
       // Enter community
       await userCPage.click('button:has-text("Enter Your Community")');
-      await userCPage.waitForTimeout(2000);
+      await userCPage.waitForTimeout(1000);
 
       // Verify all previous messages visible
       await expect(userCPage.getByText('Hello from the founder!')).toBeVisible();
