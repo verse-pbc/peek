@@ -159,14 +159,11 @@ test.describe('Complete Peek Journey', () => {
 
     await userBPage.goto(`/c/${communityId}?dev=true`);
 
-    // Wait for page to load (Community component checking membership, will render JoinFlow)
-    await expect(userBPage.getByText('Anonymous')).toBeVisible({ timeout: 10000 });
+    // Wait for page to load - should show join preview for existing community
+    await expect(userBPage.getByText('Join Community')).toBeVisible({ timeout: 10000 });
 
     // Verify shows existing community title (not "Create a Community")
     await expect(userBPage.getByText('Create a Community')).not.toBeVisible();
-
-    // Should show "Join" heading for existing community
-    await expect(userBPage.locator('h1')).toContainText(/join/i, { timeout: 15000 });
 
     // Should show member count > 0
     const bodyText = await userBPage.textContent('body');
