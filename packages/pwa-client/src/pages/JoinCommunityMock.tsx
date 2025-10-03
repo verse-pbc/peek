@@ -94,7 +94,7 @@ const JoinCommunityMock = () => {
 
     // Navigate to community page after short delay
     setTimeout(() => {
-      navigate('/community/mock-oslo-coffee-collective');
+      navigate('/c/mock-oslo-coffee-collective');
     }, 2000);
   };
 
