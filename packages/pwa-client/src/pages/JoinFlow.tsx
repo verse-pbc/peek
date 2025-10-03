@@ -66,7 +66,7 @@ interface JoinFlowError {
 }
 
 interface JoinFlowProps {
-  onJoinSuccess: () => void;
+  onJoinSuccess: (groupId: string) => void;
 }
 
 export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
@@ -600,7 +600,14 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
             </div>
 
             <Button
-              onClick={onJoinSuccess}
+              onClick={() => {
+                if (validationResponse?.group_id) {
+                  console.log(`[JoinFlow] Calling onJoinSuccess with groupId: ${validationResponse.group_id}`);
+                  onJoinSuccess(validationResponse.group_id);
+                } else {
+                  console.error('[JoinFlow] No group_id in validation response, cannot proceed');
+                }
+              }}
               className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
               size="lg"
             >

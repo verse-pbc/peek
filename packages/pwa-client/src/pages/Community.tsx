@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { AdminPanel } from "../components/AdminPanel";
 import { JoinFlow } from "./JoinFlow";
+import { UserIdentityButton } from "@/components/UserIdentityButton";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -72,6 +73,19 @@ const Community = () => {
     }
 
     const resolveGroupId = async () => {
+      // First check localStorage for recently joined groups
+      const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+      const joinedGroup = joinedGroups.find((g: { communityId: string; groupId?: string }) =>
+        g.communityId === communityId
+      );
+
+      if (joinedGroup?.groupId) {
+        console.log(`[Community] Found groupId in localStorage: ${joinedGroup.groupId}`);
+        setGroupId(joinedGroup.groupId);
+        return;
+      }
+
+      // Fallback to relay lookup
       const resolved = await relayManager.findGroupByUuid(communityId);
       if (resolved) {
         console.log(
@@ -480,7 +494,9 @@ const Community = () => {
   if (showJoinFlow) {
     return (
       <JoinFlow
-        onJoinSuccess={() => {
+        onJoinSuccess={(groupId: string) => {
+          console.log(`[Community] onJoinSuccess called with groupId: ${groupId}`);
+          setGroupId(groupId);  // Set directly from validation response
           setShowJoinFlow(false);
           setCommunityData(null);
           setLoading(true);
@@ -527,23 +543,26 @@ const Community = () => {
                 </div>
               </div>
             </div>
-            {communityData.isAdmin && (
-              <div className="flex items-center gap-2">
-                <Badge className="bg-coral text-white border-0">
-                  <Crown className="h-3 w-3 mr-1" />
-                  Founder
-                </Badge>
-                <Button
-                  onClick={handleAdminClick}
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 border-coral/30 hover:bg-coral/10"
-                >
-                  <Settings className="h-4 w-4" />
-                  Manage
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {communityData.isAdmin && (
+                <>
+                  <Badge className="bg-coral text-white border-0">
+                    <Crown className="h-3 w-3 mr-1" />
+                    Founder
+                  </Badge>
+                  <Button
+                    onClick={handleAdminClick}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 border-coral/30 hover:bg-coral/10"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Manage
+                  </Button>
+                </>
+              )}
+              <UserIdentityButton />
+            </div>
           </div>
         </div>
       </div>
