@@ -12,7 +12,7 @@ export default defineConfig({
     ...(process.env.CI ? [['github'] as const] : [])
   ],
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.BASE_URL || 'http://localhost:3000',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -23,7 +23,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
+  webServer: process.env.BASE_URL ? undefined : {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
