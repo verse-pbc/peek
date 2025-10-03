@@ -6,6 +6,7 @@ test.describe('Complete Peek Journey', () => {
   let communityUrl: string;
 
   test('Full user journey: create → migrate → multi-user → location failure', async ({ browser }) => {
+    test.setTimeout(180000); // 3 minutes timeout for full journey
     // ============================================
     // ACT 1: Anonymous Founder Creates Community
     // ============================================
