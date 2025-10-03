@@ -10,22 +10,23 @@ import { generateTestIdentity } from './helpers/identity';
  * - Location validation failure
  * - Retry with correct location
  *
- * NOTE: This test is SKIPPED in CI and should be run manually against deployed environments.
+ * NOTE: This test is NOT run in CI (no E2E tests in CI workflow).
+ * Run manually for pre-deployment validation or smoke testing.
  *
  * Usage:
  *   # Against localhost (for development)
  *   npm run test:e2e:ui
  *
- *   # Against production (manual trigger)
+ *   # Against production (smoke test after deployment)
  *   BASE_URL=https://peek.verse.app npm run test:e2e
  *
- * Why skip in CI:
+ * Why not in CI:
  * - Requires actual relay connections (flaky)
  * - Slow execution (~3 minutes)
- * - Better suited for staging/production validation
+ * - Better suited for manual staging/production validation
  * - Unit tests provide sufficient coverage for CI
  */
-test.describe.skip('Complete Peek Journey', () => {
+test.describe('Complete Peek Journey', () => {
   let communityId: string;
   let communityUrl: string;
 
@@ -72,7 +73,9 @@ test.describe.skip('Complete Peek Journey', () => {
     await founderPage.click('button:has-text("Create & Join as Admin")');
     await founderPage.waitForTimeout(1000);
 
-    // Select dev location
+    // Select dev location - fill geohash input first to enable override button
+    await founderPage.fill('input[placeholder="9q8yy1uj"]', '9q8yyhxf');
+    await founderPage.waitForTimeout(500);
     const overrideButton = founderPage.locator('button').filter({ hasText: /^Override with/ }).first();
     await overrideButton.click();
     await founderPage.waitForTimeout(8000); // Wait for validation
@@ -167,7 +170,9 @@ test.describe.skip('Complete Peek Journey', () => {
     await userBPage.click('button:has-text("Join Community")');
     await userBPage.waitForTimeout(1000);
 
-    // Select same location
+    // Select same location - fill geohash input first
+    await userBPage.fill('input[placeholder="9q8yy1uj"]', '9q8yyhxf');
+    await userBPage.waitForTimeout(500);
     const userBOverrideButton = userBPage.locator('button').filter({ hasText: /^Override with/ }).first();
     await userBOverrideButton.click();
     await userBPage.waitForTimeout(8000);
@@ -229,11 +234,10 @@ test.describe.skip('Complete Peek Journey', () => {
     await userCPage.click('button:has-text("Join Community")');
     await userCPage.waitForTimeout(1000);
 
-    // Select WRONG location (not the "Override with" button)
-    // Find any geohash button that's NOT the centered one
-    const allGeohashButtons = await userCPage.locator('button').filter({ hasText: /^eyzv[a-z0-9]{4}$/ }).all();
-    // Skip the first one (which is likely the "Override with" one)
-    const wrongLocationButton = allGeohashButtons[allGeohashButtons.length - 1];
+    // Select WRONG location - use a geohash far from the valid area
+    await userCPage.fill('input[placeholder="9q8yy1uj"]', '9q8yy000');
+    await userCPage.waitForTimeout(500);
+    const wrongLocationButton = userCPage.locator('button').filter({ hasText: /^Override with/ }).first();
     await wrongLocationButton.click();
 
     // Wait for validation to fail (may timeout)
@@ -256,7 +260,9 @@ test.describe.skip('Complete Peek Journey', () => {
       await userCPage.click('button:has-text("Try Again")');
       await userCPage.waitForTimeout(1000);
 
-      // Select correct location this time
+      // Select correct location this time - fill geohash input first
+      await userCPage.fill('input[placeholder="9q8yy1uj"]', '9q8yyhxf');
+      await userCPage.waitForTimeout(500);
       const retryOverrideButton = userCPage.locator('button').filter({ hasText: /^Override with/ }).first();
       await retryOverrideButton.click();
       await userCPage.waitForTimeout(8000);
