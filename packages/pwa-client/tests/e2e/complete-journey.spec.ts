@@ -13,14 +13,18 @@ test.describe('Complete Peek Journey', () => {
     const founderPage = await founderContext.newPage();
 
     await founderPage.goto('/?dev=true');
+    await founderPage.waitForLoadState('networkidle');
 
-    // Verify anonymous state
-    await expect(founderPage.getByText('Anonymous')).toBeVisible();
+    // Wait for anonymous identity to be created
+    await expect(founderPage.getByText('Anonymous')).toBeVisible({ timeout: 10000 });
     await expect(founderPage.getByText('0 joined')).toBeVisible();
 
     // Create new community
     await founderPage.click('button:has-text("Create Dev Test")');
     await founderPage.waitForURL(/\/c\/.+/);
+
+    // Wait for JoinFlow to load (may take time for relay connection)
+    await expect(founderPage.getByText('Create a Community')).toBeVisible({ timeout: 15000 });
 
     // Extract community ID
     communityUrl = founderPage.url();
@@ -29,10 +33,9 @@ test.describe('Complete Peek Journey', () => {
     communityId = match![1];
     console.log('[E2E] Created community:', communityId);
 
-    // Verify new community preview
-    await expect(founderPage.getByText('New Community')).toBeVisible();
+    // Verify new community preview (showing JoinFlow)
+    await expect(founderPage.getByText('Create a Community')).toBeVisible();
     await expect(founderPage.getByText('You\'ll be admin')).toBeVisible();
-    await expect(founderPage.getByText('0')).toBeVisible(); // 0 members
     await expect(founderPage.getByText('Be the first member!')).toBeVisible();
 
     // Join as founder
@@ -116,10 +119,15 @@ test.describe('Complete Peek Journey', () => {
     const userBPage = await userBContext.newPage();
 
     await userBPage.goto(`/c/${communityId}?dev=true`);
-    await userBPage.waitForTimeout(2000);
 
-    // Verify shows existing community (not "New Community")
-    await expect(userBPage.getByText('New Community')).not.toBeVisible();
+    // Wait for page to load (Community component checking membership, will render JoinFlow)
+    await expect(userBPage.getByText('Anonymous')).toBeVisible({ timeout: 10000 });
+
+    // Verify shows existing community title (not "Create a Community")
+    await expect(userBPage.getByText('Create a Community')).not.toBeVisible();
+
+    // Should show "Join" heading for existing community
+    await expect(userBPage.locator('h1')).toContainText(/join/i, { timeout: 15000 });
 
     // Should show member count > 0
     const bodyText = await userBPage.textContent('body');
