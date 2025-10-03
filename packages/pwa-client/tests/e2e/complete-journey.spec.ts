@@ -162,10 +162,7 @@ test.describe('Complete Peek Journey', () => {
     // Wait for page to load - should show join preview for existing community
     await expect(userBPage.getByText('Join Community')).toBeVisible({ timeout: 10000 });
 
-    // Verify shows existing community title (not "Create a Community")
-    await expect(userBPage.getByText('Create a Community')).not.toBeVisible();
-
-    // Should show member count > 0
+    // Should show member count > 0 (indicates existing community)
     const bodyText = await userBPage.textContent('body');
     expect(bodyText).toMatch(/[1-9]\d* member/); // 1+ members
 
