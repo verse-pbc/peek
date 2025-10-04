@@ -143,7 +143,7 @@ const Home = () => {
     };
   }, []);
 
-  // Fetch user's communities
+  // Fetch user's communities (re-runs on navigation to home)
   useEffect(() => {
     // Wait for relay connection before fetching
     if (!connected || !groupManager || !relayManager) {
@@ -224,7 +224,7 @@ const Home = () => {
     return () => {
       isActive = false;
     };
-  }, [connected, groupManager, relayManager, toast]);
+  }, [connected, groupManager, relayManager, toast, location.pathname]);
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';
