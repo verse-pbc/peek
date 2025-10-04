@@ -449,6 +449,9 @@ export class RelayManager {
 
       this.reconnectAttempts = 0;
       this.isConnecting = false;
+
+      // Only notify connection AFTER authentication completes (if needed)
+      // This ensures private group queries work immediately when connected=true
       this.notifyConnectionHandlers(true);
 
       // Subscribe to group metadata for all groups
