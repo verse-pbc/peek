@@ -168,14 +168,18 @@ const Home = () => {
         const userGroups = await groupManager.getUserGroups();
         console.log(`[Home] Found ${userGroups.length} communities from NIP-29 events`);
 
+        // Batch fetch last activity for all groups in a single query
+        const groupIds = userGroups.map(g => g.groupId);
+        const lastActivityMap = await relayManager.getMultipleGroupsLastActivity(groupIds);
+
         // Convert to Community format for the UI
-        const userCommunities: Community[] = await Promise.all(userGroups.map(async group => {
+        const userCommunities: Community[] = userGroups.map(group => {
           // Try to get location from localStorage as fallback for UI
           const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
           const cachedGroupInfo = joinedGroups.find((g: { communityId: string }) => g.communityId === group.communityId);
 
-          // Fetch last activity using NIP-01 limit:1 semantics
-          const lastActivity = await relayManager.getGroupLastActivity(group.groupId);
+          // Get last activity from batched results
+          const lastActivity = lastActivityMap.get(group.groupId);
 
           return {
             groupId: group.groupId,
@@ -187,7 +191,7 @@ const Home = () => {
             createdAt: group.metadata?.createdAt,
             location: cachedGroupInfo?.location
           };
-        }));
+        });
 
         // Sort by last activity (most recent first), fallback to createdAt, then joinedAt
         userCommunities.sort((a, b) => {

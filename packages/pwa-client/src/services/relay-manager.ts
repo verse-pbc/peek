@@ -315,6 +315,104 @@ export class RelayManager {
   }
 
   /**
+   * Get last activity timestamps for multiple groups in a single batched query
+   * More efficient than calling getGroupLastActivity() individually for each group
+   * Includes caching with 5-minute TTL to avoid redundant queries
+   */
+  async getMultipleGroupsLastActivity(groupIds: string[]): Promise<Map<string, number>> {
+    const lastActivityMap = new Map<string, number>();
+
+    if (groupIds.length === 0) {
+      return lastActivityMap;
+    }
+
+    // Check cache first
+    const CACHE_KEY = 'group_last_activity_cache';
+    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    const now = Date.now();
+
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const cacheData: { timestamp: number; data: Record<string, number> } = JSON.parse(cached);
+        if (now - cacheData.timestamp < CACHE_TTL) {
+          // Cache is still valid, use it
+          const groupsToFetch: string[] = [];
+
+          for (const groupId of groupIds) {
+            if (cacheData.data[groupId] !== undefined) {
+              lastActivityMap.set(groupId, cacheData.data[groupId]);
+            } else {
+              groupsToFetch.push(groupId);
+            }
+          }
+
+          // If all groups were in cache, return immediately
+          if (groupsToFetch.length === 0) {
+            console.log(`[RelayManager] All ${groupIds.length} groups found in cache`);
+            return lastActivityMap;
+          }
+
+          // Update groupIds to only fetch missing ones
+          groupIds = groupsToFetch;
+          console.log(`[RelayManager] ${lastActivityMap.size} groups from cache, ${groupIds.length} to fetch`);
+        }
+      }
+    } catch (error) {
+      console.error('[RelayManager] Error reading last activity cache:', error);
+    }
+
+    try {
+      console.log(`[RelayManager] Fetching last activity for ${groupIds.length} groups in batch`);
+
+      // Single query with multiple #h filters
+      const events = await this.pool.querySync([this.relayUrl], {
+        kinds: [NIP29_KINDS.CHAT_MESSAGE],
+        '#h': groupIds
+      });
+
+      console.log(`[RelayManager] Received ${events.length} chat messages for batched groups`);
+
+      // Group events by #h tag and find the latest for each group
+      for (const event of events) {
+        const groupId = event.tags.find(t => t[0] === 'h')?.[1];
+        if (!groupId) continue;
+
+        const existing = lastActivityMap.get(groupId);
+        if (!existing || event.created_at > existing) {
+          lastActivityMap.set(groupId, event.created_at);
+        }
+      }
+
+      console.log(`[RelayManager] Found last activity for ${lastActivityMap.size} groups`);
+
+      // Update cache with new data
+      try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        const cacheData = cached ? JSON.parse(cached).data : {};
+
+        // Merge new data with existing cache
+        for (const [groupId, timestamp] of lastActivityMap) {
+          cacheData[groupId] = timestamp;
+        }
+
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          timestamp: now,
+          data: cacheData
+        }));
+      } catch (error) {
+        console.error('[RelayManager] Error updating last activity cache:', error);
+      }
+
+      return lastActivityMap;
+
+    } catch (error) {
+      console.error(`[RelayManager] Error getting batched last activity:`, error);
+      return lastActivityMap;
+    }
+  }
+
+  /**
    * Load UUID cache from localStorage
    */
   private loadUuidCache(): Map<string, string> {
