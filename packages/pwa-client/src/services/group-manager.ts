@@ -739,27 +739,35 @@ export class GroupManager {
         metadata?: GroupMetadata;
       }> = [];
 
-      for (const groupId of groupIds) {
-        // Check if this is a Peek group (starts with 'peek-')
-        if (!groupId.startsWith('peek-')) {
-          continue; // Skip non-Peek groups
-        }
+      // Filter to Peek groups only
+      const peekGroupIds = groupIds.filter(id => id.startsWith('peek-'));
 
-        // Need to fetch metadata to extract UUID from i-tag
-        // Query for kind 39000 metadata event
+      // Batch fetch all metadata events in parallel
+      console.log(`[GroupManager] Fetching metadata for ${peekGroupIds.length} groups in parallel`);
+      const metadataPromises = peekGroupIds.map(groupId => {
         const filter: Filter = {
           kinds: [39000],
           '#d': [groupId],
           limit: 1
         };
+        return this.relayManager.queryEventsDirectly(filter)
+          .then(events => ({ groupId, events }))
+          .catch(error => {
+            console.error(`[GroupManager] Error fetching metadata for ${groupId}:`, error);
+            return { groupId, events: [] };
+          });
+      });
 
-        const metadataEvents = await this.relayManager.queryEventsDirectly(filter);
-        if (metadataEvents.length === 0) {
+      const metadataResults = await Promise.all(metadataPromises);
+
+      // Process all metadata events
+      for (const { groupId, events } of metadataResults) {
+        if (events.length === 0) {
           console.warn(`[GroupManager] No metadata found for group ${groupId}`);
           continue;
         }
 
-        const metadataEvent = metadataEvents[0];
+        const metadataEvent = events[0];
 
         // Extract UUID from i-tag
         const communityId = this.extractUuidFromMetadata(metadataEvent);

@@ -324,17 +324,127 @@ export class IdentityMigrationService {
   }
 
   /**
-   * Fetch and process all migration events for a specific group
-   * Now fetches globally since migrations are identity-level
+   * Fetch migrations by traversing backwards from a set of pubkeys
+   * This is more efficient than fetchAllMigrations when you only care about specific identities
+   */
+  async fetchMigrationsByPubkeys(pubkeys: string[]): Promise<void> {
+    console.log(`[IdentityMigration] Fetching migrations for ${pubkeys.length} pubkeys (backward traversal)`);
+
+    const processedPubkeys = new Set<string>();
+
+    for (const pubkey of pubkeys) {
+      await this.traverseMigrationsBackward(pubkey, processedPubkeys, 0);
+    }
+
+    console.log(`[IdentityMigration] Processed ${processedPubkeys.size} unique identities in migration chains`);
+  }
+
+  /**
+   * Recursively traverse migration chain backwards from a pubkey
+   * Queries for migrations where this pubkey is the NEW identity (in #p tag)
+   */
+  private async traverseMigrationsBackward(
+    pubkey: string,
+    processedPubkeys: Set<string>,
+    depth: number
+  ): Promise<void> {
+    // Prevent infinite recursion
+    if (depth >= MAX_MIGRATION_DEPTH) {
+      console.log(`[IdentityMigration] Max depth reached for ${pubkey}`);
+      return;
+    }
+
+    // Skip if already processed
+    if (processedPubkeys.has(pubkey)) {
+      return;
+    }
+
+    processedPubkeys.add(pubkey);
+
+    try {
+      // Query for migrations TO this pubkey (where pubkey is in #p tag)
+      const filter = {
+        kinds: [MIGRATION_KIND],
+        '#p': [pubkey]
+      };
+
+      const events = await this.relayManager.queryEvents(filter);
+
+      if (events.length === 0) {
+        // No migrations found - this is the origin identity
+        return;
+      }
+
+      // Take the latest migration event (highest created_at)
+      const latestMigration = events.reduce((latest, event) => {
+        if (!latest || event.created_at > latest.created_at ||
+            (event.created_at === latest.created_at && event.id < latest.id)) {
+          return event;
+        }
+        return latest;
+      }, events[0]);
+
+      // Process this migration event
+      this.handleMigrationEvent(latestMigration as MigrationEvent);
+
+      // Extract old identity from the event's pubkey (the author)
+      const oldPubkey = latestMigration.pubkey;
+
+      // Recursively traverse backwards from the old identity
+      await this.traverseMigrationsBackward(oldPubkey, processedPubkeys, depth + 1);
+
+    } catch (error) {
+      console.error(`[IdentityMigration] Error traversing backward from ${pubkey}:`, error);
+    }
+  }
+
+  /**
+   * Fetch and process migration events for a specific group
+   * Uses backward traversal from current group members for efficiency
    */
   async fetchGroupMigrations(groupId: string): Promise<void> {
     console.log(`[IdentityMigration] Fetching migrations for group ${groupId}`);
 
-    // Fetch all migrations (identity-level, not group-specific)
-    await this.fetchAllMigrations();
+    try {
+      // First, fetch the current group members (kind 39002)
+      const filter = {
+        kinds: [39002], // GROUP_MEMBERS
+        '#d': [groupId],
+        limit: 1
+      };
 
-    // Build complete resolution cache for this group
-    this.buildGroupResolutionCache(groupId);
+      const events = await this.relayManager.queryEvents(filter);
+
+      if (events.length === 0) {
+        console.log(`[IdentityMigration] No member list found for group ${groupId}`);
+        return;
+      }
+
+      // Take the latest GROUP_MEMBERS event
+      const latestMemberEvent = events.reduce((latest, event) => {
+        if (!latest || event.created_at > latest.created_at ||
+            (event.created_at === latest.created_at && event.id < latest.id)) {
+          return event;
+        }
+        return latest;
+      }, events[0]);
+
+      // Extract member pubkeys from p tags
+      const memberPubkeys = latestMemberEvent.tags
+        .filter(t => t[0] === 'p')
+        .map(t => t[1]);
+
+      console.log(`[IdentityMigration] Found ${memberPubkeys.length} members in group ${groupId}`);
+
+      // Fetch migrations for these members using backward traversal
+      await this.fetchMigrationsByPubkeys(memberPubkeys);
+
+      // Build complete resolution cache for this group
+      this.buildGroupResolutionCache(groupId);
+
+    } catch (error) {
+      console.error(`[IdentityMigration] Error fetching group migrations:`, error);
+    }
   }
 
   /**
