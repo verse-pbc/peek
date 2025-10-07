@@ -298,6 +298,11 @@ impl RelayService {
                 TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::I)),
                 [format!("peek:uuid:{}", community_id)],
             ),
+            // Store identifier kind as k-tag per NIP-73 for queryable filtering
+            Tag::custom(
+                TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::K)),
+                ["peek:uuid"],
+            ),
         ]);
 
         let metadata_start = std::time::Instant::now();
