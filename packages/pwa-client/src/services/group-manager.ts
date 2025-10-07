@@ -116,6 +116,14 @@ export class GroupManager {
     const groupId = event.tags.find(t => t[0] === 'd')?.[1];
     if (!groupId) return;
 
+    // STRICT VALIDATION: Only cache groups with valid i-tags (NIP-73)
+    // This filters out testing/invalid groups from subscriptions
+    const hasValidUuid = this.extractUuidFromMetadata(event);
+    if (!hasValidUuid) {
+      console.log(`[GroupManager] 🚫 Ignoring metadata for ${groupId}: No valid i-tag (testing/invalid group)`);
+      return;
+    }
+
     const cache = this.getOrCreateCache(groupId);
 
     const name = event.tags.find(t => t[0] === 'name')?.[1] || '';
@@ -811,14 +819,14 @@ export class GroupManager {
 
         const metadataEvent = events[0];
 
-        // Extract UUID from i-tag
+        // Extract UUID from i-tag (STRICT - only groups with valid i-tags are shown)
         const communityId = this.extractUuidFromMetadata(metadataEvent);
         if (!communityId) {
-          console.warn(`[GroupManager] No UUID found in i-tag for group ${groupId}`);
+          console.log(`[GroupManager] 🚫 SKIPPING ${groupId}: No valid i-tag (testing/invalid group)`);
           continue;
         }
 
-        console.log(`[GroupManager] Extracted UUID ${communityId} from group ${groupId}`);
+        console.log(`[GroupManager] ✅ Valid UUID extracted: ${communityId} from ${groupId}`);
 
         // Get metadata from cache first
         let metadata = this.getGroupMetadata(groupId);

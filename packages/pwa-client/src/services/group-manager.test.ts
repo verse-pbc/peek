@@ -160,7 +160,8 @@ describe('GroupManager', () => {
           ['about', 'A test group'],
           ['picture', 'https://example.com/pic.jpg'],
           ['public'],
-          ['open']
+          ['open'],
+          ['i', 'peek:uuid:550e8400-e29b-41d4-a716-446655440000']
         ]
       };
 
@@ -404,7 +405,8 @@ describe('GroupManager', () => {
         tags: [
           ['d', 'group1'],
           ['name', 'Group 1'],
-          ['public']
+          ['public'],
+          ['i', 'peek:uuid:11111111-1111-1111-1111-111111111111']
         ]
       };
 
@@ -422,7 +424,8 @@ describe('GroupManager', () => {
         tags: [
           ['d', 'group2'],
           ['name', 'Group 2'],
-          ['private']
+          ['private'],
+          ['i', 'peek:uuid:22222222-2222-2222-2222-222222222222']
         ]
       });
 
@@ -445,7 +448,8 @@ describe('GroupManager', () => {
         kind: 39000,
         tags: [
           ['d', 'test-group'],
-          ['name', 'Test Group']
+          ['name', 'Test Group'],
+          ['i', 'peek:uuid:33333333-3333-3333-3333-333333333333']
         ]
       });
 
