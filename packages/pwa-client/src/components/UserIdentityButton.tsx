@@ -11,13 +11,13 @@ import {
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
 import { User, LogOut, Shield, UserPlus, Sun, Moon, Monitor } from 'lucide-react';
-import { Badge } from './ui/badge';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
 import { IdentityMigrationService } from '@/services/identity-migration';
 import { useTheme } from '@/components/theme-provider';
+import type { Event } from 'nostr-tools';
 
 export const UserIdentityButton: React.FC = () => {
   const {
@@ -39,6 +39,11 @@ export const UserIdentityButton: React.FC = () => {
     if (!identity || !relayManager) return;
 
     setIsSwapping(true);
+
+    // Declare cleanup functions at function scope so they're accessible in catch
+    let unsubscribe: (() => void) | undefined;
+    let fallbackTimer: NodeJS.Timeout | undefined;
+
     try {
       const oldPubkey = identity.publicKey;
       const newPubkey = newIdentity.publicKey;
@@ -57,6 +62,38 @@ export const UserIdentityButton: React.FC = () => {
 
       // Create migration service
       const migrationService = new IdentityMigrationService(relayManager);
+
+      // Set up reactive reload: subscribe to 39002 events BEFORE publishing migration
+      // When server adds new member, 39002 will contain new pubkey and we reload immediately
+      console.log('[UserIdentityButton] Setting up migration completion listener');
+
+      let reloadTriggered = false;
+      const migrationHandler = (event: Event) => {
+        // Check if this 39002 event contains our new pubkey
+        if (event.kind === 39002 &&
+            event.tags.some(t => t[0] === 'p' && t[1] === newPubkey)) {
+          if (!reloadTriggered) {
+            console.log('[UserIdentityButton] ✅ New identity detected in member list - reloading now');
+            reloadTriggered = true;
+            localStorage.removeItem('identity_migrating');
+            window.location.reload();
+          }
+        }
+      };
+
+      // Register handler for kind 39002 events
+      unsubscribe = relayManager.onEvent('kind:39002', migrationHandler);
+
+      // Set up fallback timeout (10s) in case 39002 never arrives
+      fallbackTimer = setTimeout(() => {
+        if (!reloadTriggered) {
+          console.log('[UserIdentityButton] ⏰ Fallback timeout - reloading anyway');
+          reloadTriggered = true;
+          localStorage.removeItem('identity_migrating');
+          if (unsubscribe) unsubscribe();
+          window.location.reload();
+        }
+      }, 10000);
 
       // Create and publish migration event
       let migrationEvent;
@@ -78,7 +115,7 @@ export const UserIdentityButton: React.FC = () => {
       // Publish migration event to relay
       console.log('[UserIdentityButton] About to publish migration event');
       await migrationService.publishMigrationEvent(migrationEvent);
-      console.log('[UserIdentityButton] Migration event published to relay');
+      console.log('[UserIdentityButton] Migration event published to relay - waiting for server to add member');
 
       // Store migration mapping locally for immediate use
       const migrations = JSON.parse(
@@ -109,14 +146,18 @@ export const UserIdentityButton: React.FC = () => {
       localStorage.setItem('peek_nostr_identity', JSON.stringify(newIdentity));
 
       toast({
-        title: "Identity migration published",
-        description: "Your identity migration has been published. Groups will update automatically.",
+        title: "Identity migration in progress",
+        description: "Waiting for server to confirm... This should take just a few seconds.",
       });
 
-      // Reload to reconnect with new identity
-      setTimeout(() => window.location.reload(), 1500);
+      // Note: Reload happens reactively when 39002 event arrives, or after 10s timeout
     } catch (error) {
       console.error('Identity migration failed:', error);
+
+      // Clean up on error
+      if (unsubscribe) unsubscribe();
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+
       toast({
         title: "Migration failed",
         description: error instanceof Error ? error.message : "Failed to migrate identity",
@@ -186,7 +227,6 @@ export const UserIdentityButton: React.FC = () => {
               <>
                 <Shield className="h-4 w-4" />
                 <span className="hidden sm:inline">Anonymous</span>
-                <Badge variant="secondary" className="ml-1">Temp</Badge>
               </>
             ) : userPubkey ? (
               <UserProfile

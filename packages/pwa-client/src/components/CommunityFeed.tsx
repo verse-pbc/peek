@@ -34,7 +34,7 @@ export function CommunityFeed({
   onMemberClick
 }: CommunityFeedProps) {
   const { identity } = useNostrLogin();
-  const { relayManager, connected: relayConnected, migrationService } = useRelayManager();
+  const { relayManager, connected: relayConnected } = useRelayManager();
   const { resolveIdentity } = useIdentityResolution(groupId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -64,19 +64,15 @@ export function CommunityFeed({
     const forceResubscribe = !!identity;
     relayManager.subscribeToGroup(groupId, forceResubscribe);
 
-    // Fetch migration events for this group
-    if (migrationService) {
-      migrationService.fetchGroupMigrations(groupId);
-    }
+    // Note: Migration fetching is handled by useIdentityResolution hook, not here
+  }, [relayManager, groupId, identity]); // Need identity to force resubscribe on auth change
 
-    // Initialize members with current user's pubkey (we know they're a member if they're viewing this)
-    const userPubkey = relayManager.getUserPubkey() || identity?.publicKey;
-    if (userPubkey) {
-      const resolvedUserPubkey = resolveIdentity(userPubkey);
-      setMembers(new Set([resolvedUserPubkey]));
-    } else {
-      // Fallback: at least count 1 member since someone must be viewing this
-      setMembers(new Set(['placeholder']));
+  // Handle messages and member updates
+  useEffect(() => {
+    console.log('[CommunityFeed] Setting up message and member handlers');
+    if (!relayManager) {
+      console.log('[CommunityFeed] No relayManager, skipping handler setup');
+      return;
     }
 
     // Listen for chat messages
@@ -110,37 +106,34 @@ export function CommunityFeed({
         }
       });
 
-      // Track members - resolve identity to handle migrations
-      const resolvedPubkey = resolveIdentity(event.pubkey);
-      setMembers(prev => new Set([...prev, resolvedPubkey]));
+      // Note: Member tracking removed - kind 39002 is authoritative source
+      // Adding members from messages caused double-counting after migrations
     });
 
-    // Listen for group members updates
+    // Listen for group members updates (kind 39002)
     const unsubscribeMembers = relayManager.onEvent(`group-metadata-${groupId}`, (event: Event) => {
       if (event.kind === NIP29_KINDS.GROUP_MEMBERS) {
-        const memberPubkeys = event.tags
-          .filter(t => t[0] === 'p')
-          .map(t => t[1]);
+        // Server already has current identities after migrations
+        // Just count the p-tags directly
+        const memberCount = event.tags.filter(t => t[0] === 'p').length;
+        console.log(`[CommunityFeed] 📊 Updating member count from 39002: ${memberCount}`);
 
-        // Resolve each member and deduplicate
-        const resolvedMembers = new Set<string>();
-        memberPubkeys.forEach(pubkey => {
-          const resolved = resolveIdentity(pubkey);
-          resolvedMembers.add(resolved);
-        });
+        // Build set for deduplication (in case of duplicates)
+        const memberPubkeys = new Set<string>();
+        event.tags.filter(t => t[0] === 'p').forEach(t => memberPubkeys.add(t[1]));
 
-        setMembers(resolvedMembers);
+        setMembers(memberPubkeys);
       }
     });
 
     setLoading(false);
 
     return () => {
+      console.log('[CommunityFeed] Cleanup: unsubscribing from message and member handlers');
       unsubscribeMessages();
       unsubscribeMembers();
-      relayManager.unsubscribeFromGroup(groupId);
     };
-  }, [relayManager, groupId, identity?.publicKey, migrationService]); // Use identity.publicKey as dependency to trigger re-subscription on identity change
+  }, [relayManager, groupId]); // Minimal dependencies - don't include functions
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -236,8 +229,11 @@ export function CommunityFeed({
                   </div>
 
                   {dateMessages.map((message) => {
-                    // Check if message is from us (including migrated identities)
+                    // Resolve identity to handle migrations - show current identity not old one
                     const resolvedPubkey = resolveIdentity(message.pubkey);
+                    if (resolvedPubkey !== message.pubkey) {
+                      console.log(`[CommunityFeed] 🔄 Resolved identity: ${message.pubkey.slice(0,8)}... → ${resolvedPubkey.slice(0,8)}...`);
+                    }
                     const isOwnMessage = identity?.publicKey === resolvedPubkey;
 
                     return (
@@ -248,17 +244,17 @@ export function CommunityFeed({
                         }`}
                       >
                         <UserProfile
-                          pubkey={message.pubkey}
+                          pubkey={resolvedPubkey}
                           size="sm"
                           showName={false}
-                          onClick={() => onMemberClick?.(message.pubkey)}
+                          onClick={() => onMemberClick?.(resolvedPubkey)}
                           groupId={groupId}
                         />
 
                         <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
                           <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
                             <UserProfile
-                              pubkey={message.pubkey}
+                              pubkey={resolvedPubkey}
                               size="sm"
                               showName={true}
                               showAvatar={false}

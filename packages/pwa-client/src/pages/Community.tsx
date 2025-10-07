@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { AdminPanel } from "../components/AdminPanel";
@@ -52,6 +52,9 @@ const Community = () => {
   const [communityData, setCommunityData] = useState<CommunityData | null>(
     null,
   );
+
+  // Store member count from 39002 events early (before communityData exists)
+  const memberCountRef = useRef<number>(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -160,15 +163,23 @@ const Community = () => {
               };
             });
           } else if (event.kind === 39002) {
-            // GROUP_MEMBERS event
+            // GROUP_MEMBERS event - count p-tags from the authoritative server list
             const memberCount = event.tags.filter((t) => t[0] === "p").length;
             console.log(
               "Updating member count from kind 39002 event:",
               memberCount,
             );
-            setCommunityData((prev) =>
-              prev ? { ...prev, memberCount } : prev,
-            );
+            // Store in ref for immediate use (before communityData exists)
+            memberCountRef.current = memberCount;
+
+            // Also update communityData if it exists
+            setCommunityData((prev) => {
+              if (!prev) {
+                console.log("[Community] 📊 Member count stored in ref:", memberCount);
+                return prev;
+              }
+              return { ...prev, memberCount };
+            });
           } else if (event.kind === 9000) {
             // PUT_USER event (real-time member addition)
             // Extract h-tag to verify it's for this group
@@ -273,24 +284,23 @@ const Community = () => {
     try {
       // Get metadata from GroupManager
       const metadata = groupManager.getGroupMetadata(groupId);
-      const memberCount = groupManager.getResolvedMemberCount(groupId);
+
+      // Use member count from ref (set by 39002 event listener)
+      const memberCount = memberCountRef.current;
 
       console.log("[Community] Loading community data from GroupManager:", {
         groupId,
         metadataName: metadata?.name,
         hasMetadata: !!metadata,
+        memberCount,
       });
-
-      // If members list is empty, we might not have synced yet
-      // In that case, at least count ourselves
-      const finalMemberCount = memberCount > 0 ? memberCount : 1;
 
       const community: CommunityData = {
         groupId,
         // Use metadata name if available, otherwise fallback to UUID
         // Event listener will update with latest metadata from relay
         name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
-        memberCount: finalMemberCount,
+        memberCount, // From ref, set by 39002 event
         isAdmin,
         isMember: true,
       };
