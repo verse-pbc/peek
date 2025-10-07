@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Send, Users } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { NIP29_KINDS } from '@/services/relay-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -38,7 +38,6 @@ export function CommunityFeed({
   const { resolveIdentity } = useIdentityResolution(groupId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [members, setMembers] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -53,30 +52,17 @@ export function CommunityFeed({
     }
   }, [relayConnected]);
 
-  // Subscribe to group messages
+  // Subscribe to group and register handlers (single atomic operation)
   useEffect(() => {
     if (!relayManager) return;
 
-    // Try to subscribe even if auth fails - we might still get public messages
     setLoading(true);
 
-    // Force re-subscription when identity changes to ensure proper auth
-    const forceResubscribe = !!identity;
-    relayManager.subscribeToGroup(groupId, forceResubscribe);
+    // Subscribe to group events
+    relayManager.subscribeToGroup(groupId);
 
-    // Note: Migration fetching is handled by useIdentityResolution hook, not here
-  }, [relayManager, groupId, identity]); // Need identity to force resubscribe on auth change
-
-  // Handle messages and member updates
-  useEffect(() => {
-    console.log('[CommunityFeed] Setting up message and member handlers');
-    if (!relayManager) {
-      console.log('[CommunityFeed] No relayManager, skipping handler setup');
-      return;
-    }
-
-    // Listen for chat messages
-    console.log(`[CommunityFeed] Registering for events: kind-${NIP29_KINDS.CHAT_MESSAGE} (kind-9)`);
+    // Register message handler
+    console.log(`[CommunityFeed] Registering for events: kind-${NIP29_KINDS.CHAT_MESSAGE}`);
     const unsubscribeMessages = relayManager.onEvent(`kind-${NIP29_KINDS.CHAT_MESSAGE}`, async (event: Event) => {
       console.log(`[CommunityFeed] Received chat message event:`, event.id, event.content);
       // Check if message is for this group
@@ -110,30 +96,19 @@ export function CommunityFeed({
       // Adding members from messages caused double-counting after migrations
     });
 
-    // Listen for group members updates (kind 39002)
-    const unsubscribeMembers = relayManager.onEvent(`group-metadata-${groupId}`, (event: Event) => {
-      if (event.kind === NIP29_KINDS.GROUP_MEMBERS) {
-        // Server already has current identities after migrations
-        // Just count the p-tags directly
-        const memberCount = event.tags.filter(t => t[0] === 'p').length;
-        console.log(`[CommunityFeed] 📊 Updating member count from 39002: ${memberCount}`);
-
-        // Build set for deduplication (in case of duplicates)
-        const memberPubkeys = new Set<string>();
-        event.tags.filter(t => t[0] === 'p').forEach(t => memberPubkeys.add(t[1]));
-
-        setMembers(memberPubkeys);
-      }
+    // Listen for group members updates (kind 39002) - for future use
+    const unsubscribeMembers = relayManager.onEvent(`group-metadata-${groupId}`, (_event: Event) => {
+      // Member count now shown only in Community.tsx header
+      // Could track member list here for @mentions or other features
     });
 
     setLoading(false);
 
     return () => {
-      console.log('[CommunityFeed] Cleanup: unsubscribing from message and member handlers');
       unsubscribeMessages();
       unsubscribeMembers();
     };
-  }, [relayManager, groupId]); // Minimal dependencies - don't include functions
+  }, [relayManager, groupId]); // Minimal deps - migration fetching handled by useIdentityResolution
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -198,13 +173,11 @@ export function CommunityFeed({
       <CardHeader className="pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl">{communityName}</CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {members.size} members
-            </Badge>
-            {isAdmin && <Badge>Admin</Badge>}
-          </div>
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              <Badge>Admin</Badge>
+            </div>
+          )}
         </div>
       </CardHeader>
 
