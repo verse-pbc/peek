@@ -278,16 +278,40 @@ export class RelayManager {
    * Query events directly using the pool
    */
   async queryEventsDirectly(filter: Filter): Promise<Event[]> {
+    const startTime = Date.now();
+    const filterStr = JSON.stringify(filter);
+
+    console.log(`[RelayManager] 🔍 Query START - Filter: ${filterStr.substring(0, 100)}...`);
+
     if (!this.relay || !this.relay.connected) {
-      console.warn('[RelayManager] Cannot query events directly: not connected');
+      console.error('[RelayManager] ❌ Query FAILED - Relay not connected', {
+        hasRelay: !!this.relay,
+        isConnected: this.relay?.connected,
+        filter: filterStr
+      });
       return [];
     }
 
     try {
+      console.log(`[RelayManager] 📡 Querying pool (connected: ${this.relay.connected})`);
       const events = await this.pool.querySync([this.relayUrl], filter);
+      const duration = Date.now() - startTime;
+
+      console.log(`[RelayManager] ✅ Query SUCCESS - ${events.length} events in ${duration}ms`, {
+        filter: filterStr.substring(0, 80),
+        eventCount: events.length,
+        duration
+      });
+
       return events;
     } catch (error) {
-      console.error('[RelayManager] Error querying events directly:', error);
+      const duration = Date.now() - startTime;
+      console.error(`[RelayManager] ❌ Query ERROR after ${duration}ms:`, {
+        error,
+        filter: filterStr.substring(0, 80),
+        relayConnected: this.relay?.connected,
+        relayUrl: this.relayUrl
+      });
       return [];
     }
   }
