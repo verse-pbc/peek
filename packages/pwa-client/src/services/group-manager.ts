@@ -763,61 +763,36 @@ export class GroupManager {
         return [];
       }
 
-      // Batch fetch metadata with controlled concurrency (10 at a time to avoid overwhelming relay)
+      // Use NIP-73 k-tag to fetch ALL peek groups with valid UUIDs in a single query
       const totalStartTime = Date.now();
-      console.log(`[GroupManager] 🚀 Starting metadata fetch for ${peekGroupIds.length} groups in batches`);
-      const BATCH_SIZE = 10;
-      const metadataResults: Array<{ groupId: string; events: Event[] }> = [];
+      console.log(`[GroupManager] 🚀 Fetching all peek group metadata using NIP-73 k-tag query`);
 
-      for (let i = 0; i < peekGroupIds.length; i += BATCH_SIZE) {
-        const batch = peekGroupIds.slice(i, i + BATCH_SIZE);
-        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(peekGroupIds.length / BATCH_SIZE);
+      const filter: Filter = {
+        kinds: [39000],
+        '#k': ['peek:uuid']  // NIP-73: query all groups with peek:uuid identifier kind
+      };
 
-        console.log(`[GroupManager] 📦 Batch ${batchNum}/${totalBatches}: Fetching ${batch.length} groups:`, batch);
-        const batchStartTime = Date.now();
+      const allMetadataEvents = await this.relayManager.queryEventsDirectly(filter);
+      const totalDuration = Date.now() - totalStartTime;
 
-        const batchPromises = batch.map(groupId => {
-          const filter: Filter = {
-            kinds: [39000],
-            '#d': [groupId],
-            limit: 1
-          };
-          return this.relayManager.queryEventsDirectly(filter)
-            .then(events => {
-              if (events.length === 0) {
-                console.warn(`[GroupManager] ⚠️ Batch ${batchNum}: ${groupId} returned 0 events`);
-              } else {
-                console.log(`[GroupManager] ✅ Batch ${batchNum}: ${groupId} returned ${events.length} event(s)`);
-              }
-              return { groupId, events };
-            })
-            .catch(error => {
-              console.error(`[GroupManager] ❌ Batch ${batchNum}: ${groupId} threw error:`, error);
-              return { groupId, events: [] };
-            });
-        });
+      console.log(`[GroupManager] 🏁 k-tag query complete: ${allMetadataEvents.length} groups found in ${totalDuration}ms`);
 
-        const batchResults = await Promise.all(batchPromises);
-        const batchDuration = Date.now() - batchStartTime;
-        const successCount = batchResults.filter(r => r.events.length > 0).length;
-
-        console.log(`[GroupManager] 📊 Batch ${batchNum} complete: ${successCount}/${batch.length} succeeded in ${batchDuration}ms`);
-        metadataResults.push(...batchResults);
+      // Build map of groupId -> metadataEvent for easy lookup
+      const metadataByGroupId = new Map<string, Event>();
+      for (const event of allMetadataEvents) {
+        const groupId = event.tags.find(t => t[0] === 'd')?.[1];
+        if (groupId) {
+          metadataByGroupId.set(groupId, event);
+        }
       }
 
-      const totalDuration = Date.now() - totalStartTime;
-      const totalSuccess = metadataResults.filter(r => r.events.length > 0).length;
-      console.log(`[GroupManager] 🏁 All batches complete: ${totalSuccess}/${peekGroupIds.length} groups found in ${totalDuration}ms`);
-
-      // Process all metadata events
-      for (const { groupId, events } of metadataResults) {
-        if (events.length === 0) {
-          console.warn(`[GroupManager] No metadata found for group ${groupId}`);
+      // Process metadata for groups user is a member of
+      for (const groupId of peekGroupIds) {
+        const metadataEvent = metadataByGroupId.get(groupId);
+        if (!metadataEvent) {
+          console.log(`[GroupManager] ⚠️ No metadata found for member group ${groupId}`);
           continue;
         }
-
-        const metadataEvent = events[0];
 
         // Extract UUID from i-tag (STRICT - only groups with valid i-tags are shown)
         const communityId = this.extractUuidFromMetadata(metadataEvent);
