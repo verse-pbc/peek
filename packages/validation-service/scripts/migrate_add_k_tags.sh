@@ -90,18 +90,12 @@ while IFS= read -r event; do
 
     echo -e "${BLUE}Migrating group: ${GROUP_ID} (UUID: ${UUID})${NC}"
 
-    # Build simple nak command - kind 9002 preserves unmodified fields
-    # We only need to add the k-tag, relay will merge it with existing metadata
-    NAK_CMD="nak event -k 9002 -t h='${GROUP_ID}' -t k='peek:uuid' --sec='${SECRET_KEY}' '${RELAY_URL}'"
-
-    echo -e "${YELLOW}Command:${NC} ${NAK_CMD}"
-
     if [ "$DRY_RUN" = "--dry-run" ]; then
-        echo -e "${YELLOW}[DRY RUN] Would execute above command${NC}"
+        echo -e "${YELLOW}[DRY RUN] Would execute: nak event -k 9002 -t h='${GROUP_ID}' -t k='peek:uuid' --sec=<key> ${RELAY_URL}${NC}"
         ((SUCCESS_COUNT++))
     else
-        # Execute the command
-        if eval "$NAK_CMD" 2>&1; then
+        # Execute nak directly without eval to avoid quoting issues
+        if nak event -k 9002 -t "h=${GROUP_ID}" -t "k=peek:uuid" --sec="${SECRET_KEY}" "${RELAY_URL}" 2>&1; then
             echo -e "${GREEN}✅ Migrated ${GROUP_ID}${NC}"
             ((SUCCESS_COUNT++))
             sleep 0.5  # Rate limiting
