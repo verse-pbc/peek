@@ -742,14 +742,32 @@ export class GroupManager {
       // Filter to Peek groups only
       const peekGroupIds = groupIds.filter(id => id.startsWith('peek-'));
 
+      // Log cache state before fetching
+      const cachedGroupsCount = Array.from(this.groupCache.keys()).filter(id => id.startsWith('peek-')).length;
+      console.log(`[GroupManager] 💾 Cache state: ${cachedGroupsCount} peek groups already cached out of ${peekGroupIds.length} to fetch`);
+
+      // Check relay connection before starting
+      const isConnected = this.relayManager.isConnected();
+      console.log(`[GroupManager] 🔌 Relay connection status: ${isConnected ? 'CONNECTED ✅' : 'DISCONNECTED ❌'}`);
+
+      if (!isConnected) {
+        console.error(`[GroupManager] ❌ Cannot fetch metadata: relay not connected`);
+        return [];
+      }
+
       // Batch fetch metadata with controlled concurrency (10 at a time to avoid overwhelming relay)
-      console.log(`[GroupManager] Fetching metadata for ${peekGroupIds.length} groups in batches`);
+      const totalStartTime = Date.now();
+      console.log(`[GroupManager] 🚀 Starting metadata fetch for ${peekGroupIds.length} groups in batches`);
       const BATCH_SIZE = 10;
       const metadataResults: Array<{ groupId: string; events: Event[] }> = [];
 
       for (let i = 0; i < peekGroupIds.length; i += BATCH_SIZE) {
         const batch = peekGroupIds.slice(i, i + BATCH_SIZE);
-        console.log(`[GroupManager] Fetching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(peekGroupIds.length / BATCH_SIZE)} (${batch.length} groups)`);
+        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(peekGroupIds.length / BATCH_SIZE);
+
+        console.log(`[GroupManager] 📦 Batch ${batchNum}/${totalBatches}: Fetching ${batch.length} groups:`, batch);
+        const batchStartTime = Date.now();
 
         const batchPromises = batch.map(groupId => {
           const filter: Filter = {
@@ -760,19 +778,29 @@ export class GroupManager {
           return this.relayManager.queryEventsDirectly(filter)
             .then(events => {
               if (events.length === 0) {
-                console.warn(`[GroupManager] No metadata events returned for ${groupId}`);
+                console.warn(`[GroupManager] ⚠️ Batch ${batchNum}: ${groupId} returned 0 events`);
+              } else {
+                console.log(`[GroupManager] ✅ Batch ${batchNum}: ${groupId} returned ${events.length} event(s)`);
               }
               return { groupId, events };
             })
             .catch(error => {
-              console.error(`[GroupManager] Error fetching metadata for ${groupId}:`, error);
+              console.error(`[GroupManager] ❌ Batch ${batchNum}: ${groupId} threw error:`, error);
               return { groupId, events: [] };
             });
         });
 
         const batchResults = await Promise.all(batchPromises);
+        const batchDuration = Date.now() - batchStartTime;
+        const successCount = batchResults.filter(r => r.events.length > 0).length;
+
+        console.log(`[GroupManager] 📊 Batch ${batchNum} complete: ${successCount}/${batch.length} succeeded in ${batchDuration}ms`);
         metadataResults.push(...batchResults);
       }
+
+      const totalDuration = Date.now() - totalStartTime;
+      const totalSuccess = metadataResults.filter(r => r.events.length > 0).length;
+      console.log(`[GroupManager] 🏁 All batches complete: ${totalSuccess}/${peekGroupIds.length} groups found in ${totalDuration}ms`);
 
       // Process all metadata events
       for (const { groupId, events } of metadataResults) {
