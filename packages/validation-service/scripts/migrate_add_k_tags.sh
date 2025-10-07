@@ -55,12 +55,13 @@ echo -e "${GREEN}Fetched metadata events${NC}\n"
 # Parse events and find those needing k-tags
 echo -e "${YELLOW}Analyzing events for missing k-tags...${NC}\n"
 
-EVENTS_TO_MIGRATE=$(echo "$METADATA_JSON" | jq -c '
-  select(
+# Process each line of newline-delimited JSON separately
+EVENTS_TO_MIGRATE=$(echo "$METADATA_JSON" | while IFS= read -r line; do
+  echo "$line" | jq -c 'select(
     (.tags | any(.[0] == "i" and (.[1] | startswith("peek:uuid:")))) and
     (.tags | any(.[0] == "k" and .[1] == "peek:uuid") | not)
-  )
-')
+  )' 2>/dev/null || true
+done)
 
 if [ -z "$EVENTS_TO_MIGRATE" ]; then
     echo -e "${GREEN}✅ All peek groups already have k-tags!${NC}"
@@ -68,7 +69,7 @@ if [ -z "$EVENTS_TO_MIGRATE" ]; then
 fi
 
 # Count events to migrate
-MIGRATE_COUNT=$(echo "$EVENTS_TO_MIGRATE" | wc -l | tr -d ' ')
+MIGRATE_COUNT=$(echo "$EVENTS_TO_MIGRATE" | grep -c '^{' || echo "0")
 echo -e "${BLUE}Found ${MIGRATE_COUNT} groups needing k-tag migration${NC}\n"
 
 # Process each event
