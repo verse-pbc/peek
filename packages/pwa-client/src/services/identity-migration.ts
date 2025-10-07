@@ -324,27 +324,29 @@ export class IdentityMigrationService {
   }
 
   /**
-   * Fetch migrations by traversing forward from a set of pubkeys (current group members)
+   * Fetch migrations by traversing backward from a set of pubkeys (current group members)
    * This is more efficient than fetchAllMigrations when you only care about specific identities
+   * Member list contains CURRENT identities, we traverse backward to find ALL previous identities
    */
   async fetchMigrationsByPubkeys(pubkeys: string[]): Promise<void> {
-    console.log(`[IdentityMigration] Fetching migrations for ${pubkeys.length} pubkeys (forward traversal from member list)`);
+    console.log(`[IdentityMigration] Fetching migrations for ${pubkeys.length} pubkeys (backward traversal from member list)`);
 
     const processedPubkeys = new Set<string>();
 
     for (const pubkey of pubkeys) {
-      await this.traverseMigrationsForward(pubkey, processedPubkeys, 0);
+      await this.traverseMigrationsBackward(pubkey, processedPubkeys, 0);
     }
 
     console.log(`[IdentityMigration] Processed ${processedPubkeys.size} unique identities in migration chains`);
   }
 
   /**
-   * Recursively traverse migration chain forward from a pubkey
-   * Queries for migrations FROM this pubkey (where pubkey is the author)
-   * Member list contains OLD identities, we traverse forward to find current identities
+   * Recursively traverse migration chain backward from a pubkey
+   * Queries for migrations TO this pubkey (where pubkey is in #p tag)
+   * Member list contains CURRENT identities after server updates, we find ORIGINAL identities
+   * This builds the mapping: {Alice: Bob} so Alice's old messages render under Bob
    */
-  private async traverseMigrationsForward(
+  private async traverseMigrationsBackward(
     pubkey: string,
     processedPubkeys: Set<string>,
     depth: number
@@ -363,50 +365,41 @@ export class IdentityMigrationService {
     processedPubkeys.add(pubkey);
 
     try {
-      // Query for migrations FROM this pubkey (where pubkey is the author)
+      // Query for migrations TO this pubkey (where pubkey is in #p tag)
+      // This finds who migrated to become this current identity
       const filter = {
         kinds: [MIGRATION_KIND],
-        authors: [pubkey]
+        '#p': [pubkey]
       };
 
       const events = await this.relayManager.queryEvents(filter);
 
       if (events.length === 0) {
-        // No migrations found - this is the current/final identity
+        // No migrations found - this pubkey has no previous identities
         return;
       }
 
-      // Take the latest migration event (highest created_at)
-      const latestMigration = events.reduce((latest, event) => {
-        if (!latest || event.created_at > latest.created_at ||
-            (event.created_at === latest.created_at && event.id < latest.id)) {
-          return event;
-        }
-        return latest;
-      }, events[0]);
+      // Process ALL migration events (handles branching: A→C, B→C both map to C)
+      for (const migration of events) {
+        // Process this migration event (stores old→new mapping)
+        this.handleMigrationEvent(migration as MigrationEvent);
 
-      // Process this migration event
-      this.handleMigrationEvent(latestMigration as MigrationEvent);
+        // Extract old identity from event.pubkey (who migrated TO current pubkey)
+        const oldPubkey = migration.pubkey;
 
-      // Extract new identity from the p-tag (where they migrated TO)
-      const newPubkey = latestMigration.tags.find(t => t[0] === 'p')?.[1];
-
-      if (!newPubkey) {
-        console.warn(`[IdentityMigration] Migration event missing p-tag: ${latestMigration.id}`);
-        return;
+        // Recursively traverse backward to find even older identities
+        await this.traverseMigrationsBackward(oldPubkey, processedPubkeys, depth + 1);
       }
-
-      // Recursively traverse forward to the new identity
-      await this.traverseMigrationsForward(newPubkey, processedPubkeys, depth + 1);
 
     } catch (error) {
-      console.error(`[IdentityMigration] Error traversing forward from ${pubkey}:`, error);
+      console.error(`[IdentityMigration] Error traversing backward from ${pubkey}:`, error);
     }
   }
 
   /**
    * Fetch and process migration events for a specific group
-   * Uses forward traversal from current group members (old identities) to find current identities
+   * Uses backward traversal from current members to find their previous identities
+   * Server updates member list to current identities, we need mappings for old message rendering
    */
   async fetchGroupMigrations(groupId: string): Promise<void> {
     console.log(`[IdentityMigration] Fetching migrations for group ${groupId}`);
