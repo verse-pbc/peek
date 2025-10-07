@@ -90,37 +90,9 @@ while IFS= read -r event; do
 
     echo -e "${BLUE}Migrating group: ${GROUP_ID} (UUID: ${UUID})${NC}"
 
-    # Build nak command with all existing tags + k-tag
-    NAK_CMD="nak event -k 9002"
-
-    # Add h-tag (required for SET_METADATA)
-    NAK_CMD="$NAK_CMD -t h='${GROUP_ID}'"
-
-    # Extract and add each tag from the event
-    while IFS= read -r tag; do
-        TAG_KEY=$(echo "$tag" | jq -r '.[0]')
-        TAG_VALUE=$(echo "$tag" | jq -r '.[1] // ""')
-
-        # Skip d-tag (not needed in SET_METADATA)
-        if [ "$TAG_KEY" = "d" ]; then
-            continue
-        fi
-
-        # Add tag based on type
-        if [ -z "$TAG_VALUE" ]; then
-            # Flag tag (no value)
-            NAK_CMD="$NAK_CMD -t ${TAG_KEY}"
-        else
-            # Value tag
-            NAK_CMD="$NAK_CMD -t ${TAG_KEY}='${TAG_VALUE}'"
-        fi
-    done < <(echo "$event" | jq -c '.tags[]')
-
-    # Add the new k-tag
-    NAK_CMD="$NAK_CMD -t k='peek:uuid'"
-
-    # Add secret key and relay
-    NAK_CMD="$NAK_CMD --sec='${SECRET_KEY}' '${RELAY_URL}'"
+    # Build simple nak command - kind 9002 preserves unmodified fields
+    # We only need to add the k-tag, relay will merge it with existing metadata
+    NAK_CMD="nak event -k 9002 -t h='${GROUP_ID}' -t k='peek:uuid' --sec='${SECRET_KEY}' '${RELAY_URL}'"
 
     echo -e "${YELLOW}Command:${NC} ${NAK_CMD}"
 
