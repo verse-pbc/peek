@@ -198,11 +198,8 @@ export class GroupManager {
         if (userPubkey && userPubkey === state.to && state.groups.includes(groupId) && cache.members.has(userPubkey)) {
           console.log(`[GroupManager] Migration complete - new identity ${userPubkey} confirmed in group ${groupId}`);
 
-          // Clear migrating state
+          // Clear migrating state - UserIdentityButton's timer will handle page reload
           localStorage.removeItem('identity_migrating');
-
-          // Force refresh to ensure UI updates
-          window.location.reload();
         }
       } catch (e) {
         console.error('Error checking migration state:', e);
