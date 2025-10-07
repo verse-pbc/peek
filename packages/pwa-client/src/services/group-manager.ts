@@ -742,23 +742,37 @@ export class GroupManager {
       // Filter to Peek groups only
       const peekGroupIds = groupIds.filter(id => id.startsWith('peek-'));
 
-      // Batch fetch all metadata events in parallel
-      console.log(`[GroupManager] Fetching metadata for ${peekGroupIds.length} groups in parallel`);
-      const metadataPromises = peekGroupIds.map(groupId => {
-        const filter: Filter = {
-          kinds: [39000],
-          '#d': [groupId],
-          limit: 1
-        };
-        return this.relayManager.queryEventsDirectly(filter)
-          .then(events => ({ groupId, events }))
-          .catch(error => {
-            console.error(`[GroupManager] Error fetching metadata for ${groupId}:`, error);
-            return { groupId, events: [] };
-          });
-      });
+      // Batch fetch metadata with controlled concurrency (10 at a time to avoid overwhelming relay)
+      console.log(`[GroupManager] Fetching metadata for ${peekGroupIds.length} groups in batches`);
+      const BATCH_SIZE = 10;
+      const metadataResults: Array<{ groupId: string; events: Event[] }> = [];
 
-      const metadataResults = await Promise.all(metadataPromises);
+      for (let i = 0; i < peekGroupIds.length; i += BATCH_SIZE) {
+        const batch = peekGroupIds.slice(i, i + BATCH_SIZE);
+        console.log(`[GroupManager] Fetching batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(peekGroupIds.length / BATCH_SIZE)} (${batch.length} groups)`);
+
+        const batchPromises = batch.map(groupId => {
+          const filter: Filter = {
+            kinds: [39000],
+            '#d': [groupId],
+            limit: 1
+          };
+          return this.relayManager.queryEventsDirectly(filter)
+            .then(events => {
+              if (events.length === 0) {
+                console.warn(`[GroupManager] No metadata events returned for ${groupId}`);
+              }
+              return { groupId, events };
+            })
+            .catch(error => {
+              console.error(`[GroupManager] Error fetching metadata for ${groupId}:`, error);
+              return { groupId, events: [] };
+            });
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        metadataResults.push(...batchResults);
+      }
 
       // Process all metadata events
       for (const { groupId, events } of metadataResults) {
