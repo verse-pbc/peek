@@ -46,6 +46,9 @@ pub struct RelayService {
     relay_keys: Keys,
     uuid_to_group_cache:
         std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<Uuid, String>>>,
+    // Cache of community names for uniqueness checking
+    // Maps: name -> Vec<community_id>
+    name_cache: std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, Vec<Uuid>>>>,
 }
 
 impl RelayService {
@@ -90,20 +93,131 @@ impl RelayService {
             tracing::warn!("⚠️ Relay connection might not be fully established");
         }
 
-        Ok(Self {
+        let service = Self {
             client,
             relay_keys,
             uuid_to_group_cache: std::sync::Arc::new(tokio::sync::RwLock::new(
                 std::collections::HashMap::new(),
             )),
-        })
+            name_cache: std::sync::Arc::new(tokio::sync::RwLock::new(
+                std::collections::HashMap::new(),
+            )),
+        };
+
+        // Load existing community names into cache
+        service.load_name_cache().await?;
+
+        Ok(service)
+    }
+
+    /// Load existing community names into cache for uniqueness checking
+    async fn load_name_cache(&self) -> Result<()> {
+        tracing::info!("Loading existing community names into cache...");
+
+        // Query all peek communities using k-tag
+        let filter = Filter::new().kind(Kind::from(39000)).custom_tag(
+            SingleLetterTag::lowercase(Alphabet::K),
+            "peek:uuid".to_string(),
+        );
+
+        let events = self
+            .client
+            .fetch_events(filter, std::time::Duration::from_secs(10))
+            .await?;
+
+        let mut cache = self.name_cache.write().await;
+
+        for event in events {
+            // Extract name from tags
+            let name = event
+                .tags
+                .iter()
+                .find(|t| matches!(t.kind(), TagKind::Custom(ref k) if *k == "name"))
+                .and_then(|t| t.content())
+                .map(|s| s.to_string());
+
+            if let Some(name) = name {
+                // Extract UUID from i-tag
+                if let Some(i_tag) = event
+                    .tags
+                    .iter()
+                    .find(|t| matches!(t.kind(), TagKind::SingleLetter(ref s) if s.character == Alphabet::I))
+                {
+                    if let Some(i_content) = i_tag.content() {
+                        if let Some(uuid_str) = i_content.strip_prefix("peek:uuid:") {
+                            if let Ok(community_id) = Uuid::parse_str(uuid_str) {
+                                cache
+                                    .entry(name.clone())
+                                    .or_insert_with(Vec::new)
+                                    .push(community_id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        tracing::info!("Loaded {} unique community names into cache", cache.len());
+        Ok(())
+    }
+
+    /// Ensure a community name is unique by appending numbers if needed
+    async fn ensure_unique_name(&self, base_name: String, community_id: Uuid) -> String {
+        let cache = self.name_cache.read().await;
+
+        // Check if base name is available
+        if let Some(existing_ids) = cache.get(&base_name) {
+            // Name exists - check if it's our own community
+            if existing_ids.contains(&community_id) {
+                // This is our community, name is fine
+                return base_name;
+            }
+            // Name taken by other communities, try with numbers
+            for i in 2..100 {
+                let candidate = format!("{} {}", base_name, i);
+                if !cache.contains_key(&candidate) {
+                    return candidate;
+                }
+            }
+            // Fallback: append timestamp if we somehow exhausted 1-99
+            return format!("{} {}", base_name, chrono::Utc::now().timestamp());
+        }
+
+        // Base name is available
+        base_name
+    }
+
+    /// Update name cache when a community name changes
+    async fn update_name_cache(
+        &self,
+        old_name: Option<String>,
+        new_name: String,
+        community_id: Uuid,
+    ) {
+        let mut cache = self.name_cache.write().await;
+
+        // Remove from old name entry
+        if let Some(old) = old_name {
+            if let Some(ids) = cache.get_mut(&old) {
+                ids.retain(|id| id != &community_id);
+                if ids.is_empty() {
+                    cache.remove(&old);
+                }
+            }
+        }
+
+        // Add to new name entry
+        cache
+            .entry(new_name)
+            .or_insert_with(Vec::new)
+            .push(community_id);
     }
 
     /// Create a new NIP-29 group for a community
     pub async fn create_group(
         &self,
         community_id: Uuid,
-        name: String,
+        _name: String, // Name is now fetched from Overpass API, not used directly
         creator_pubkey: String,
         location: Location,
     ) -> Result<String> {
@@ -265,13 +379,43 @@ impl RelayService {
                 RelayError::Other(format!("Failed to generate display location: {}", e))
             })?;
 
+        // Query Overpass API for real place name
+        tracing::info!(
+            "Querying Overpass API for place name at ({}, {})",
+            location.latitude,
+            location.longitude
+        );
+        let place_name =
+            match super::overpass::get_place_name(location.latitude, location.longitude).await {
+                Ok(Some(name)) => {
+                    tracing::info!("Found place name from Overpass: {}", name);
+                    name
+                }
+                Ok(None) => {
+                    tracing::info!("No place name found from Overpass, using default");
+                    format!("Community {}", &community_id.to_string()[..8])
+                }
+                Err(e) => {
+                    tracing::warn!("Overpass API error: {}, using default name", e);
+                    format!("Community {}", &community_id.to_string()[..8])
+                }
+            };
+
+        // Ensure name is unique (append number if needed)
+        let unique_name = self.ensure_unique_name(place_name, community_id).await;
+        tracing::info!("Using unique community name: {}", unique_name);
+
+        // Update cache with new name
+        self.update_name_cache(None, unique_name.clone(), community_id)
+            .await;
+
         let metadata_event = EventBuilder::new(
             Kind::from(9002),
             "", // Empty content per NIP-29
         )
         .tags([
             Tag::custom(TagKind::Custom("h".into()), [group_id.clone()]),
-            Tag::custom(TagKind::Custom("name".into()), [name.clone()]),
+            Tag::custom(TagKind::Custom("name".into()), [unique_name.clone()]),
             Tag::custom(
                 TagKind::Custom("about".into()),
                 ["Location-based community".to_string()],
