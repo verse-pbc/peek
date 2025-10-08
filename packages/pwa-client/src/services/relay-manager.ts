@@ -708,6 +708,7 @@ export class RelayManager {
     };
 
     // Subscribe to d-tagged metadata events for this group
+    // Include recent events (last 10s) to catch metadata created just before subscription
     const dFilter: Filter = {
       '#d': [groupId],
       kinds: [
@@ -715,7 +716,8 @@ export class RelayManager {
         NIP29_KINDS.GROUP_ADMINS,
         NIP29_KINDS.GROUP_MEMBERS,
         NIP29_KINDS.GROUP_ROLES
-      ]
+      ],
+      since: Math.floor(Date.now() / 1000) - 10 // Last 10 seconds
     };
 
     const sub = this.pool.subscribeMany(
