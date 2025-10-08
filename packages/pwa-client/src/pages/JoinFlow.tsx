@@ -24,8 +24,7 @@ import { setupNostrIdentity } from '../lib/nostr-identity-helper';
 import { parseValidationError, parseExceptionError } from '../lib/join-flow-errors';
 import {
   isCommunityMember,
-  upsertJoinedGroup,
-  hasAccessedCommunity
+  upsertJoinedGroup
 } from '../services/community-storage';
 
 // Types that were previously from API
@@ -106,7 +105,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
   } | null>(null);
 
   // Check if this is likely a first scan (for immediate title display)
-  const isLikelyFirstScan = !hasAccessedCommunity(communityId!);
+  // Removed: now using previewData.member_count to determine if creating vs joining
 
   // Ensure developer mode stays enabled based on URL param
   useEffect(() => {
@@ -442,9 +441,11 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">
-          {(previewData?.is_first_scan || isLikelyFirstScan)
+          {previewData?.member_count === 0
             ? 'Create a Community'
-            : `Join ${previewData?.name}!`}
+            : previewData?.name
+              ? `Join ${previewData.name}`
+              : 'Join Community'}
         </h1>
         <Progress value={getProgressValue()} className="h-2" />
       </div>
