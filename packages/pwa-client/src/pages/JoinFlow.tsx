@@ -13,10 +13,8 @@ import {
   MapPin,
   Users,
   Loader2,
-  Shield,
   XCircle,
-  Crown,
-  MessageSquare
+  Crown
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
@@ -80,6 +78,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
   const [currentStep, setCurrentStep] = useState<JoinStep>(JoinStep.LOADING);
   const [previewData, setPreviewData] = useState<CommunityPreviewData | null>(null);
   const [validationResponse, setValidationResponse] = useState<ValidateLocationResponse | null>(null);
+  const [communityName, setCommunityName] = useState<string | null>(null);
   const [error, setError] = useState<JoinFlowError | null>(null);
   const [capturedLocation, setCapturedLocation] = useState<{
     latitude: number;
@@ -295,6 +294,13 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
       if (response.success) {
         // Success! User has been added to (or is already in) the NIP-29 group
+
+        // Fetch community name from GroupManager
+        if (groupManager && response.group_id) {
+          const metadata = groupManager.getGroupMetadata(response.group_id);
+          setCommunityName(metadata?.name || null);
+        }
+
         setCurrentStep(JoinStep.SUCCESS);
 
         // Check if this is a re-validation (user already in localStorage)
@@ -561,41 +567,40 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
               <CheckCircle className="h-10 w-10 text-mint" />
             </div>
             <CardTitle className="text-2xl font-rubik">
-              Welcome to the Community!
+              Welcome to {communityName || 'the Community'}!
             </CardTitle>
             <CardDescription>
-              You're now connected with this location
+              {validationResponse.is_admin
+                ? "You're the first person here"
+                : "You've joined the community"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {validationResponse.is_admin && (
               <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
                 <Crown className="h-4 w-4 text-coral" />
-                <AlertTitle className="font-rubik">You're the Founder!</AlertTitle>
+                <AlertTitle className="font-rubik">🎯 You're the Founder</AlertTitle>
                 <AlertDescription>
-                  As the first person here, you have admin privileges.
-                  Shape the culture and vibe of your community.
+                  Shape this community as others discover it. You have admin privileges to manage members and set the tone.
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="bg-muted rounded-xl p-4">
-              <h3 className="font-rubik font-semibold mb-3">What happens now?</h3>
+              <h3 className="font-rubik font-semibold mb-3">What's special about Peek?</h3>
               <ul className="space-y-2.5 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2">
-                  <Users className="h-4 w-4 mt-0.5 text-coral" />
-                  <span>Connect with others who visit this spot</span>
+                  <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+                  <span><strong>Physical trust</strong> - Everyone here has visited this place</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <MessageSquare className="h-4 w-4 mt-0.5 text-coral" />
-                  <span>Share stories and updates with the group</span>
+                  <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+                  <span><strong>Keep access forever</strong> - No need to return to stay connected</span>
                 </li>
-                {validationResponse.is_admin && (
-                  <li className="flex items-start gap-2">
-                    <Shield className="h-4 w-4 mt-0.5 text-coral" />
-                    <span>Manage your community as it grows</span>
-                  </li>
-                )}
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+                  <span><strong>Private & secure</strong> - Location verified once, never tracked</span>
+                </li>
               </ul>
             </div>
 
@@ -612,7 +617,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
               size="lg"
             >
               <Users className="mr-2 h-5 w-5" />
-              Enter Your Community
+              Enter {communityName || 'Your Community'}
             </Button>
           </CardContent>
         </Card>
