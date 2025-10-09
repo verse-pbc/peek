@@ -71,6 +71,30 @@ export function setupNostrIdentity(
 
   // Case 3: User has identity (real or anonymous) with secret key
   if (userIdentity?.secretKey && userPubkey) {
+    // Handle NIP-07 extension - use encryptionHelper instead of secret key
+    if (userIdentity.secretKey === 'NIP07_EXTENSION') {
+      const nostr = window.nostr;
+      if (!nostr) {
+        throw new Error('NIP-07 extension not available');
+      }
+
+      return {
+        secretKey: new Uint8Array(0), // Empty - not used with extension
+        publicKey: userPubkey,
+        encryptionHelper: {
+          encrypt: async (recipientPubkey: string, plaintext: string) => {
+            if (!nostr.nip44) throw new Error('NIP-44 not supported by extension');
+            return await nostr.nip44.encrypt(recipientPubkey, plaintext);
+          },
+          decrypt: async (senderPubkey: string, ciphertext: string) => {
+            if (!nostr.nip44) throw new Error('NIP-44 not supported by extension');
+            return await nostr.nip44.decrypt(senderPubkey, ciphertext);
+          }
+        },
+        usingAnonymous: false
+      };
+    }
+
     return {
       secretKey: hexToBytes(userIdentity.secretKey),
       publicKey: userPubkey,
