@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { useRelayManager } from '@/contexts/RelayContext';
 
 /**
@@ -8,6 +8,7 @@ import { useRelayManager } from '@/contexts/RelayContext';
 export function useIdentityResolution(groupId?: string) {
   const { migrationService } = useRelayManager();
   const [resolutionVersion, setResolutionVersion] = useState(0);
+  const attemptedResolutions = useRef<Set<string>>(new Set());
 
   // Removed eager fetchGroupMigrations() - now using lazy resolution
   // Migrations are fetched on-demand when resolveIdentity() encounters unknown pubkey
@@ -15,6 +16,7 @@ export function useIdentityResolution(groupId?: string) {
   /**
    * Resolve a pubkey through migration chain (lazy loading)
    * Checks cache first, triggers background fetch if needed
+   * Tracks attempted resolutions to avoid infinite loops for pubkeys with no migrations
    */
   const resolveIdentity = useCallback((pubkey: string): string => {
     if (!migrationService) return pubkey;
@@ -22,9 +24,11 @@ export function useIdentityResolution(groupId?: string) {
     // Try to resolve from cache
     const resolved = migrationService.resolveIdentity(pubkey);
 
-    // If not resolved (returned same pubkey), trigger lazy fetch
-    if (resolved === pubkey && groupId) {
-      // Check if we need to fetch (pubkey not in cache and not a current member)
+    // If not resolved AND haven't attempted this pubkey before, trigger lazy fetch
+    if (resolved === pubkey && groupId && !attemptedResolutions.current.has(pubkey)) {
+      // Mark as attempted to avoid repeated queries
+      attemptedResolutions.current.add(pubkey);
+
       migrationService.resolveLazy(pubkey, groupId).then((finalPubkey) => {
         if (finalPubkey !== pubkey) {
           // Resolution found! Trigger re-render by incrementing version

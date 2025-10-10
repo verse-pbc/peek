@@ -324,75 +324,91 @@ export class IdentityMigrationService {
   }
 
   /**
-   * Fetch migrations by traversing backward from a set of pubkeys (current group members)
-   * This is more efficient than fetchAllMigrations when you only care about specific identities
-   * Member list contains CURRENT identities, we traverse backward to find ALL previous identities
+   * Fetch migrations by traversing forward from a set of pubkeys
+   * NOTE: This function is deprecated - lazy resolution is now preferred
+   * Kept for backward compatibility with tests
    */
   async fetchMigrationsByPubkeys(pubkeys: string[]): Promise<void> {
-    console.log(`[IdentityMigration] Fetching migrations for ${pubkeys.length} pubkeys (backward traversal from member list)`);
-
-    const processedPubkeys = new Set<string>();
+    console.log(`[IdentityMigration] Fetching migrations for ${pubkeys.length} pubkeys (forward traversal)`);
 
     for (const pubkey of pubkeys) {
-      await this.traverseMigrationsBackward(pubkey, processedPubkeys, 0);
+      const visited = new Set<string>();
+      await this.traverseMigrationsForward(pubkey, visited, 0);
     }
-
-    console.log(`[IdentityMigration] Processed ${processedPubkeys.size} unique identities in migration chains`);
   }
 
   /**
-   * Recursively traverse migration chain backward from a pubkey
-   * Queries for migrations TO this pubkey (where pubkey is in #p tag)
-   * Member list contains CURRENT identities after server updates, we find ORIGINAL identities
-   * This builds the mapping: {Alice: Bob} so Alice's old messages render under Bob
+   * Recursively traverse migration chain forward from a pubkey
+   * Queries for migrations AUTHORED BY this pubkey (following the chain forward)
+   * Per NIP spec: Query authors, extract p-tag, repeat until no more migrations
+   * Caches all intermediate mappings: X→Z, Y→Z for efficiency
    */
-  private async traverseMigrationsBackward(
+  private async traverseMigrationsForward(
     pubkey: string,
-    processedPubkeys: Set<string>,
+    visited: Set<string>,
     depth: number
-  ): Promise<void> {
+  ): Promise<string> {
     // Prevent infinite recursion
     if (depth >= MAX_MIGRATION_DEPTH) {
-      console.log(`[IdentityMigration] Max depth reached for ${pubkey}`);
-      return;
+      console.warn(`[IdentityMigration] Max depth reached for ${pubkey}`);
+      return pubkey;
     }
 
-    // Skip if already processed
-    if (processedPubkeys.has(pubkey)) {
-      return;
+    // Check for circular reference
+    if (visited.has(pubkey)) {
+      console.warn(`[IdentityMigration] Circular migration detected at ${pubkey.slice(0, 8)}...`);
+      return pubkey;
     }
 
-    processedPubkeys.add(pubkey);
+    visited.add(pubkey);
 
     try {
-      // Query for migrations TO this pubkey (where pubkey is in #p tag)
-      // This finds who migrated to become this current identity
+      // Query for migrations AUTHORED BY this pubkey (forward traversal per NIP)
       const filter = {
         kinds: [MIGRATION_KIND],
-        '#p': [pubkey]
+        authors: [pubkey],
+        limit: 10  // Get recent migrations in case of multiple
       };
 
       const events = await this.relayManager.queryEvents(filter);
 
       if (events.length === 0) {
-        // No migrations found - this pubkey has no previous identities
-        return;
+        // No migration found - this is the final identity
+        return pubkey;
       }
 
-      // Process ALL migration events (handles branching: A→C, B→C both map to C)
-      for (const migration of events) {
-        // Process this migration event (stores old→new mapping)
-        this.handleMigrationEvent(migration as MigrationEvent);
+      // Take the LATEST migration (highest created_at)
+      const latestMigration = events.reduce((latest, event) => {
+        if (!latest || event.created_at > latest.created_at ||
+            (event.created_at === latest.created_at && event.id < latest.id)) {
+          return event;
+        }
+        return latest;
+      }, events[0]);
 
-        // Extract old identity from event.pubkey (who migrated TO current pubkey)
-        const oldPubkey = migration.pubkey;
+      // Process and validate the migration event
+      this.handleMigrationEvent(latestMigration as MigrationEvent);
 
-        // Recursively traverse backward to find even older identities
-        await this.traverseMigrationsBackward(oldPubkey, processedPubkeys, depth + 1);
+      // Extract next pubkey from p-tag
+      const nextPubkey = latestMigration.tags.find(t => t[0] === 'p')?.[1];
+      if (!nextPubkey) {
+        return pubkey; // Invalid migration, no p-tag
       }
+
+      // Recursively follow the chain forward
+      const finalPubkey = await this.traverseMigrationsForward(nextPubkey, visited, depth + 1);
+
+      // Cache this intermediate mapping (pubkey → final)
+      this.resolutionCache[pubkey] = {
+        resolvedTo: finalPubkey,
+        timestamp: Date.now()
+      };
+
+      return finalPubkey;
 
     } catch (error) {
-      console.error(`[IdentityMigration] Error traversing backward from ${pubkey}:`, error);
+      console.error(`[IdentityMigration] Error traversing forward from ${pubkey}:`, error);
+      return pubkey; // Return original on error
     }
   }
 
@@ -400,8 +416,8 @@ export class IdentityMigrationService {
   private pendingResolutions = new Map<string, Promise<string>>();
 
   /**
-   * Lazily resolve a single pubkey by traversing backward
-   * Only fetches migrations for this ONE pubkey, not all group members
+   * Lazily resolve a single pubkey by traversing forward through migration chain
+   * Only fetches migrations for this ONE pubkey, following chain until final identity
    */
   async resolveLazy(pubkey: string, groupId: string): Promise<string> {
     // Check cache first
@@ -419,17 +435,15 @@ export class IdentityMigrationService {
     // Start new resolution
     const resolutionPromise = (async () => {
       try {
-        console.log(`[IdentityMigration] 🔎 Starting lazy resolution for ${pubkey.slice(0,8)}... in group ${groupId}`);
+        console.log(`[IdentityMigration] 🔎 Starting forward resolution for ${pubkey.slice(0,8)}... in group ${groupId}`);
 
-        // Traverse backward from this ONE pubkey
-        const processedPubkeys = new Set<string>();
-        await this.traverseMigrationsBackward(pubkey, processedPubkeys, 0);
+        // Traverse forward from this pubkey following migration chain
+        const visited = new Set<string>();
+        const finalPubkey = await this.traverseMigrationsForward(pubkey, visited, 0);
 
-        // After traversal, check cache again
-        const resolved = this.resolveIdentity(pubkey);
-        console.log(`[IdentityMigration] ✅ Lazy resolved ${pubkey.slice(0,8)}... → ${resolved.slice(0,8)}...`);
+        console.log(`[IdentityMigration] ✅ Resolved ${pubkey.slice(0,8)}... → ${finalPubkey.slice(0,8)}...`);
 
-        return resolved;
+        return finalPubkey;
       } finally {
         this.pendingResolutions.delete(pubkey);
       }
