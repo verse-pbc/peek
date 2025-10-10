@@ -64,9 +64,15 @@ const Community = () => {
 
   // Resolve UUID to h-tag for NIP-29 group
   const [groupId, setGroupId] = useState<string | null>(null);
+  const nameRef = useRef<string | undefined>(undefined);
 
   // Migration state management (data-oriented hook)
   const { isMigrating, clearMigration } = useMigrationState(groupId);
+
+  // Reset name ref when community changes
+  useEffect(() => {
+    nameRef.current = undefined;
+  }, [communityId]);
 
   // Resolve UUID to group h-tag
   useEffect(() => {
@@ -120,19 +126,30 @@ const Community = () => {
         // GROUP_METADATA event
         const nameTag = event.tags.find((t) => t[0] === "name");
         if (nameTag && nameTag[1]) {
+          const nextName = nameTag[1];
           console.log(
-            "[Community] 📝 Updating name from 39000:",
-            nameTag[1],
-            "prev:",
+            "[Community] 📝 Received name from 39000:",
+            nextName,
+            "current:",
             communityData?.name,
           );
+
+          // Store in ref for early access (before communityData exists)
+          if (nameRef.current !== nextName) {
+            nameRef.current = nextName;
+          }
+
+          // Also update communityData if it exists (idempotent)
           setCommunityData((prev) => {
             if (!prev) {
-              console.log("[Community] ⚠️ communityData is null, cannot update name");
+              console.log("[Community] 📊 Name stored in ref:", nextName);
               return prev;
             }
-            console.log("[Community] ✅ Updated name to:", nameTag[1]);
-            return { ...prev, name: nameTag[1] };
+            if (prev.name !== nextName) {
+              console.log("[Community] ✅ Updated name to:", nextName);
+              return { ...prev, name: nextName };
+            }
+            return prev; // No change, avoid re-render
           });
         }
 
@@ -264,9 +281,8 @@ const Community = () => {
 
       const community: CommunityData = {
         groupId,
-        // Use metadata name if available, otherwise fallback to UUID
-        // Event listener will update with latest metadata from relay
-        name: metadata?.name || `Community ${communityId?.slice(0, 8)}`,
+        // Priority: nameRef (from early 39000) > metadata cache > UUID fallback
+        name: nameRef.current || metadata?.name || `Community ${communityId?.slice(0, 8)}`,
         memberCount, // From ref, set by 39002 event
         isAdmin,
         isMember: true,
