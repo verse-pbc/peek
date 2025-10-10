@@ -73,8 +73,15 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
         to: currentPubkey.slice(0, 8) + '...'
       });
 
-      // Disconnect and clear state - triggers re-initialization
-      relayManager?.disconnect();
+      // Properly dispose old manager (closes pool connections)
+      if (managerRef.current) {
+        managerRef.current.dispose();
+      }
+      if (groupManagerRef.current) {
+        groupManagerRef.current.dispose();
+      }
+
+      // Clear state - triggers re-initialization in main effect
       setRelayManager(null);
       setGroupManager(null);
       setMigrationService(null);
@@ -82,7 +89,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     }
 
     previousPubkeyRef.current = currentPubkey;
-  }, [identity?.publicKey, relayManager]);
+  }, [identity?.publicKey]); // Only react to identity changes, not manager changes
 
   useEffect(() => {
     const initializeRelay = async () => {
