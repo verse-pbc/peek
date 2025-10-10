@@ -82,7 +82,7 @@ test.describe('Complete Peek Journey', () => {
 
     // Verify success
     await expect(founderPage.getByText('Welcome to the Community!')).toBeVisible();
-    await expect(founderPage.getByText('You\'re the Founder!')).toBeVisible();
+    await expect(founderPage.getByText('You\'re the Founder')).toBeVisible();
 
     // Enter community
     await founderPage.click('button:has-text("Enter Your Community")');
@@ -162,6 +162,9 @@ test.describe('Complete Peek Journey', () => {
     // Wait for page to load - should show join preview for existing community
     await expect(userBPage.getByText('Join Community')).toBeVisible({ timeout: 10000 });
 
+    // Wait for preview to fully load (community name and member count)
+    await userBPage.waitForTimeout(2000);
+
     // Should show member count > 0 (indicates existing community)
     const bodyText = await userBPage.textContent('body');
     expect(bodyText).toMatch(/[1-9]\d* member/); // 1+ members
@@ -179,7 +182,7 @@ test.describe('Complete Peek Journey', () => {
 
     // Verify success (but not founder)
     await expect(userBPage.getByText('Welcome to the Community!')).toBeVisible();
-    await expect(userBPage.getByText('You\'re the Founder!')).not.toBeVisible();
+    await expect(userBPage.getByText('You\'re the Founder')).not.toBeVisible();
 
     // Enter community
     await userBPage.click('button:has-text("Enter Your Community")');

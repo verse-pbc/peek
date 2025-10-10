@@ -396,13 +396,59 @@ export class IdentityMigrationService {
     }
   }
 
+  private static fetchCallCount = 0;
+  private pendingResolutions = new Map<string, Promise<string>>();
+
+  /**
+   * Lazily resolve a single pubkey by traversing backward
+   * Only fetches migrations for this ONE pubkey, not all group members
+   */
+  async resolveLazy(pubkey: string, groupId: string): Promise<string> {
+    // Check cache first
+    const cached = this.resolveIdentity(pubkey);
+    if (cached !== pubkey) {
+      return cached; // Already resolved
+    }
+
+    // Debounce: if already resolving this pubkey, return existing promise
+    const pending = this.pendingResolutions.get(pubkey);
+    if (pending) {
+      return pending;
+    }
+
+    // Start new resolution
+    const resolutionPromise = (async () => {
+      try {
+        console.log(`[IdentityMigration] 🔎 Starting lazy resolution for ${pubkey.slice(0,8)}... in group ${groupId}`);
+
+        // Traverse backward from this ONE pubkey
+        const processedPubkeys = new Set<string>();
+        await this.traverseMigrationsBackward(pubkey, processedPubkeys, 0);
+
+        // After traversal, check cache again
+        const resolved = this.resolveIdentity(pubkey);
+        console.log(`[IdentityMigration] ✅ Lazy resolved ${pubkey.slice(0,8)}... → ${resolved.slice(0,8)}...`);
+
+        return resolved;
+      } finally {
+        this.pendingResolutions.delete(pubkey);
+      }
+    })();
+
+    this.pendingResolutions.set(pubkey, resolutionPromise);
+    return resolutionPromise;
+  }
+
   /**
    * Fetch and process migration events for a specific group
    * Uses backward traversal from current members to find their previous identities
    * Server updates member list to current identities, we need mappings for old message rendering
    */
   async fetchGroupMigrations(groupId: string): Promise<void> {
-    console.log(`[IdentityMigration] Fetching migrations for group ${groupId}`);
+    IdentityMigrationService.fetchCallCount++;
+    const callNumber = IdentityMigrationService.fetchCallCount;
+    console.log(`[IdentityMigration] 🔢 Call #${callNumber} - Fetching migrations for group ${groupId}`);
+    console.trace('[IdentityMigration] Call stack');
 
     try {
       // First, fetch the current group members (kind 39002)
