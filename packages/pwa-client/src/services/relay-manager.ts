@@ -1235,6 +1235,110 @@ export class RelayManager {
   }
 
   /**
+   * Subscribe to chat messages for a specific group
+   * Creates a dedicated subscription that receives both historical and live messages
+   * @param groupId - The group ID to subscribe to
+   * @param onMessage - Handler called for each message event (historical + live)
+   * @returns Cleanup function to unsubscribe
+   */
+  subscribeToMessages(
+    groupId: string,
+    onMessage: (event: Event) => void
+  ): () => void {
+    if (!this.isConnected()) {
+      console.warn('[RelayManager] Cannot subscribe to messages: not connected');
+      return () => {};
+    }
+
+    const subId = `messages-${groupId}`;
+
+    // Check if already subscribed
+    if (this.subscriptions.has(subId)) {
+      console.log(`[RelayManager] Already subscribed to messages for ${groupId}`);
+      return () => this.unsubscribe(subId);
+    }
+
+    console.log(`[RelayManager] Subscribing to messages for group ${groupId}`);
+
+    const filter: Filter = {
+      kinds: [NIP29_KINDS.CHAT_MESSAGE],
+      '#h': [groupId]
+    };
+
+    const sub = this.pool.subscribeMany(
+      [this.relayUrl],
+      [filter],
+      {
+        onevent: onMessage,
+        oneose: () => console.log(`[RelayManager] Message sync complete for ${groupId}`)
+      }
+    );
+
+    this.subscriptions.set(subId, sub);
+
+    return () => {
+      this.unsubscribe(subId);
+    };
+  }
+
+  /**
+   * Subscribe to metadata events for a specific group
+   * Creates a dedicated subscription that receives both historical and live metadata
+   * @param groupId - The group ID to subscribe to
+   * @param onMetadata - Handler called for each metadata event (historical + live)
+   * @returns Cleanup function to unsubscribe
+   */
+  subscribeToMetadata(
+    groupId: string,
+    onMetadata: (event: Event) => void
+  ): () => void {
+    if (!this.isConnected()) {
+      console.warn('[RelayManager] Cannot subscribe to metadata: not connected');
+      return () => {};
+    }
+
+    const subId = `metadata-${groupId}`;
+
+    // Check if already subscribed
+    if (this.subscriptions.has(subId)) {
+      console.log(`[RelayManager] Already subscribed to metadata for ${groupId}`);
+      return () => this.unsubscribe(subId);
+    }
+
+    console.log(`[RelayManager] Subscribing to metadata for group ${groupId}`);
+
+    const filter: Filter = {
+      '#d': [groupId],
+      kinds: [
+        NIP29_KINDS.GROUP_METADATA,
+        NIP29_KINDS.GROUP_ADMINS,
+        NIP29_KINDS.GROUP_MEMBERS,
+        NIP29_KINDS.GROUP_ROLES
+      ]
+    };
+
+    const sub = this.pool.subscribeMany(
+      [this.relayUrl],
+      [filter],
+      {
+        onevent: (event) => {
+          // Also update internal group state for membership tracking
+          this.handleMetadataEvent(event);
+          // Notify the component's handler
+          onMetadata(event);
+        },
+        oneose: () => console.log(`[RelayManager] Metadata sync complete for ${groupId}`)
+      }
+    );
+
+    this.subscriptions.set(subId, sub);
+
+    return () => {
+      this.unsubscribe(subId);
+    };
+  }
+
+  /**
    * Clean up resources
    */
   dispose(): void {

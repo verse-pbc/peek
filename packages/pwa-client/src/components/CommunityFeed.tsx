@@ -5,7 +5,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Send } from 'lucide-react';
-import { NIP29_KINDS } from '@/services/relay-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
@@ -36,6 +35,7 @@ export function CommunityFeed({
   const { identity } = useNostrLogin();
   const { relayManager, connected: relayConnected } = useRelayManager();
   const { resolveIdentity } = useIdentityResolution(groupId);
+  // Note: resolutionVersion from hook automatically triggers re-render when lazy resolutions complete
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -52,25 +52,17 @@ export function CommunityFeed({
     }
   }, [relayConnected]);
 
-  // Subscribe to group and register handlers (single atomic operation)
+  // Subscribe to chat messages (dedicated subscription handles historical + live)
   useEffect(() => {
     if (!relayManager) return;
 
     setLoading(true);
 
-    // Subscribe to group events
-    relayManager.subscribeToGroup(groupId);
+    console.log(`[CommunityFeed] Creating dedicated message subscription for group ${groupId}`);
 
-    // Register message handler
-    console.log(`[CommunityFeed] Registering for events: kind-${NIP29_KINDS.CHAT_MESSAGE}`);
-    const unsubscribeMessages = relayManager.onEvent(`kind-${NIP29_KINDS.CHAT_MESSAGE}`, async (event: Event) => {
-      console.log(`[CommunityFeed] Received chat message event:`, event.id, event.content);
-      // Check if message is for this group
-      const hTag = event.tags.find(t => t[0] === 'h');
-      if (hTag?.[1] !== groupId) {
-        console.log(`[CommunityFeed] Message not for this group: ${hTag?.[1]} vs ${groupId}`);
-        return;
-      }
+    // Create dedicated subscription for messages (receives historical + live events)
+    const unsubscribe = relayManager.subscribeToMessages(groupId, (event: Event) => {
+      console.log(`[CommunityFeed] Received message event:`, event.id, event.content.substring(0, 30));
 
       const message: Message = {
         id: event.id,
@@ -82,33 +74,21 @@ export function CommunityFeed({
       setMessages(prev => {
         const exists = prev.find(m => m.id === message.id);
         if (!exists) {
-          console.log(`[CommunityFeed] Adding new message to UI:`, message.content);
+          console.log(`[CommunityFeed] Adding message to UI:`, message.content.substring(0, 30));
           const updated = [...prev, message].sort((a, b) => a.created_at - b.created_at);
-          console.log(`[CommunityFeed] Total messages now:`, updated.length);
+          console.log(`[CommunityFeed] Total messages: ${updated.length}`);
           return updated.slice(-100); // Keep last 100 messages
         } else {
-          console.log(`[CommunityFeed] Duplicate message, skipping:`, message.id);
-          return prev;
+          return prev; // Skip duplicates
         }
       });
-
-      // Note: Member tracking removed - kind 39002 is authoritative source
-      // Adding members from messages caused double-counting after migrations
     });
 
-    // Listen for group members updates (kind 39002) - for future use
-    const unsubscribeMembers = relayManager.onEvent(`group-metadata-${groupId}`, (_event: Event) => {
-      // Member count now shown only in Community.tsx header
-      // Could track member list here for @mentions or other features
-    });
+    // Stop loading after a brief delay to allow EOSE
+    setTimeout(() => setLoading(false), 1000);
 
-    setLoading(false);
-
-    return () => {
-      unsubscribeMessages();
-      unsubscribeMembers();
-    };
-  }, [relayManager, groupId]); // Minimal deps - migration fetching handled by useIdentityResolution
+    return unsubscribe;
+  }, [relayManager, groupId]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {

@@ -106,105 +106,72 @@ const Community = () => {
     resolveGroupId();
   }, [communityId, relayManager, connected]);
 
-  // Subscribe to group updates when connected
+  // Subscribe to metadata updates when connected (dedicated subscription)
   useEffect(() => {
-    if (relayManager && connected && groupId) {
-      // Subscribe to the group to get updates
-      relayManager.subscribeToGroup(groupId);
+    if (!relayManager || !connected || !groupId) return;
 
-      // Listen for group metadata updates
-      const unsubscribe = relayManager.onEvent(
-        `group-metadata-${groupId}`,
-        (event) => {
-          if (event.kind === 39000) {
-            // GROUP_METADATA event
-            // Manually trigger GroupManager's metadata handler to update its cache
-            // This is needed because group-specific subscriptions don't trigger global kind:39000 handler
-            if (groupManager) {
-              groupManager.handleMetadataEvent(event);
+    console.log(`[Community] Creating dedicated metadata subscription for ${groupId}`);
+
+    // Create dedicated subscription for metadata (receives historical + live events)
+    const unsubscribe = relayManager.subscribeToMetadata(groupId, (event) => {
+      console.log(`[Community] Received metadata event:`, event.kind);
+
+      if (event.kind === 39000) {
+        // GROUP_METADATA event
+        const nameTag = event.tags.find((t) => t[0] === "name");
+        if (nameTag && nameTag[1]) {
+          console.log(
+            "[Community] 📝 Updating name from 39000:",
+            nameTag[1],
+            "prev:",
+            communityData?.name,
+          );
+          setCommunityData((prev) => {
+            if (!prev) {
+              console.log("[Community] ⚠️ communityData is null, cannot update name");
+              return prev;
             }
+            console.log("[Community] ✅ Updated name to:", nameTag[1]);
+            return { ...prev, name: nameTag[1] };
+          });
+        }
 
-            // Update the name when metadata changes
-            const nameTag = event.tags.find((t) => t[0] === "name");
-            if (nameTag && nameTag[1]) {
-              console.log(
-                "[Community] 📝 Updating name from 39000 event:",
-                nameTag[1],
-                "prev name:",
-                communityData?.name,
-              );
-              setCommunityData((prev) => {
-                if (!prev) {
-                  console.log(
-                    "[Community] ⚠️ Tried to update name but communityData is null!",
-                  );
-                  return prev;
-                }
-                console.log(
-                  "[Community] ✅ Updated communityData.name to:",
-                  nameTag[1],
-                );
-                return { ...prev, name: nameTag[1] };
-              });
-            }
+        // Also update other metadata
+        const aboutTag = event.tags.find((t) => t[0] === "about");
+        const pictureTag = event.tags.find((t) => t[0] === "picture");
 
-            // Also update other metadata if needed
-            const aboutTag = event.tags.find((t) => t[0] === "about");
-            const pictureTag = event.tags.find((t) => t[0] === "picture");
+        setCommunityData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            ...(aboutTag && aboutTag[1] ? { about: aboutTag[1] } : {}),
+            ...(pictureTag && pictureTag[1] ? { picture: pictureTag[1] } : {}),
+          };
+        });
+      } else if (event.kind === 39002) {
+        // GROUP_MEMBERS event
+        const memberCount = event.tags.filter((t) => t[0] === "p").length;
+        console.log("[Community] 📝 Updating member count from 39002:", memberCount);
 
-            setCommunityData((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                ...(aboutTag && aboutTag[1] ? { about: aboutTag[1] } : {}),
-                ...(pictureTag && pictureTag[1]
-                  ? { picture: pictureTag[1] }
-                  : {}),
-              };
-            });
-          } else if (event.kind === 39002) {
-            // GROUP_MEMBERS event - count p-tags from the authoritative server list
-            const memberCount = event.tags.filter((t) => t[0] === "p").length;
-            console.log(
-              "Updating member count from kind 39002 event:",
-              memberCount,
-            );
-            // Store in ref for immediate use (before communityData exists)
-            memberCountRef.current = memberCount;
+        // Store in ref for immediate use (before communityData exists)
+        memberCountRef.current = memberCount;
 
-            // Also update communityData if it exists
-            setCommunityData((prev) => {
-              if (!prev) {
-                console.log("[Community] 📊 Member count stored in ref:", memberCount);
-                return prev;
-              }
-              return { ...prev, memberCount };
-            });
-          } else if (event.kind === 9000) {
-            // PUT_USER event (real-time member addition)
-            // Extract h-tag to verify it's for this group
-            const hTag = event.tags.find((t) => t[0] === "h")?.[1];
-            if (hTag === groupId) {
-              console.log(
-                "New member added (kind 9000), refreshing member count",
-              );
-              // Trigger a refresh by incrementing member count optimistically
-              setCommunityData((prev) => {
-                if (!prev) return prev;
-                return { ...prev, memberCount: prev.memberCount + 1 };
-              });
-              // Also refresh from GroupManager to get accurate count
-              if (groupManager) {
-                groupManager.refreshGroup(groupId);
-              }
-            }
+        // Update communityData if it exists
+        setCommunityData((prev) => {
+          if (!prev) {
+            console.log("[Community] 📊 Member count stored in ref:", memberCount);
+            return prev;
           }
-        },
-      );
+          return { ...prev, memberCount };
+        });
+      }
+    });
 
-      return () => unsubscribe();
-    }
-  }, [relayManager, connected, groupId, groupManager]);
+    return () => {
+      console.log(`[Community] Cleaning up metadata subscription for ${groupId}`);
+      unsubscribe();
+    };
+  }, [relayManager, connected, groupId]);
 
   // Verify membership and load community data
   const verifyCommunityAccess = useCallback(async () => {
@@ -322,30 +289,6 @@ const Community = () => {
       }
 
       setCommunityData(community);
-
-      // After setting initial data, check again for updated metadata
-      // (GroupManager event handler might have processed 39000 event by now)
-      setTimeout(() => {
-        const updatedMetadata = groupManager.getGroupMetadata(groupId);
-        console.log(
-          "[Community] ⏰ Timeout fired, checking GroupManager cache:",
-          {
-            hasUpdatedMetadata: !!updatedMetadata,
-            updatedName: updatedMetadata?.name,
-            currentName: community.name,
-          },
-        );
-
-        if (updatedMetadata?.name && updatedMetadata.name !== community.name) {
-          console.log(
-            "[Community] 🔄 Updating name from GroupManager cache:",
-            updatedMetadata.name,
-          );
-          setCommunityData((prev) =>
-            prev ? { ...prev, name: updatedMetadata.name! } : prev,
-          );
-        }
-      }, 100);
     } catch (err) {
       console.error("Error fetching community data:", err);
 

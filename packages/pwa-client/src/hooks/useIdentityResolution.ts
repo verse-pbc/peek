@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRelayManager } from '@/contexts/RelayContext';
 
 /**
@@ -7,33 +7,35 @@ import { useRelayManager } from '@/contexts/RelayContext';
  */
 export function useIdentityResolution(groupId?: string) {
   const { migrationService } = useRelayManager();
-  const [resolutionsLoaded, setResolutionsLoaded] = useState(false);
+  const [resolutionVersion, setResolutionVersion] = useState(0);
 
-  useEffect(() => {
-    if (migrationService && groupId) {
-      // Fetch group-specific migrations
-      migrationService.fetchGroupMigrations(groupId).then(() => {
-        setResolutionsLoaded(true);
-      });
-    } else {
-      setResolutionsLoaded(true);
-    }
-  }, [migrationService, groupId]);
+  // Removed eager fetchGroupMigrations() - now using lazy resolution
+  // Migrations are fetched on-demand when resolveIdentity() encounters unknown pubkey
 
   /**
-   * Resolve a pubkey through migration chain
-   * Uses group-specific cache if groupId is provided
+   * Resolve a pubkey through migration chain (lazy loading)
+   * Checks cache first, triggers background fetch if needed
    */
   const resolveIdentity = useCallback((pubkey: string): string => {
     if (!migrationService) return pubkey;
 
-    if (groupId) {
-      // Use group-specific resolution cache
-      return migrationService.getGroupResolution(groupId, pubkey);
-    } else {
-      // Use general resolution
-      return migrationService.resolveIdentity(pubkey);
+    // Try to resolve from cache
+    const resolved = migrationService.resolveIdentity(pubkey);
+
+    // If not resolved (returned same pubkey), trigger lazy fetch
+    if (resolved === pubkey && groupId) {
+      // Check if we need to fetch (pubkey not in cache and not a current member)
+      migrationService.resolveLazy(pubkey, groupId).then((finalPubkey) => {
+        if (finalPubkey !== pubkey) {
+          // Resolution found! Trigger re-render by incrementing version
+          setResolutionVersion(v => v + 1);
+        }
+      }).catch(err => {
+        console.error('[useIdentityResolution] Lazy resolution failed:', err);
+      });
     }
+
+    return resolved;
   }, [migrationService, groupId]);
 
   /**
@@ -56,6 +58,6 @@ export function useIdentityResolution(groupId?: string) {
     resolveIdentity,
     hasMigrated,
     getMigrationHistory,
-    resolutionsLoaded,
+    resolutionVersion, // For triggering re-renders when lazy resolutions complete
   };
 }
