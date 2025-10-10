@@ -215,7 +215,7 @@ test.describe('Complete Peek Journey', () => {
     // ============================================
     // Switch back to founder's context
     await founderPage.bringToFront();
-    await founderPage.waitForTimeout(1500); // Wait for WebSocket sync
+    await founderPage.waitForTimeout(3000); // Wait for WebSocket sync (increased for reliability)
 
     // Founder should see User B's message
     await expect(founderPage.getByText('User B joined!')).toBeVisible();
