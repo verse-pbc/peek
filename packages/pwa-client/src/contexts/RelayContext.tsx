@@ -76,9 +76,14 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       // Properly dispose old manager (closes pool connections)
       if (managerRef.current) {
         managerRef.current.dispose();
+        managerRef.current = null;
       }
       if (groupManagerRef.current) {
         groupManagerRef.current.dispose();
+        groupManagerRef.current = null;
+      }
+      if (migrationServiceRef.current) {
+        migrationServiceRef.current = null;
       }
 
       // Clear state - triggers re-initialization in main effect
@@ -92,6 +97,12 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   }, [identity?.publicKey]); // Only react to identity changes, not manager changes
 
   useEffect(() => {
+    // Skip if already initialized (prevents HMR from creating duplicates)
+    if (managerRef.current) {
+      console.log('[RelayContext] Skipping init - manager already exists');
+      return;
+    }
+
     const initializeRelay = async () => {
       // Initialize relay manager
       const relayUrl = import.meta.env.VITE_RELAY_URL || "ws://localhost:8080";
