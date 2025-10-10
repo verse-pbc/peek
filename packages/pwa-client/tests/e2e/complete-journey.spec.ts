@@ -163,7 +163,8 @@ test.describe('Complete Peek Journey', () => {
     await expect(userBPage.getByText('Join Community')).toBeVisible({ timeout: 10000 });
 
     // Wait for preview to fully load (community name and member count)
-    await userBPage.waitForTimeout(2000);
+    // Need extra time for relay to generate kind 39002 after founder joined
+    await userBPage.waitForTimeout(4000);
 
     // Should show member count > 0 (indicates existing community)
     const bodyText = await userBPage.textContent('body');
@@ -215,10 +216,10 @@ test.describe('Complete Peek Journey', () => {
     // ============================================
     // Switch back to founder's context
     await founderPage.bringToFront();
-    await founderPage.waitForTimeout(3000); // Wait for WebSocket sync (increased for reliability)
+    await founderPage.waitForTimeout(5000); // Wait for WebSocket sync (background tabs may be throttled)
 
     // Founder should see User B's message
-    await expect(founderPage.getByText('User B joined!')).toBeVisible();
+    await expect(founderPage.getByText('User B joined!')).toBeVisible({ timeout: 10000 });
 
     // Verify member count updated for founder
     const founderBodyText = await founderPage.textContent('body');
