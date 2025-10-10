@@ -34,6 +34,7 @@ interface CommunityData {
   groupId: string;
   name: string;
   memberCount: number;
+  picture?: string;
   location?: {
     latitude: number;
     longitude: number;
@@ -480,6 +481,36 @@ const Community = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Hero Image */}
+      {communityData.picture && (
+        <div className="relative h-48 w-full overflow-hidden">
+          <img
+            src={communityData.picture}
+            alt={communityData.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
+          {/* Community name overlay on image */}
+          <div className="absolute bottom-4 left-4 right-4 max-w-4xl mx-auto">
+            <h1 className="text-3xl font-rubik font-bold text-white drop-shadow-lg">
+              {communityData.name}
+            </h1>
+            <div className="flex items-center gap-4 mt-2 text-sm text-white/90">
+              <span className="flex items-center gap-1">
+                <Users className="h-3 w-3" />
+                {communityData.memberCount} members
+              </span>
+              {communityData.location && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
+                  Location verified
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -494,23 +525,26 @@ const Community = () => {
                 <LayoutGrid className="h-4 w-4" />
                 My Communities
               </Button>
-              <div>
-                <h1 className="text-xl font-rubik font-semibold">
-                  {communityData.name}
-                </h1>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    {communityData.memberCount} members
-                  </span>
-                  {communityData.location && (
+              {/* Only show name in header if no hero image */}
+              {!communityData.picture && (
+                <div>
+                  <h1 className="text-xl font-rubik font-semibold">
+                    {communityData.name}
+                  </h1>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      Location verified
+                      <Users className="h-3 w-3" />
+                      {communityData.memberCount} members
                     </span>
-                  )}
+                    {communityData.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        Location verified
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {communityData.isAdmin && (
