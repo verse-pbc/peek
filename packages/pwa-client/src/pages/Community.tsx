@@ -285,6 +285,7 @@ const Community = () => {
         // Priority: nameRef (from early 39000) > metadata cache > UUID fallback
         name: nameRef.current || metadata?.name || `Community ${communityId?.slice(0, 8)}`,
         memberCount, // From ref, set by 39002 event
+        picture: metadata?.picture, // From metadata cache, updated live by subscription
         isAdmin,
         isMember: true,
       };
