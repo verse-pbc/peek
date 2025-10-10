@@ -1115,7 +1115,7 @@ export class RelayManager {
     recipientPubkey: string,
     handler: (event: Event) => void
   ): string {
-    if (!this.relay) {
+    if (!this.isConnected()) {
       throw new Error('Not connected to relay');
     }
 
@@ -1126,16 +1126,21 @@ export class RelayManager {
       limit: 0  // Live events only - relay delivers new events regardless of created_at
     };
 
-    const sub = this.relay.subscribe([filter], {
-      onevent: (event) => {
-        console.log(`[RelayManager] Received gift wrap: ${event.id}`);
-        handler(event);
-      },
-      oneose: () => {
-        // EOSE happens immediately with limit: 0
-        console.log(`[RelayManager] Gift wrap subscription active for ${recipientPubkey.slice(0, 8)}...`);
+    // Use pool.subscribeMany for consistency (pool manages relay lifecycle)
+    const sub = this.pool.subscribeMany(
+      [this.relayUrl],
+      [filter],
+      {
+        onevent: (event) => {
+          console.log(`[RelayManager] Received gift wrap: ${event.id}`);
+          handler(event);
+        },
+        oneose: () => {
+          // EOSE happens immediately with limit: 0
+          console.log(`[RelayManager] Gift wrap subscription active for ${recipientPubkey.slice(0, 8)}...`);
+        }
       }
-    });
+    );
 
     this.subscriptions.set(subId, sub);
     return subId;
@@ -1333,7 +1338,12 @@ export class RelayManager {
    * Clean up resources
    */
   dispose(): void {
+    console.log('[RelayManager] Disposing RelayManager and pool');
     this.disconnect();
+
+    // Close pool's relay connections
+    this.pool.close([this.relayUrl]);
+
     this.eventHandlers.clear();
     this.connectionHandlers.clear();
     this.groupStates.clear();
