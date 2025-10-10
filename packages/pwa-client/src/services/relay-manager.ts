@@ -1105,14 +1105,15 @@ export class RelayManager {
 
   /**
    * Subscribe to gift wrap events for a specific recipient
+   * Uses limit: 0 to receive only live events (no historical fetch)
+   * This works because NIP-59 gift wraps are ephemeral responses to requests
    * @param recipientPubkey The public key of the recipient
    * @param handler Function to call when a gift wrap is received
    * @returns Subscription ID for later cleanup
    */
   subscribeToGiftWraps(
     recipientPubkey: string,
-    handler: (event: Event) => void,
-    onlyAfterEose = true // Only process events after EOSE by default
+    handler: (event: Event) => void
   ): string {
     if (!this.relay) {
       throw new Error('Not connected to relay');
@@ -1122,27 +1123,17 @@ export class RelayManager {
     const filter: Filter = {
       kinds: [1059], // NIP-59 gift wrap kind
       '#p': [recipientPubkey],
-      since: Math.floor(Date.now() / 1000) - (2 * 24 * 60 * 60), // Last 2 days (NIP-59 max timestamp randomization)
-      limit: 100, // Additional safety limit to avoid fetching too many events
+      limit: 0  // Live events only - relay delivers new events regardless of created_at
     };
-
-    let eoseReceived = false;
 
     const sub = this.relay.subscribe([filter], {
       onevent: (event) => {
         console.log(`[RelayManager] Received gift wrap: ${event.id}`);
-
-        // If onlyAfterEose is true, skip events until EOSE is received
-        if (onlyAfterEose && !eoseReceived) {
-          // Silently skip historical events before EOSE
-          return;
-        }
-
         handler(event);
       },
       oneose: () => {
-        console.log(`[RelayManager] End of stored gift wraps for ${recipientPubkey}`);
-        eoseReceived = true;
+        // EOSE happens immediately with limit: 0
+        console.log(`[RelayManager] Gift wrap subscription active for ${recipientPubkey.slice(0, 8)}...`);
       }
     });
 
