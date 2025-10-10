@@ -241,11 +241,30 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         {!isFirstScanner && previewData.member_count > 0 && (
           <Alert>
             <AlertDescription>
-              By joining, you'll be able to participate in discussions with other 
+              By joining, you'll be able to participate in discussions with other
               members who are physically at this location.
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Value Props */}
+        <div className="bg-muted rounded-xl p-4">
+          <h3 className="font-rubik font-semibold mb-3">What's special about Peek?</h3>
+          <ul className="space-y-2.5 text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+              <span><strong>Physical trust</strong> - Everyone here has visited this place</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+              <span><strong>Keep access forever</strong> - No need to return to stay connected</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+              <span><strong>Private & secure</strong> - Location verified once, never tracked</span>
+            </li>
+          </ul>
+        </div>
       </CardContent>
 
       <CardFooter>

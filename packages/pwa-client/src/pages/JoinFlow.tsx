@@ -11,10 +11,8 @@ import {
   CheckCircle,
   AlertCircle,
   MapPin,
-  Users,
   Loader2,
-  XCircle,
-  Crown
+  XCircle
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
@@ -76,8 +74,6 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
   // Flow state
   const [currentStep, setCurrentStep] = useState<JoinStep>(JoinStep.LOADING);
   const [previewData, setPreviewData] = useState<CommunityPreviewData | null>(null);
-  const [validationResponse, setValidationResponse] = useState<ValidateLocationResponse | null>(null);
-  const [communityName, setCommunityName] = useState<string | null>(null);
   const [error, setError] = useState<JoinFlowError | null>(null);
   const [capturedLocation, setCapturedLocation] = useState<{
     latitude: number;
@@ -289,18 +285,9 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       // No need to close - RelayManager is managed globally
 
       console.log('Validation response:', response);
-      setValidationResponse(response);
 
       if (response.success) {
         // Success! User has been added to (or is already in) the NIP-29 group
-
-        // Fetch community name from GroupManager
-        if (groupManager && response.group_id) {
-          const metadata = groupManager.getGroupMetadata(response.group_id);
-          setCommunityName(metadata?.name || null);
-        }
-
-        setCurrentStep(JoinStep.SUCCESS);
 
         // Check if this is a re-validation (user already in localStorage)
         const wasAlreadyMember = isCommunityMember(communityId);
@@ -348,6 +335,12 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
         if (response.is_admin && response.group_id && groupManager && pubkey) {
           groupManager.setInitialAdminStatus(response.group_id, pubkey);
           console.log('Set initial admin status in cache for group:', response.group_id);
+        }
+
+        // Skip SUCCESS step - go directly to community feed
+        if (response.group_id) {
+          console.log(`[JoinFlow] Auto-navigating to community feed`);
+          onJoinSuccess(response.group_id);
         }
       } else {
         // Validation failed - parse error using data-oriented function
@@ -560,69 +553,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
         </Card>
       )}
 
-      {/* Success Step */}
-      {currentStep === JoinStep.SUCCESS && validationResponse && (
-        <Card className="border-0 shadow-xl bg-card backdrop-blur">
-          <CardHeader className="text-center pb-2">
-            <div className="mx-auto w-20 h-20 bg-mint/10 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-10 w-10 text-mint" />
-            </div>
-            <CardTitle className="text-2xl font-rubik">
-              Welcome to {communityName || 'the Community'}!
-            </CardTitle>
-            <CardDescription>
-              {validationResponse.is_admin
-                ? "You're the first person here"
-                : "You've joined the community"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {validationResponse.is_admin && (
-              <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
-                <Crown className="h-4 w-4 text-coral" />
-                <AlertTitle className="font-rubik">🎯 You're the Founder</AlertTitle>
-                <AlertDescription>
-                  Shape this community as others discover it. You have admin privileges to manage members and set the tone.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="bg-muted rounded-xl p-4">
-              <h3 className="font-rubik font-semibold mb-3">What's special about Peek?</h3>
-              <ul className="space-y-2.5 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-                  <span><strong>Physical trust</strong> - Everyone here has visited this place</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-                  <span><strong>Keep access forever</strong> - No need to return to stay connected</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-                  <span><strong>Private & secure</strong> - Location verified once, never tracked</span>
-                </li>
-              </ul>
-            </div>
-
-            <Button
-              onClick={() => {
-                if (validationResponse?.group_id) {
-                  console.log(`[JoinFlow] Calling onJoinSuccess with groupId: ${validationResponse.group_id}`);
-                  onJoinSuccess(validationResponse.group_id);
-                } else {
-                  console.error('[JoinFlow] No group_id in validation response, cannot proceed');
-                }
-              }}
-              className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
-              size="lg"
-            >
-              <Users className="mr-2 h-5 w-5" />
-              Enter {communityName || 'Your Community'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Success Step - Removed: now auto-navigates to community feed */}
 
       {/* Error Step */}
       {currentStep === JoinStep.ERROR && error && (
