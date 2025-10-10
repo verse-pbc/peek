@@ -63,20 +63,29 @@ export const UserIdentityButton: React.FC = () => {
       // Create migration service
       const migrationService = new IdentityMigrationService(relayManager);
 
-      // Set up reactive reload: subscribe to 39002 events BEFORE publishing migration
-      // When server adds new member, 39002 will contain new pubkey and we reload immediately
+      // Set up listener to clear migrating state when server confirms
       console.log('[UserIdentityButton] Setting up migration completion listener');
 
-      let reloadTriggered = false;
+      let migrationComplete = false;
       const migrationHandler = (event: Event) => {
         // Check if this 39002 event contains our new pubkey
         if (event.kind === 39002 &&
             event.tags.some(t => t[0] === 'p' && t[1] === newPubkey)) {
-          if (!reloadTriggered) {
-            console.log('[UserIdentityButton] ✅ New identity detected in member list - reloading now');
-            reloadTriggered = true;
+          if (!migrationComplete) {
+            console.log('[UserIdentityButton] ✅ New identity detected in member list - switching identity');
+            migrationComplete = true;
             localStorage.removeItem('identity_migrating');
-            window.location.reload();
+
+            // Switch to new identity - this triggers auto-reconnect in RelayContext!
+            localStorage.setItem('peek_nostr_identity', JSON.stringify(newIdentity));
+
+            toast({
+              title: "Migration complete!",
+              description: "Reconnecting with new identity...",
+            });
+
+            if (unsubscribe) unsubscribe();
+            if (fallbackTimer) clearTimeout(fallbackTimer);
           }
         }
       };
@@ -84,14 +93,12 @@ export const UserIdentityButton: React.FC = () => {
       // Register handler for kind 39002 events
       unsubscribe = relayManager.onEvent('kind:39002', migrationHandler);
 
-      // Set up fallback timeout (10s) in case 39002 never arrives
+      // Set up fallback timeout to clear state even if 39002 never arrives
       fallbackTimer = setTimeout(() => {
-        if (!reloadTriggered) {
-          console.log('[UserIdentityButton] ⏰ Fallback timeout - reloading anyway');
-          reloadTriggered = true;
+        if (!migrationComplete) {
+          console.log('[UserIdentityButton] ⏰ Timeout - clearing migrating state');
           localStorage.removeItem('identity_migrating');
           if (unsubscribe) unsubscribe();
-          window.location.reload();
         }
       }, 10000);
 
@@ -142,15 +149,12 @@ export const UserIdentityButton: React.FC = () => {
       };
       localStorage.setItem('identity_migrating', JSON.stringify(migratingState));
 
-      // Switch to new identity (unified single key)
-      localStorage.setItem('peek_nostr_identity', JSON.stringify(newIdentity));
-
       toast({
         title: "Identity migration in progress",
         description: "Waiting for server to confirm... This should take just a few seconds.",
       });
 
-      // Note: Reload happens reactively when 39002 event arrives, or after 10s timeout
+      // Note: Identity switch happens when 39002 arrives, which triggers auto-reconnect in RelayContext
     } catch (error) {
       console.error('Identity migration failed:', error);
 
@@ -178,9 +182,8 @@ export const UserIdentityButton: React.FC = () => {
         console.log('[UserIdentityButton] Calling handleIdentitySwap...');
         await handleIdentitySwap(newIdentity);
       } else {
-        console.log('[UserIdentityButton] Not anonymous or no relay manager, reloading...');
-        // Should not happen - only anonymous users can upgrade
-        window.location.reload();
+        console.error('[UserIdentityButton] Cannot migrate - not anonymous or no relay manager');
+        throw new Error('Migration is only available for anonymous users');
       }
     } catch (error) {
       console.error('[UserIdentityButton] handleImport error:', error);
