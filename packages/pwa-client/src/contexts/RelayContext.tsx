@@ -160,17 +160,32 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           const authIdentity = personalIdentity || identity;
 
           // Check if this is actually a NIP-07 extension identity
-          if (authIdentity.secretKey === 'NIP07_EXTENSION') {
+          const secretKeyValue = authIdentity.secretKey?.trim();
+
+          // Log for debugging
+          console.log('[RelayContext] Checking secretKey:', {
+            type: typeof secretKeyValue,
+            value: secretKeyValue?.slice(0, 20),
+            isNIP07: secretKeyValue === 'NIP07_EXTENSION',
+            isHex: /^[0-9a-f]{64}$/i.test(secretKeyValue || '')
+          });
+
+          if (secretKeyValue === 'NIP07_EXTENSION') {
             // Extension identity but extension check failed - use public key only
             console.log("[RelayContext] NIP-07 identity detected, using public key without secret key");
             publicKeyHex = authIdentity.publicKey;
             // secretKeyBytes remains undefined - extension will handle signing
-          } else {
-            // Use existing user identity (could be real or anonymous)
+          } else if (secretKeyValue && /^[0-9a-f]{64}$/i.test(secretKeyValue)) {
+            // Valid hex secret key - use it
             const identityType = authIdentity.isAnonymous ? 'anonymous' : 'user';
             console.log(`[RelayContext] Using ${identityType} identity for auth:`, authIdentity.publicKey.slice(0, 8) + '...');
-            secretKeyBytes = hexToBytes(authIdentity.secretKey);
+            secretKeyBytes = hexToBytes(secretKeyValue);
             publicKeyHex = authIdentity.publicKey;
+          } else {
+            // Invalid or missing secret key
+            console.error('[RelayContext] Invalid secret key format:', secretKeyValue?.slice(0, 20));
+            publicKeyHex = authIdentity.publicKey;
+            // secretKeyBytes remains undefined
           }
         }
       }
