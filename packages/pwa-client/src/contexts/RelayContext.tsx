@@ -54,11 +54,35 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   const connectionResolveRef = useRef<(() => void) | null>(null);
   const { identity } = useNostrLogin();
   const identityRef = useRef(identity);
+  const previousPubkeyRef = useRef<string | null>(null);
 
   // Keep identity ref up to date
   useEffect(() => {
     identityRef.current = identity;
   }, [identity]);
+
+  // Auto-reconnect when identity changes (migration, login, logout)
+  useEffect(() => {
+    const currentPubkey = identity?.publicKey || null;
+    const previousPubkey = previousPubkeyRef.current;
+
+    // Detect identity change (not initial load)
+    if (previousPubkey && currentPubkey && currentPubkey !== previousPubkey) {
+      console.log('[RelayContext] Identity changed, forcing reconnect:', {
+        from: previousPubkey.slice(0, 8),
+        to: currentPubkey.slice(0, 8)
+      });
+
+      // Disconnect and clear state - triggers re-initialization
+      relayManager?.disconnect();
+      setRelayManager(null);
+      setGroupManager(null);
+      setMigrationService(null);
+      setConnected(false);
+    }
+
+    previousPubkeyRef.current = currentPubkey;
+  }, [identity?.publicKey, relayManager]);
 
   useEffect(() => {
     const initializeRelay = async () => {
