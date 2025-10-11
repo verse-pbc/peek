@@ -789,13 +789,34 @@ export class GroupManager {
     }
 
     try {
-      // Query the relay for all groups this user belongs to
-      const groupIds = await this.relayManager.queryUserGroups(userPubkey);
+      // 1. Query kind 39002 events (user's group memberships with full member lists)
+      const memberEvents = await this.relayManager.queryUserGroups(userPubkey);
 
-      console.log(
-        `[GroupManager] Found ${groupIds.length} groups for user:`,
-        groupIds,
-      );
+      console.log(`[GroupManager] Found ${memberEvents.length} groups for user`);
+
+      // 2. Build member count map: groupId → count of p-tags
+      const memberCountMap = new Map<string, number>();
+      for (const event of memberEvents) {
+        const groupId = event.tags.find(t => t[0] === 'd')?.[1];
+        if (groupId) {
+          const memberCount = event.tags.filter(t => t[0] === 'p').length;
+          memberCountMap.set(groupId, memberCount);
+        }
+      }
+
+      // 3. Query kind 39000 with k-tag (only peek groups with UUIDs)
+      if (!this.relayManager.isConnected()) {
+        console.error('[GroupManager] Cannot fetch metadata: relay not connected');
+        return [];
+      }
+
+      const filter: Filter = {
+        kinds: [39000],
+        '#k': ['peek:uuid'] // Only groups with k-tag
+      };
+
+      const metadataEvents = await this.relayManager.queryEventsDirectly(filter);
+      console.log(`[GroupManager] K-tag query: ${metadataEvents.length} peek groups found`);
 
       const userGroups: Array<{
         groupId: string;
@@ -806,125 +827,42 @@ export class GroupManager {
         metadata?: GroupMetadata;
       }> = [];
 
-      // Filter to Peek groups only
-      const peekGroupIds = groupIds.filter((id) => id.startsWith("peek-"));
+      // 4. For each k-tag result, get member count from map and check membership
+      for (const metadataEvent of metadataEvents) {
+        const groupId = metadataEvent.tags.find(t => t[0] === 'd')?.[1];
+        if (!groupId) continue;
 
-      // Log cache state before fetching
-      const cachedGroupsCount = Array.from(this.groupCache.keys()).filter(
-        (id) => id.startsWith("peek-"),
-      ).length;
-      console.log(
-        `[GroupManager] 💾 Cache state: ${cachedGroupsCount} peek groups already cached out of ${peekGroupIds.length} to fetch`,
-      );
-
-      // Check relay connection before starting
-      const isConnected = this.relayManager.isConnected();
-      console.log(
-        `[GroupManager] 🔌 Relay connection status: ${isConnected ? "CONNECTED ✅" : "DISCONNECTED ❌"}`,
-      );
-
-      if (!isConnected) {
-        console.error(
-          `[GroupManager] ❌ Cannot fetch metadata: relay not connected`,
-        );
-        return [];
-      }
-
-      // Use NIP-73 k-tag to fetch ALL peek groups with valid UUIDs in a single query
-      const totalStartTime = Date.now();
-      console.log(
-        `[GroupManager] 🚀 Fetching all peek group metadata using NIP-73 k-tag query`,
-      );
-
-      const filter: Filter = {
-        kinds: [39000],
-        "#k": ["peek:uuid"], // NIP-73: query all groups with peek:uuid identifier kind
-      };
-
-      const allMetadataEvents =
-        await this.relayManager.queryEventsDirectly(filter);
-      const totalDuration = Date.now() - totalStartTime;
-
-      console.log(
-        `[GroupManager] 🏁 k-tag query complete: ${allMetadataEvents.length} groups found in ${totalDuration}ms`,
-      );
-
-      // Build map of groupId -> metadataEvent for easy lookup
-      const metadataByGroupId = new Map<string, Event>();
-      for (const event of allMetadataEvents) {
-        const groupId = event.tags.find((t) => t[0] === "d")?.[1];
-        if (groupId) {
-          metadataByGroupId.set(groupId, event);
-        }
-      }
-
-      // Process metadata for groups user is a member of
-      for (const groupId of peekGroupIds) {
-        const metadataEvent = metadataByGroupId.get(groupId);
-        if (!metadataEvent) {
-          console.log(
-            `[GroupManager] ⚠️ No metadata found for member group ${groupId}`,
-          );
-          continue;
+        // Skip if user not member of this group
+        const memberCount = memberCountMap.get(groupId);
+        if (!memberCount) {
+          continue; // User not in this group
         }
 
-        // Extract UUID from i-tag (STRICT - only groups with valid i-tags are shown)
+        // Extract UUID
         const communityId = this.extractUuidFromMetadata(metadataEvent);
-        if (!communityId) {
-          console.log(
-            `[GroupManager] 🚫 SKIPPING ${groupId}: No valid i-tag (testing/invalid group)`,
-          );
-          continue;
-        }
+        if (!communityId) continue;
 
-        console.log(
-          `[GroupManager] ✅ Valid UUID extracted: ${communityId} from ${groupId}`,
-        );
+        // Process metadata
+        this.handleMetadataEvent(metadataEvent);
+        const metadata = this.getGroupMetadata(groupId);
 
-        // Get metadata from cache first
-        let metadata = this.getGroupMetadata(groupId);
-        const memberCount = this.getResolvedMemberCount(groupId);
-
-        // If not in cache, process the metadata event we just fetched
-        if (!metadata || !metadata.name) {
-          console.log(
-            `[GroupManager] Processing metadata event for ${groupId}`,
-          );
-          this.handleMetadataEvent(metadataEvent);
-          metadata = this.getGroupMetadata(groupId);
-
-          // Also start subscription for future updates
-          this.relayManager.subscribeToGroup(groupId);
-        }
-
-        // Check if user is admin
+        // Check admin status
         const isAdmin = this.isGroupAdmin(groupId, userPubkey);
 
-        const userGroup = {
-          groupId: communityId, // Use communityId (UUID) for navigation
+        userGroups.push({
+          groupId: communityId,
           communityId,
           name: metadata?.name || `Community ${communityId.slice(0, 8)}`,
-          memberCount: memberCount,
+          memberCount,
           isAdmin,
-          metadata,
-        };
-
-        // Check for duplicates before adding
-        const isDuplicate = userGroups.some(
-          (g) => g.communityId === communityId,
-        );
-        if (!isDuplicate) {
-          userGroups.push(userGroup);
-          console.log(`[GroupManager] Added user group:`, userGroup);
-        } else {
-          console.log(`[GroupManager] Skipping duplicate group:`, communityId);
-        }
+          metadata
+        });
       }
 
       console.log(`[GroupManager] Returning ${userGroups.length} user groups`);
       return userGroups;
     } catch (error) {
-      console.error("[GroupManager] Error getting user groups:", error);
+      console.error('[GroupManager] Error getting user groups:', error);
       return [];
     }
   }

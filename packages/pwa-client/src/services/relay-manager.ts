@@ -190,9 +190,9 @@ export class RelayManager {
 
   /**
    * Query all groups where the user is a member by checking kind 39002 (GROUP_MEMBERS) events
-   * Returns an array of group IDs the user belongs to
+   * Returns the full kind 39002 events (contains member lists with p-tags)
    */
-  async queryUserGroups(pubkey?: string): Promise<string[]> {
+  async queryUserGroups(pubkey?: string): Promise<Event[]> {
     const targetPubkey = pubkey || this.userPubkey;
     if (!targetPubkey) {
       console.warn(
@@ -224,24 +224,19 @@ export class RelayManager {
         `[RelayManager] Found ${events.length} GROUP_MEMBERS events containing user`,
       );
 
-      // Extract group IDs from the 'd' tags
-      const groupIds: string[] = [];
+      // Log group IDs for debugging
       for (const event of events) {
         const dTag = event.tags.find((tag) => tag[0] === "d" && tag[1]);
         if (dTag && dTag[1]) {
-          groupIds.push(dTag[1]);
           console.log(`[RelayManager] User is member of group: ${dTag[1]}`);
         }
       }
 
-      // Remove duplicates and return
-      const uniqueGroupIds = [...new Set(groupIds)];
       console.log(
-        `[RelayManager] User belongs to ${uniqueGroupIds.length} unique groups:`,
-        uniqueGroupIds,
+        `[RelayManager] Returning ${events.length} GROUP_MEMBERS events`,
       );
 
-      return uniqueGroupIds;
+      return events; // Return full events with member lists
     } catch (error) {
       console.error("[RelayManager] Error querying user groups:", error);
       return [];
