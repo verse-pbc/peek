@@ -56,7 +56,11 @@ export function CommunityFeed({
   useEffect(() => {
     if (!relayManager || !connected) return;
 
-    setLoading(true);
+    // Only show loading if we have no messages yet
+    // This prevents "Loading messages..." flicker on reconnect - React diffs will handle updates
+    if (messages.length === 0) {
+      setLoading(true);
+    }
 
     console.log(`[CommunityFeed] Creating dedicated message subscription for group ${groupId}`);
 

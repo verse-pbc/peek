@@ -200,7 +200,11 @@ const Community = () => {
       !!communityData,
     );
 
-    setLoading(true);
+    // Only show loading spinner if we don't have data yet
+    // This prevents flicker on reconnect - React diffs will handle updates
+    if (!communityData) {
+      setLoading(true);
+    }
     setError(null);
 
     await waitForConnection();
