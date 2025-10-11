@@ -54,7 +54,7 @@ export function CommunityFeed({
 
   // Subscribe to chat messages (dedicated subscription handles historical + live)
   useEffect(() => {
-    if (!relayManager) return;
+    if (!relayManager || !connected) return;
 
     setLoading(true);
 
@@ -88,7 +88,7 @@ export function CommunityFeed({
     setTimeout(() => setLoading(false), 1000);
 
     return unsubscribe;
-  }, [relayManager, groupId]);
+  }, [relayManager, groupId, connected]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
