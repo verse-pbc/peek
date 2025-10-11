@@ -92,7 +92,8 @@ export function CommunityFeed({
     setTimeout(() => setLoading(false), 1000);
 
     return unsubscribe;
-  }, [relayManager, groupId, connected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relayManager, groupId, connected]); // messages.length intentionally omitted - only check on connection change
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
