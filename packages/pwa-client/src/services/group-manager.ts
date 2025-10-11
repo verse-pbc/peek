@@ -4,10 +4,10 @@ import {
   finalizeEvent,
   getPublicKey,
   type VerifiedEvent,
-  Filter
-} from 'nostr-tools';
-import { RelayManager, NIP29_KINDS } from './relay-manager';
-import { IdentityMigrationService } from './identity-migration';
+  Filter,
+} from "nostr-tools";
+import { RelayManager, NIP29_KINDS } from "./relay-manager";
+import { IdentityMigrationService } from "./identity-migration";
 
 export interface GroupMetadata {
   id: string;
@@ -58,17 +58,23 @@ export class GroupManager {
   private relayManager: RelayManager;
   private migrationService: IdentityMigrationService;
   private eventSigner?: (event: EventTemplate) => Promise<VerifiedEvent>;
-  private groupCache: Map<string, {
-    metadata?: GroupMetadata;
-    members: Map<string, GroupMember>;
-    resolvedMembers: Map<string, GroupMember>; // Deduplicated based on resolved identities
-    roles: GroupRole[];
-    admins: Map<string, string[]>;
-    myMembership?: 'member' | 'admin' | 'none';
-    lastUpdated: number;
-  }>;
+  private groupCache: Map<
+    string,
+    {
+      metadata?: GroupMetadata;
+      members: Map<string, GroupMember>;
+      resolvedMembers: Map<string, GroupMember>; // Deduplicated based on resolved identities
+      roles: GroupRole[];
+      admins: Map<string, string[]>;
+      myMembership?: "member" | "admin" | "none";
+      lastUpdated: number;
+    }
+  >;
 
-  constructor(relayManager: RelayManager, migrationService: IdentityMigrationService) {
+  constructor(
+    relayManager: RelayManager,
+    migrationService: IdentityMigrationService,
+  ) {
     this.relayManager = relayManager;
     this.migrationService = migrationService;
     this.groupCache = new Map();
@@ -81,58 +87,65 @@ export class GroupManager {
   }
 
   private setupEventHandlers() {
-    this.relayManager.onEvent('kind:39000', (event) => {
+    this.relayManager.onEvent("kind:39000", (event) => {
       this.handleMetadataEvent(event);
     });
 
-    this.relayManager.onEvent('kind:39001', (event) => {
+    this.relayManager.onEvent("kind:39001", (event) => {
       this.handleAdminsEvent(event);
     });
 
-    this.relayManager.onEvent('kind:39002', (event) => {
+    this.relayManager.onEvent("kind:39002", (event) => {
       this.handleMembersEvent(event);
     });
 
-    this.relayManager.onEvent('kind:39003', (event) => {
+    this.relayManager.onEvent("kind:39003", (event) => {
       this.handleRolesEvent(event);
     });
 
-    this.relayManager.onEvent('kind:9000', (event) => {
+    this.relayManager.onEvent("kind:9000", (event) => {
       this.handleUserAdded(event);
     });
 
-    this.relayManager.onEvent('kind:9001', (event) => {
+    this.relayManager.onEvent("kind:9001", (event) => {
       this.handleUserRemoved(event);
     });
 
     // Listen for migration events
-    this.relayManager.onEvent('kind:1776', (event) => {
+    this.relayManager.onEvent("kind:1776", (event) => {
       this.handleMigrationEvent(event);
     });
   }
 
   // Made public for Community.tsx to update cache from group-specific subscriptions
   handleMetadataEvent(event: Event) {
-    const groupId = event.tags.find(t => t[0] === 'd')?.[1];
+    const groupId = event.tags.find((t) => t[0] === "d")?.[1];
     if (!groupId) return;
 
     // STRICT VALIDATION: Only cache groups with valid i-tags (NIP-73)
     // This filters out testing/invalid groups from subscriptions
     const hasValidUuid = this.extractUuidFromMetadata(event);
     if (!hasValidUuid) {
-      console.log(`[GroupManager] 🚫 Ignoring metadata for ${groupId}: No valid i-tag (testing/invalid group)`);
+      console.log(
+        `[GroupManager] 🚫 Ignoring metadata for ${groupId}: No valid i-tag (testing/invalid group)`,
+      );
       return;
     }
 
     const cache = this.getOrCreateCache(groupId);
 
-    const name = event.tags.find(t => t[0] === 'name')?.[1] || '';
-    const picture = event.tags.find(t => t[0] === 'picture')?.[1];
-    const about = event.tags.find(t => t[0] === 'about')?.[1];
-    const isPublic = event.tags.some(t => t[0] === 'public');
-    const isOpen = event.tags.some(t => t[0] === 'open');
+    const name = event.tags.find((t) => t[0] === "name")?.[1] || "";
+    const picture = event.tags.find((t) => t[0] === "picture")?.[1];
+    const about = event.tags.find((t) => t[0] === "about")?.[1];
+    const isPublic = event.tags.some((t) => t[0] === "public");
+    const isOpen = event.tags.some((t) => t[0] === "open");
 
-    console.log('[GroupManager] 📝 Updating metadata cache for', groupId, 'name:', name);
+    console.log(
+      "[GroupManager] 📝 Updating metadata cache for",
+      groupId,
+      "name:",
+      name,
+    );
 
     cache.metadata = {
       id: groupId,
@@ -141,21 +154,21 @@ export class GroupManager {
       about,
       isPublic,
       isOpen,
-      createdAt: event.created_at
+      createdAt: event.created_at,
     };
     cache.lastUpdated = Date.now();
   }
 
   private handleAdminsEvent(event: Event) {
-    const groupId = event.tags.find(t => t[0] === 'd')?.[1];
+    const groupId = event.tags.find((t) => t[0] === "d")?.[1];
     if (!groupId) return;
 
     const cache = this.getOrCreateCache(groupId);
     cache.admins.clear();
 
     event.tags
-      .filter(t => t[0] === 'p')
-      .forEach(tag => {
+      .filter((t) => t[0] === "p")
+      .forEach((tag) => {
         const pubkey = tag[1];
         const roles = tag.slice(2);
         cache.admins.set(pubkey, roles);
@@ -166,20 +179,20 @@ export class GroupManager {
   }
 
   private handleMembersEvent(event: Event) {
-    const groupId = event.tags.find(t => t[0] === 'd')?.[1];
+    const groupId = event.tags.find((t) => t[0] === "d")?.[1];
     if (!groupId) return;
 
     const cache = this.getOrCreateCache(groupId);
     cache.members.clear();
 
     event.tags
-      .filter(t => t[0] === 'p')
-      .forEach(tag => {
+      .filter((t) => t[0] === "p")
+      .forEach((tag) => {
         const pubkey = tag[1];
         const adminRoles = cache.admins.get(pubkey);
         cache.members.set(pubkey, {
           pubkey,
-          roles: adminRoles || []
+          roles: adminRoles || [],
         });
       });
 
@@ -188,38 +201,45 @@ export class GroupManager {
     cache.lastUpdated = Date.now();
 
     // Check if this completes a migration
-    const migratingState = localStorage.getItem('identity_migrating');
+    const migratingState = localStorage.getItem("identity_migrating");
     if (migratingState) {
       try {
         const state = JSON.parse(migratingState);
         const userPubkey = this.relayManager.getUserPubkey();
 
         // If our new identity appears in the member list and this group was in migration
-        if (userPubkey && userPubkey === state.to && state.groups.includes(groupId) && cache.members.has(userPubkey)) {
-          console.log(`[GroupManager] Migration complete - new identity ${userPubkey} confirmed in group ${groupId}`);
+        if (
+          userPubkey &&
+          userPubkey === state.to &&
+          state.groups.includes(groupId) &&
+          cache.members.has(userPubkey)
+        ) {
+          console.log(
+            `[GroupManager] Migration complete - new identity ${userPubkey} confirmed in group ${groupId}`,
+          );
 
           // Clear migrating state - UserIdentityButton's timer will handle page reload
-          localStorage.removeItem('identity_migrating');
+          localStorage.removeItem("identity_migrating");
         }
       } catch (e) {
-        console.error('Error checking migration state:', e);
+        console.error("Error checking migration state:", e);
       }
     }
   }
 
   private handleRolesEvent(event: Event) {
-    const groupId = event.tags.find(t => t[0] === 'd')?.[1];
+    const groupId = event.tags.find((t) => t[0] === "d")?.[1];
     if (!groupId) return;
 
     const cache = this.getOrCreateCache(groupId);
     cache.roles = [];
 
     event.tags
-      .filter(t => t[0] === 'role')
-      .forEach(tag => {
+      .filter((t) => t[0] === "role")
+      .forEach((tag) => {
         cache.roles.push({
           name: tag[1],
-          description: tag[2]
+          description: tag[2],
         });
       });
 
@@ -227,10 +247,10 @@ export class GroupManager {
   }
 
   private handleUserAdded(event: Event) {
-    const groupId = event.tags.find(t => t[0] === 'h')?.[1];
+    const groupId = event.tags.find((t) => t[0] === "h")?.[1];
     if (!groupId) return;
 
-    const userTag = event.tags.find(t => t[0] === 'p');
+    const userTag = event.tags.find((t) => t[0] === "p");
     if (!userTag) return;
 
     const pubkey = userTag[1];
@@ -240,7 +260,7 @@ export class GroupManager {
     cache.members.set(pubkey, {
       pubkey,
       roles,
-      joinedAt: event.created_at
+      joinedAt: event.created_at,
     });
 
     if (roles.length > 0) {
@@ -253,10 +273,10 @@ export class GroupManager {
   }
 
   private handleUserRemoved(event: Event) {
-    const groupId = event.tags.find(t => t[0] === 'h')?.[1];
+    const groupId = event.tags.find((t) => t[0] === "h")?.[1];
     if (!groupId) return;
 
-    const pubkey = event.tags.find(t => t[0] === 'p')?.[1];
+    const pubkey = event.tags.find((t) => t[0] === "p")?.[1];
     if (!pubkey) return;
 
     const cache = this.getOrCreateCache(groupId);
@@ -270,16 +290,18 @@ export class GroupManager {
 
   private handleMigrationEvent(event: Event) {
     const oldPubkey = event.pubkey;
-    const newPubkey = event.tags.find(t => t[0] === 'p')?.[1];
+    const newPubkey = event.tags.find((t) => t[0] === "p")?.[1];
 
     if (!newPubkey) return;
 
     console.log(`Processing migration event: ${oldPubkey} -> ${newPubkey}`);
 
     // Store migration for message resolution
-    const migrations = JSON.parse(localStorage.getItem('identity_migrations') || '{}');
+    const migrations = JSON.parse(
+      localStorage.getItem("identity_migrations") || "{}",
+    );
     migrations[oldPubkey] = newPubkey;
-    localStorage.setItem('identity_migrations', JSON.stringify(migrations));
+    localStorage.setItem("identity_migrations", JSON.stringify(migrations));
 
     // Update cache if old pubkey was in any groups
     // The validation service will send kind 9000/9001 events to update memberships
@@ -293,7 +315,7 @@ export class GroupManager {
         resolvedMembers: new Map(),
         admins: new Map(),
         roles: [],
-        lastUpdated: Date.now()
+        lastUpdated: Date.now(),
       });
     }
     return this.groupCache.get(groupId)!;
@@ -311,7 +333,7 @@ export class GroupManager {
       if (!cache.resolvedMembers.has(resolvedPubkey)) {
         cache.resolvedMembers.set(resolvedPubkey, {
           ...member,
-          pubkey: resolvedPubkey // Use resolved pubkey
+          pubkey: resolvedPubkey, // Use resolved pubkey
         });
       }
     }
@@ -324,21 +346,21 @@ export class GroupManager {
     const cache = this.getOrCreateCache(groupId);
 
     if (cache.admins.has(userPubkey)) {
-      cache.myMembership = 'admin';
+      cache.myMembership = "admin";
     } else if (cache.members.has(userPubkey)) {
-      cache.myMembership = 'member';
+      cache.myMembership = "member";
     } else {
-      cache.myMembership = 'none';
+      cache.myMembership = "none";
     }
   }
 
   async createGroup(
     secretKey: Uint8Array,
-    options: CreateGroupOptions
+    options: CreateGroupOptions,
   ): Promise<Event> {
     const event = await this.relayManager.sendCreateGroup(
       options.id,
-      secretKey
+      secretKey,
     );
 
     const cache = this.getOrCreateCache(options.id);
@@ -348,17 +370,17 @@ export class GroupManager {
       picture: options.picture,
       about: options.about,
       isPublic: options.isPublic ?? true,
-      isOpen: options.isOpen ?? false
+      isOpen: options.isOpen ?? false,
     };
 
     const pubkey = getPublicKey(secretKey);
     cache.members.set(pubkey, {
       pubkey,
-      roles: ['creator'],
-      joinedAt: event.created_at
+      roles: ["creator"],
+      joinedAt: event.created_at,
     });
-    cache.admins.set(pubkey, ['creator']);
-    cache.myMembership = 'admin';
+    cache.admins.set(pubkey, ["creator"]);
+    cache.myMembership = "admin";
 
     this.relayManager.subscribeToGroup(options.id);
 
@@ -374,28 +396,28 @@ export class GroupManager {
     // Add to members and admins
     cache.members.set(pubkey, {
       pubkey,
-      roles: ['admin'],
-      joinedAt: Math.floor(Date.now() / 1000)
+      roles: ["admin"],
+      joinedAt: Math.floor(Date.now() / 1000),
     });
-    cache.admins.set(pubkey, ['admin']);
+    cache.admins.set(pubkey, ["admin"]);
 
     // Update my membership if it's the current user
     const userPubkey = this.relayManager.getUserPubkey();
     if (userPubkey === pubkey) {
-      cache.myMembership = 'admin';
+      cache.myMembership = "admin";
     }
   }
 
   async joinGroup(
     groupId: string,
     secretKey: Uint8Array,
-    options?: JoinRequestOptions
+    options?: JoinRequestOptions,
   ): Promise<Event> {
     const event = await this.relayManager.sendJoinRequest(
       groupId,
       secretKey,
       options?.reason,
-      options?.inviteCode
+      options?.inviteCode,
     );
 
     this.relayManager.subscribeToGroup(groupId);
@@ -406,12 +428,12 @@ export class GroupManager {
   async leaveGroup(
     groupId: string,
     secretKey: Uint8Array,
-    reason?: string
+    reason?: string,
   ): Promise<Event> {
     const event = await this.relayManager.sendLeaveRequest(
       groupId,
       secretKey,
-      reason
+      reason,
     );
 
     const cache = this.groupCache.get(groupId);
@@ -419,7 +441,7 @@ export class GroupManager {
       const pubkey = getPublicKey(secretKey);
       cache.members.delete(pubkey);
       cache.admins.delete(pubkey);
-      cache.myMembership = 'none';
+      cache.myMembership = "none";
     }
 
     this.relayManager.unsubscribeFromGroup(groupId);
@@ -431,12 +453,12 @@ export class GroupManager {
     groupId: string,
     targetPubkey: string,
     secretKey?: Uint8Array,
-    roles?: string[]
+    roles?: string[],
   ): Promise<Event> {
     return this.performModerationAction(groupId, secretKey, {
       kind: NIP29_KINDS.PUT_USER,
       targetPubkey,
-      roles
+      roles,
     });
   }
 
@@ -444,23 +466,23 @@ export class GroupManager {
     groupId: string,
     targetPubkey: string,
     secretKey?: Uint8Array,
-    reason?: string
+    reason?: string,
   ): Promise<Event> {
     return this.performModerationAction(groupId, secretKey, {
       kind: NIP29_KINDS.REMOVE_USER,
       targetPubkey,
-      reason
+      reason,
     });
   }
 
   async updateMetadata(
     groupId: string,
     secretKey: Uint8Array | undefined,
-    updates: Partial<GroupMetadata>
+    updates: Partial<GroupMetadata>,
   ): Promise<Event> {
     return this.performModerationAction(groupId, secretKey, {
       kind: 9002,
-      metadata: updates
+      metadata: updates,
     });
   }
 
@@ -468,23 +490,23 @@ export class GroupManager {
     groupId: string,
     eventId: string,
     secretKey: Uint8Array,
-    reason?: string
+    reason?: string,
   ): Promise<Event> {
     return this.performModerationAction(groupId, secretKey, {
       kind: 9005,
       targetEventId: eventId,
-      reason
+      reason,
     });
   }
 
   async createInvite(
     groupId: string,
-    secretKey: Uint8Array
+    secretKey: Uint8Array,
   ): Promise<{ event: Event; code: string }> {
     const inviteCode = this.generateInviteCode();
 
     const event = await this.performModerationAction(groupId, secretKey, {
-      kind: 9009
+      kind: 9009,
     });
 
     return { event, code: inviteCode };
@@ -493,19 +515,17 @@ export class GroupManager {
   private async performModerationAction(
     groupId: string,
     secretKey: Uint8Array | undefined,
-    action: ModerationAction
+    action: ModerationAction,
   ): Promise<Event> {
-    const tags: string[][] = [
-      ['h', groupId]
-    ];
+    const tags: string[][] = [["h", groupId]];
 
     const previousEvents = this.relayManager.getRecentEventIds(groupId);
     if (previousEvents.length > 0) {
-      tags.push(['previous', ...previousEvents]);
+      tags.push(["previous", ...previousEvents]);
     }
 
     if (action.targetPubkey) {
-      const pTag = ['p', action.targetPubkey];
+      const pTag = ["p", action.targetPubkey];
       if (action.roles) {
         pTag.push(...action.roles);
       }
@@ -513,32 +533,32 @@ export class GroupManager {
     }
 
     if (action.targetEventId) {
-      tags.push(['e', action.targetEventId]);
+      tags.push(["e", action.targetEventId]);
     }
 
     if (action.metadata) {
       if (action.metadata.name) {
-        tags.push(['name', action.metadata.name]);
+        tags.push(["name", action.metadata.name]);
       }
       if (action.metadata.about) {
-        tags.push(['about', action.metadata.about]);
+        tags.push(["about", action.metadata.about]);
       }
       if (action.metadata.picture) {
-        tags.push(['picture', action.metadata.picture]);
+        tags.push(["picture", action.metadata.picture]);
       }
       if (action.metadata.isPublic !== undefined) {
-        tags.push([action.metadata.isPublic ? 'public' : 'private']);
+        tags.push([action.metadata.isPublic ? "public" : "private"]);
       }
       if (action.metadata.isOpen !== undefined) {
-        tags.push([action.metadata.isOpen ? 'open' : 'closed']);
+        tags.push([action.metadata.isOpen ? "open" : "closed"]);
       }
     }
 
     const eventTemplate: EventTemplate = {
       kind: action.kind,
-      content: action.reason || '',
+      content: action.reason || "",
       tags,
-      created_at: Math.floor(Date.now() / 1000)
+      created_at: Math.floor(Date.now() / 1000),
     };
 
     // Use event signer if available (NIP-07), otherwise use provided secret key
@@ -548,7 +568,7 @@ export class GroupManager {
     } else if (secretKey) {
       event = finalizeEvent(eventTemplate, secretKey) as VerifiedEvent;
     } else {
-      throw new Error('No signing method available for moderation action');
+      throw new Error("No signing method available for moderation action");
     }
 
     await this.relayManager.publishEvent(event);
@@ -576,12 +596,14 @@ export class GroupManager {
   }
 
   /**
-   * Get accurate member count after deduplicating migrated identities
+   * Get member count directly from kind 39002 p-tags
+   * Per NIP-29: Relay already updates member list with current identities after migrations
+   * No need to deduplicate - kind 39002 is authoritative and already has correct count
    */
   getResolvedMemberCount(groupId: string): number {
     const cache = this.groupCache.get(groupId);
     if (!cache) return 0;
-    return cache.resolvedMembers.size;
+    return cache.members.size; // Direct count from kind 39002 p-tags
   }
 
   getGroupAdmins(groupId: string): GroupMember[] {
@@ -590,7 +612,7 @@ export class GroupManager {
 
     return Array.from(cache.admins.entries()).map(([pubkey, roles]) => ({
       pubkey,
-      roles
+      roles,
     }));
   }
 
@@ -618,8 +640,8 @@ export class GroupManager {
     return cache.admins.has(targetPubkey);
   }
 
-  getMyMembership(groupId: string): 'member' | 'admin' | 'none' {
-    return this.groupCache.get(groupId)?.myMembership || 'none';
+  getMyMembership(groupId: string): "member" | "admin" | "none" {
+    return this.groupCache.get(groupId)?.myMembership || "none";
   }
 
   /**
@@ -627,38 +649,57 @@ export class GroupManager {
    * This is the authoritative way to check if a user is a member
    * Prioritizes kind 39002 (GROUP_MEMBERS) events over kind 9000/9001 (moderation) events
    */
-  async checkMembershipDirectly(groupId: string, pubkey?: string): Promise<boolean> {
+  async checkMembershipDirectly(
+    groupId: string,
+    pubkey?: string,
+  ): Promise<boolean> {
     const targetPubkey = pubkey || this.relayManager.getUserPubkey();
     if (!targetPubkey) return false;
 
-    console.log(`[GroupManager] Checking membership directly for ${targetPubkey} in ${groupId}`);
+    console.log(
+      `[GroupManager] Checking membership directly for ${targetPubkey} in ${groupId}`,
+    );
 
     try {
       // PRIORITY 1: Check current membership via kind 39002 (GROUP_MEMBERS) events
       // This is the most reliable source as it reflects the current state
-      const isMemberViaGroupEvents = await this.relayManager.queryGroupMembership(groupId, targetPubkey);
+      const isMemberViaGroupEvents =
+        await this.relayManager.queryGroupMembership(groupId, targetPubkey);
 
       if (isMemberViaGroupEvents) {
-        console.log(`[GroupManager] User confirmed as member via kind 39002 events`);
+        console.log(
+          `[GroupManager] User confirmed as member via kind 39002 events`,
+        );
         return true;
       }
 
-      console.log(`[GroupManager] User not found in kind 39002 events, checking moderation timeline...`);
+      console.log(
+        `[GroupManager] User not found in kind 39002 events, checking moderation timeline...`,
+      );
 
       // PRIORITY 2: Fallback to moderation events (kind 9000/9001) for membership timeline
-      const latestEvent = await this.relayManager.queryMembershipEvents(groupId, targetPubkey);
+      const latestEvent = await this.relayManager.queryMembershipEvents(
+        groupId,
+        targetPubkey,
+      );
 
       if (!latestEvent) {
-        console.log(`[GroupManager] No membership events found - user was never added`);
+        console.log(
+          `[GroupManager] No membership events found - user was never added`,
+        );
         return false;
       }
 
       // Check if the latest event is an add (9000) or remove (9001)
       if (latestEvent.kind === 9000) {
-        console.log(`[GroupManager] Latest moderation event shows user was added`);
+        console.log(
+          `[GroupManager] Latest moderation event shows user was added`,
+        );
         return true;
       } else if (latestEvent.kind === 9001) {
-        console.log(`[GroupManager] Latest moderation event shows user was removed`);
+        console.log(
+          `[GroupManager] Latest moderation event shows user was removed`,
+        );
         return false;
       }
 
@@ -669,32 +710,46 @@ export class GroupManager {
       try {
         const filter: Filter = {
           kinds: [39000],
-          '#d': [groupId],
-          limit: 1
+          "#d": [groupId],
+          limit: 1,
         };
 
-        const metadataEvents = await this.relayManager.queryEventsDirectly(filter);
+        const metadataEvents =
+          await this.relayManager.queryEventsDirectly(filter);
         if (metadataEvents.length > 0) {
           const communityId = this.extractUuidFromMetadata(metadataEvents[0]);
           if (communityId) {
-            const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-            const isInLocalStorage = joinedGroups.some((g: { communityId: string }) => g.communityId === communityId);
+            const joinedGroups = JSON.parse(
+              localStorage.getItem("joinedGroups") || "[]",
+            );
+            const isInLocalStorage = joinedGroups.some(
+              (g: { communityId: string }) => g.communityId === communityId,
+            );
 
             if (isInLocalStorage) {
-              console.log(`[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`);
+              console.log(
+                `[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`,
+              );
               return true;
             }
           }
         }
       } catch (e) {
-        console.error('[GroupManager] Error checking localStorage fallback:', e);
+        console.error(
+          "[GroupManager] Error checking localStorage fallback:",
+          e,
+        );
       }
 
-      console.log(`[GroupManager] User is not a member according to all checks`);
+      console.log(
+        `[GroupManager] User is not a member according to all checks`,
+      );
       return false;
-
     } catch (error) {
-      console.error('[GroupManager] Error checking membership directly:', error);
+      console.error(
+        "[GroupManager] Error checking membership directly:",
+        error,
+      );
       return false;
     }
   }
@@ -715,17 +770,21 @@ export class GroupManager {
    * Get all groups where the current user is a member using NIP-29 events
    * Returns an array of community objects with metadata
    */
-  async getUserGroups(): Promise<Array<{
-    groupId: string;
-    communityId: string;
-    name: string;
-    memberCount: number;
-    isAdmin: boolean;
-    metadata?: GroupMetadata;
-  }>> {
+  async getUserGroups(): Promise<
+    Array<{
+      groupId: string;
+      communityId: string;
+      name: string;
+      memberCount: number;
+      isAdmin: boolean;
+      metadata?: GroupMetadata;
+    }>
+  > {
     const userPubkey = this.relayManager.getUserPubkey();
     if (!userPubkey) {
-      console.warn('[GroupManager] Cannot get user groups: no pubkey available');
+      console.warn(
+        "[GroupManager] Cannot get user groups: no pubkey available",
+      );
       return [];
     }
 
@@ -733,7 +792,10 @@ export class GroupManager {
       // Query the relay for all groups this user belongs to
       const groupIds = await this.relayManager.queryUserGroups(userPubkey);
 
-      console.log(`[GroupManager] Found ${groupIds.length} groups for user:`, groupIds);
+      console.log(
+        `[GroupManager] Found ${groupIds.length} groups for user:`,
+        groupIds,
+      );
 
       const userGroups: Array<{
         groupId: string;
@@ -745,39 +807,52 @@ export class GroupManager {
       }> = [];
 
       // Filter to Peek groups only
-      const peekGroupIds = groupIds.filter(id => id.startsWith('peek-'));
+      const peekGroupIds = groupIds.filter((id) => id.startsWith("peek-"));
 
       // Log cache state before fetching
-      const cachedGroupsCount = Array.from(this.groupCache.keys()).filter(id => id.startsWith('peek-')).length;
-      console.log(`[GroupManager] 💾 Cache state: ${cachedGroupsCount} peek groups already cached out of ${peekGroupIds.length} to fetch`);
+      const cachedGroupsCount = Array.from(this.groupCache.keys()).filter(
+        (id) => id.startsWith("peek-"),
+      ).length;
+      console.log(
+        `[GroupManager] 💾 Cache state: ${cachedGroupsCount} peek groups already cached out of ${peekGroupIds.length} to fetch`,
+      );
 
       // Check relay connection before starting
       const isConnected = this.relayManager.isConnected();
-      console.log(`[GroupManager] 🔌 Relay connection status: ${isConnected ? 'CONNECTED ✅' : 'DISCONNECTED ❌'}`);
+      console.log(
+        `[GroupManager] 🔌 Relay connection status: ${isConnected ? "CONNECTED ✅" : "DISCONNECTED ❌"}`,
+      );
 
       if (!isConnected) {
-        console.error(`[GroupManager] ❌ Cannot fetch metadata: relay not connected`);
+        console.error(
+          `[GroupManager] ❌ Cannot fetch metadata: relay not connected`,
+        );
         return [];
       }
 
       // Use NIP-73 k-tag to fetch ALL peek groups with valid UUIDs in a single query
       const totalStartTime = Date.now();
-      console.log(`[GroupManager] 🚀 Fetching all peek group metadata using NIP-73 k-tag query`);
+      console.log(
+        `[GroupManager] 🚀 Fetching all peek group metadata using NIP-73 k-tag query`,
+      );
 
       const filter: Filter = {
         kinds: [39000],
-        '#k': ['peek:uuid']  // NIP-73: query all groups with peek:uuid identifier kind
+        "#k": ["peek:uuid"], // NIP-73: query all groups with peek:uuid identifier kind
       };
 
-      const allMetadataEvents = await this.relayManager.queryEventsDirectly(filter);
+      const allMetadataEvents =
+        await this.relayManager.queryEventsDirectly(filter);
       const totalDuration = Date.now() - totalStartTime;
 
-      console.log(`[GroupManager] 🏁 k-tag query complete: ${allMetadataEvents.length} groups found in ${totalDuration}ms`);
+      console.log(
+        `[GroupManager] 🏁 k-tag query complete: ${allMetadataEvents.length} groups found in ${totalDuration}ms`,
+      );
 
       // Build map of groupId -> metadataEvent for easy lookup
       const metadataByGroupId = new Map<string, Event>();
       for (const event of allMetadataEvents) {
-        const groupId = event.tags.find(t => t[0] === 'd')?.[1];
+        const groupId = event.tags.find((t) => t[0] === "d")?.[1];
         if (groupId) {
           metadataByGroupId.set(groupId, event);
         }
@@ -787,18 +862,24 @@ export class GroupManager {
       for (const groupId of peekGroupIds) {
         const metadataEvent = metadataByGroupId.get(groupId);
         if (!metadataEvent) {
-          console.log(`[GroupManager] ⚠️ No metadata found for member group ${groupId}`);
+          console.log(
+            `[GroupManager] ⚠️ No metadata found for member group ${groupId}`,
+          );
           continue;
         }
 
         // Extract UUID from i-tag (STRICT - only groups with valid i-tags are shown)
         const communityId = this.extractUuidFromMetadata(metadataEvent);
         if (!communityId) {
-          console.log(`[GroupManager] 🚫 SKIPPING ${groupId}: No valid i-tag (testing/invalid group)`);
+          console.log(
+            `[GroupManager] 🚫 SKIPPING ${groupId}: No valid i-tag (testing/invalid group)`,
+          );
           continue;
         }
 
-        console.log(`[GroupManager] ✅ Valid UUID extracted: ${communityId} from ${groupId}`);
+        console.log(
+          `[GroupManager] ✅ Valid UUID extracted: ${communityId} from ${groupId}`,
+        );
 
         // Get metadata from cache first
         let metadata = this.getGroupMetadata(groupId);
@@ -806,7 +887,9 @@ export class GroupManager {
 
         // If not in cache, process the metadata event we just fetched
         if (!metadata || !metadata.name) {
-          console.log(`[GroupManager] Processing metadata event for ${groupId}`);
+          console.log(
+            `[GroupManager] Processing metadata event for ${groupId}`,
+          );
           this.handleMetadataEvent(metadataEvent);
           metadata = this.getGroupMetadata(groupId);
 
@@ -821,13 +904,15 @@ export class GroupManager {
           groupId: communityId, // Use communityId (UUID) for navigation
           communityId,
           name: metadata?.name || `Community ${communityId.slice(0, 8)}`,
-          memberCount: memberCount > 0 ? memberCount : 1,
+          memberCount: memberCount,
           isAdmin,
-          metadata
+          metadata,
         };
 
         // Check for duplicates before adding
-        const isDuplicate = userGroups.some(g => g.communityId === communityId);
+        const isDuplicate = userGroups.some(
+          (g) => g.communityId === communityId,
+        );
         if (!isDuplicate) {
           userGroups.push(userGroup);
           console.log(`[GroupManager] Added user group:`, userGroup);
@@ -838,9 +923,8 @@ export class GroupManager {
 
       console.log(`[GroupManager] Returning ${userGroups.length} user groups`);
       return userGroups;
-
     } catch (error) {
-      console.error('[GroupManager] Error getting user groups:', error);
+      console.error("[GroupManager] Error getting user groups:", error);
       return [];
     }
   }
@@ -850,9 +934,11 @@ export class GroupManager {
    * Returns null if no i-tag found
    */
   private extractUuidFromMetadata(event: Event): string | null {
-    const iTag = event.tags.find(t => t[0] === 'i' && t[1]?.startsWith('peek:uuid:'));
+    const iTag = event.tags.find(
+      (t) => t[0] === "i" && t[1]?.startsWith("peek:uuid:"),
+    );
     if (iTag && iTag[1]) {
-      const uuid = iTag[1].replace('peek:uuid:', '');
+      const uuid = iTag[1].replace("peek:uuid:", "");
       return uuid;
     }
     return null;
@@ -861,19 +947,23 @@ export class GroupManager {
   /**
    * Fetch group metadata directly from relay without relying on subscriptions
    */
-  private async fetchGroupMetadataDirectly(groupId: string): Promise<GroupMetadata | null> {
+  private async fetchGroupMetadataDirectly(
+    groupId: string,
+  ): Promise<GroupMetadata | null> {
     try {
       // Use RelayManager to directly query for kind 39000 metadata
       if (!this.relayManager.isConnected()) {
-        console.warn('[GroupManager] Cannot fetch metadata: relay not connected');
+        console.warn(
+          "[GroupManager] Cannot fetch metadata: relay not connected",
+        );
         return null;
       }
 
       // Query for the metadata event
       const filter: Filter = {
         kinds: [39000],
-        '#d': [groupId],
-        limit: 1
+        "#d": [groupId],
+        limit: 1,
       };
 
       // Use RelayManager's queryEventsDirectly method
@@ -890,35 +980,37 @@ export class GroupManager {
       // Parse the metadata from tags
       const metadata: GroupMetadata = {
         id: groupId,
-        name: '',
+        name: "",
         isPublic: false,
         isOpen: false,
-        createdAt: event.created_at
+        createdAt: event.created_at,
       };
 
       for (const tag of event.tags) {
-        if (tag[0] === 'name' && tag[1]) {
+        if (tag[0] === "name" && tag[1]) {
           metadata.name = tag[1];
-        } else if (tag[0] === 'about' && tag[1]) {
+        } else if (tag[0] === "about" && tag[1]) {
           metadata.about = tag[1];
-        } else if (tag[0] === 'picture' && tag[1]) {
+        } else if (tag[0] === "picture" && tag[1]) {
           metadata.picture = tag[1];
-        } else if (tag[0] === 'public') {
+        } else if (tag[0] === "public") {
           metadata.isPublic = true;
-        } else if (tag[0] === 'private') {
+        } else if (tag[0] === "private") {
           metadata.isPublic = false;
-        } else if (tag[0] === 'open') {
+        } else if (tag[0] === "open") {
           metadata.isOpen = true;
-        } else if (tag[0] === 'closed') {
+        } else if (tag[0] === "closed") {
           metadata.isOpen = false;
         }
       }
 
       console.log(`[GroupManager] Parsed metadata for ${groupId}:`, metadata);
       return metadata;
-
     } catch (error) {
-      console.error('[GroupManager] Error fetching group metadata directly:', error);
+      console.error(
+        "[GroupManager] Error fetching group metadata directly:",
+        error,
+      );
       return null;
     }
   }
@@ -931,8 +1023,8 @@ export class GroupManager {
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);
     return Array.from(bytes)
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   clearCache(groupId?: string) {
@@ -950,8 +1042,8 @@ export class GroupManager {
 
 export function createGroupManager(relayUrl?: string): GroupManager {
   const relayManager = new RelayManager({
-    url: relayUrl || 'wss://peek.hol.is',
-    autoConnect: true
+    url: relayUrl || "wss://peek.hol.is",
+    autoConnect: true,
   });
 
   const migrationService = new IdentityMigrationService(relayManager);
