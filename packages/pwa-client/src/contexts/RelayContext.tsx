@@ -61,6 +61,36 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     identityRef.current = identity;
   }, [identity]);
 
+  // Force reconnection when tab becomes visible (handles sleep/wake)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && managerRef.current) {
+        console.log('[RelayContext] Tab visible, forcing fresh connection');
+
+        // Disconnect to clear any zombie connection
+        managerRef.current.disconnect();
+
+        // Connect with fresh WebSocket
+        managerRef.current.connect();
+      }
+    };
+
+    const handleOnline = () => {
+      if (managerRef.current && !managerRef.current.isConnected()) {
+        console.log('[RelayContext] Network restored, reconnecting');
+        managerRef.current.connect();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []); // Empty deps = listener active for app lifetime
+
   // Auto-reconnect when identity changes (migration, login, logout)
   useEffect(() => {
     const currentPubkey = identity?.publicKey || null;
