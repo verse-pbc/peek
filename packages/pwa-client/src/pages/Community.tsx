@@ -520,29 +520,29 @@ const Community = () => {
       <div className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
               <Button
                 onClick={handleBack}
                 variant="ghost"
                 size="sm"
-                className="gap-2 hover:bg-coral/10"
+                className="hover:bg-coral/10 flex-shrink-0"
+                title="My Communities"
               >
                 <LayoutGrid className="h-4 w-4" />
-                My Communities
               </Button>
               {/* Only show name in header if no hero image */}
               {!communityData.picture && (
-                <div>
-                  <h1 className="text-xl font-rubik font-semibold">
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg sm:text-xl font-rubik font-semibold truncate">
                     {communityData.name}
                   </h1>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
                       {communityData.memberCount} members
                     </span>
                     {communityData.location && (
-                      <span className="flex items-center gap-1">
+                      <span className="hidden sm:flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
                         Location verified
                       </span>
@@ -551,21 +551,22 @@ const Community = () => {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {communityData.isAdmin && (
                 <>
-                  <Badge className="bg-coral text-white border-0">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Founder
+                  <Badge className="bg-coral text-white border-0" title="You're the founder">
+                    <Crown className="h-3 w-3" />
+                    <span className="hidden sm:inline ml-1">Founder</span>
                   </Badge>
                   <Button
                     onClick={handleAdminClick}
                     variant="outline"
                     size="sm"
-                    className="gap-2 border-coral/30 hover:bg-coral/10"
+                    className="border-coral/30 hover:bg-coral/10"
+                    title="Manage community"
                   >
                     <Settings className="h-4 w-4" />
-                    Manage
+                    <span className="hidden sm:inline ml-2">Manage</span>
                   </Button>
                 </>
               )}
