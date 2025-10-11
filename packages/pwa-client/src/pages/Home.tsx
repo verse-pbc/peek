@@ -385,9 +385,6 @@ const Home = () => {
                   <h2 className="text-xl font-rubik font-bold">
                     Discover Communities
                   </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {discoveryMap ? `${discoveryMap.points.length} spots nearby` : 'Loading map...'}
-                  </p>
                 </div>
                 <Button
                   onClick={handleFlyToLocation}
