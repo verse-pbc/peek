@@ -157,7 +157,9 @@ const Home = () => {
       if (!isActive || !groupManager || !relayManager) return;
       fetchCount++;
 
-      if (fetchCount === 1) {
+      // Only show loading spinner if we have no communities yet
+      // This prevents flicker on reconnect - React diffs will handle updates
+      if (communities.length === 0) {
         setLoading(true);
       }
 
@@ -228,7 +230,7 @@ const Home = () => {
     return () => {
       isActive = false;
     };
-  }, [connected, groupManager, relayManager, toast, location.pathname]);
+  }, [connected, groupManager, relayManager, toast, location.pathname]); // communities.length intentionally omitted - only check on connection change
 
   const formatTimeAgo = (timestamp?: number) => {
     if (!timestamp) return 'Never';

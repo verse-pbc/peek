@@ -270,11 +270,6 @@ export function CommunityFeed({
               Connect your Nostr account to send messages
             </p>
           )}
-          {identity && !connected && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Connecting to relay...
-            </p>
-          )}
         </div>
       </CardContent>
     </Card>
