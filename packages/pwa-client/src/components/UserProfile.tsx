@@ -21,6 +21,7 @@ interface UserProfileProps {
   nameClassName?: string;
   compact?: boolean;
   groupId?: string; // Optional group context for resolution
+  isAdmin?: boolean; // Show admin badge
 }
 
 const sizeMap = {
@@ -48,7 +49,8 @@ export function UserProfile({
   className,
   nameClassName,
   compact = false,
-  groupId
+  groupId,
+  isAdmin = false
 }: UserProfileProps) {
   // Use centralized identity resolution
   const { resolveIdentity } = useIdentityResolution(groupId);
@@ -100,8 +102,8 @@ export function UserProfile({
         )}
       </Avatar>
       {isAdmin && (
-        <div className="absolute -top-1 -right-1 bg-mint rounded-full p-0.5 shadow-sm ring-2 ring-background">
-          <Crown className="h-3 w-3 text-white" fill="white" strokeWidth={0} />
+        <div className="absolute -bottom-0.5 -right-0.5 bg-[#FF6B35] rounded-full p-0.5">
+          <Crown className="lucide-crown h-2.5 w-2.5 text-white" />
         </div>
       )}
     </div>
