@@ -112,19 +112,31 @@ export function CommunityFeed({
       // Use multiple attempts to ensure scroll happens after render
       const scrollToBottom = () => {
         if (scrollRef.current) {
-          const scrollHeight = scrollRef.current.scrollHeight;
-          scrollRef.current.scrollTop = scrollHeight;
-          console.log('[CommunityFeed] Initial scroll attempt - scrollTop:', scrollRef.current.scrollTop, 'scrollHeight:', scrollHeight);
+          const element = scrollRef.current;
+          const scrollHeight = element.scrollHeight;
+          const clientHeight = element.clientHeight;
+          const maxScroll = scrollHeight - clientHeight;
+
+          console.log('[CommunityFeed] Scroll debug - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'maxScroll:', maxScroll);
+
+          // Try both methods
+          element.scrollTop = maxScroll;
+          element.scrollTo({ top: maxScroll, behavior: 'auto' });
+
+          // Also try scrolling to a large number as fallback
+          element.scrollTo({ top: 999999, behavior: 'auto' });
+
+          console.log('[CommunityFeed] Initial scroll attempt - scrollTop after set:', element.scrollTop, 'target was:', maxScroll);
         }
       };
 
       // Try multiple times with increasing delays to catch render
       setTimeout(scrollToBottom, 0);
-      setTimeout(scrollToBottom, 50);
-      setTimeout(scrollToBottom, 150);
-      setTimeout(scrollToBottom, 350);
-      setTimeout(scrollToBottom, 600);
-      setTimeout(scrollToBottom, 1000);
+      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 300);
+      setTimeout(scrollToBottom, 500);
+      setTimeout(scrollToBottom, 800);
+      setTimeout(scrollToBottom, 1200);
 
       // Mark as done after first attempt
       setTimeout(() => {
@@ -185,11 +197,11 @@ export function CommunityFeed({
   }, {} as Record<string, Message[]>);
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden relative">
+    <div className="flex flex-col h-full overflow-hidden relative">
       {/* Messages ScrollArea */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-32"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-32 min-h-0"
       >
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
