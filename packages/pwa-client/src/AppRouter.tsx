@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 
 import Index from "./pages/Index";
 import Community from "./pages/Community";
+import CreateSticker from "./pages/CreateSticker";
 import { NIP19Page } from "./pages/NIP19Page";
 import { TestLocationPage } from "./pages/TestLocation";
 import { TestCommunityPreviewPage } from "./pages/TestCommunityPreview";
@@ -23,6 +24,7 @@ export function AppRouter() {
         <Routes>
           <Route path="/" element={<Index />} />
           {/* Peek-specific routes */}
+          <Route path="/create" element={<CreateSticker />} /> {/* QR sticker generator (public, no auth) */}
           <Route path="/c/join-community" element={<JoinCommunityMock />} /> {/* Mock page for local dev only */}
           <Route path="/c/:communityId" element={<Community />} /> {/* Community page: shows join flow or chat based on membership */}
           <Route path="/test-location" element={<TestLocationPage />} />

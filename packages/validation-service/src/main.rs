@@ -15,7 +15,7 @@ mod test_gift_wrap;
 #[cfg(test)]
 mod test_h_tag_filter;
 
-use handlers::{health, NostrValidationHandler};
+use handlers::{health, sticker::generate_sticker, NostrValidationHandler};
 use services::{community::CommunityService, relay::RelayService};
 
 #[tokio::main]
@@ -68,7 +68,8 @@ async fn main() {
     // Set up HTTP server for health checks
     let app = Router::new()
         .route("/health", get(health))
-        .route("/api/health", get(health));
+        .route("/api/health", get(health))
+        .route("/api/sticker", get(generate_sticker));
 
     let addr: std::net::SocketAddr = format!("0.0.0.0:{}", config.port).parse().unwrap();
     info!("HTTP server listening on {}", addr);

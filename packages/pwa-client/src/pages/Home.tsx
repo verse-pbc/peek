@@ -17,6 +17,7 @@ import {
   UserCircle,
   Crown,
   Sparkles,
+  Plus,
   // Navigation // DISABLED - map is hidden
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
@@ -342,6 +343,15 @@ const Home = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              <Button
+                onClick={() => navigate('/create')}
+                variant="outline"
+                size="sm"
+                className="gap-2 border-coral hover:bg-coral/10"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Create Sticker</span>
+              </Button>
               {isDevMode && (
                 <Button
                   onClick={handleCreateTestCommunity}
@@ -350,7 +360,7 @@ const Home = () => {
                   className="gap-2 border-coral hover:bg-coral/10"
                 >
                   <MapPin className="h-4 w-4" />
-                  <span className="hidden sm:inline">Create Dev Test</span>
+                  <span className="hidden sm:inline">Dev Test</span>
                 </Button>
               )}
               <UserIdentityButton />
