@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
-import { LatLng } from 'leaflet';
+// import { LatLng } from 'leaflet'; // DISABLED - map is hidden
 import { useNostrContext } from '@/hooks/useNostrContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,23 +17,24 @@ import {
   UserCircle,
   Crown,
   Sparkles,
-  Navigation
+  // Navigation // DISABLED - map is hidden
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
 import { UserIdentityButton } from '@/components/UserIdentityButton';
-import { DiscoveryService, DiscoveryMap as IDiscoveryMap } from '@/services/discovery-service';
-import { MapLoadingSkeleton } from '@/components/map/MapLoadingSkeleton';
+// import { DiscoveryService, DiscoveryMap as IDiscoveryMap } from '@/services/discovery-service'; // DISABLED - map is hidden
+// import { MapLoadingSkeleton } from '@/components/map/MapLoadingSkeleton'; // DISABLED - map is hidden
 
-// Lazy load the map component to improve initial LCP
-const DiscoveryMapComponent = lazy(() =>
-  import('@/components/map/DiscoveryMap').then(module => ({
-    default: module.DiscoveryMapComponent
-  }))
-);
+// Lazy load the map component to improve initial LCP - DISABLED (map is hidden)
+// const DiscoveryMapComponent = lazy(() =>
+//   import('@/components/map/DiscoveryMap').then(module => ({
+//     default: module.DiscoveryMapComponent
+//   }))
+// );
 
-const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
+// DISABLED - map is hidden
+// const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
 
 interface Community {
   groupId: string;
@@ -43,6 +44,7 @@ interface Community {
   createdAt?: number;
   isAdmin: boolean;
   unreadCount?: number;
+  picture?: string;
   location?: {
     latitude: number;
     longitude: number;
@@ -61,12 +63,12 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [rejoinMessage, setRejoinMessage] = useState<string | null>(null);
 
-  // Discovery map states
-  const [discoveryMap, setDiscoveryMap] = useState<IDiscoveryMap | null>(null);
-  const fogEnabled = true; // Always enabled, no toggle needed
-  const [mapCenter, setMapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF, will update with user location
-  const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
-  const discoveryServiceRef = useRef<DiscoveryService | null>(null);
+  // Discovery map states - DISABLED (map is hidden)
+  // const [discoveryMap, setDiscoveryMap] = useState<IDiscoveryMap | null>(null);
+  // const fogEnabled = true; // Always enabled, no toggle needed
+  // const [mapCenter, setMapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF, will update with user location
+  // const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
+  // const discoveryServiceRef = useRef<DiscoveryService | null>(null);
 
   // Dev mode detection - show "Create Dev Test Community" button when ?dev=true
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -85,63 +87,63 @@ const Home = () => {
     }
   }, [location.state]);
 
-  // Auto-center map on user location on load
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLocation = new LatLng(
-            position.coords.latitude,
-            position.coords.longitude
-          );
-          setMapCenter(userLocation);
-          setFlyToLocation(userLocation);
-          console.log('[Home] Auto-centered map on user location:', userLocation);
-        },
-        (error) => {
-          console.warn('[Home] Could not get user location:', error.message);
-          // Keep default SF coordinates if location access denied
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      );
-    }
-  }, []); // Run once on mount
+  // Auto-center map on user location on load - DISABLED (map is hidden)
+  // useEffect(() => {
+  //   if (navigator.geolocation) {
+  //     navigator.geolocation.getCurrentPosition(
+  //       (position) => {
+  //         const userLocation = new LatLng(
+  //           position.coords.latitude,
+  //           position.coords.longitude
+  //         );
+  //         setMapCenter(userLocation);
+  //         setFlyToLocation(userLocation);
+  //         console.log('[Home] Auto-centered map on user location:', userLocation);
+  //       },
+  //       (error) => {
+  //         console.warn('[Home] Could not get user location:', error.message);
+  //         // Keep default SF coordinates if location access denied
+  //       },
+  //       {
+  //         enableHighAccuracy: true,
+  //         timeout: 5000,
+  //         maximumAge: 0
+  //       }
+  //     );
+  //   }
+  // }, []); // Run once on mount
 
-  // Load discovery map
-  useEffect(() => {
-    const loadDiscoveryMap = async () => {
-      try {
-        const service = new DiscoveryService(RELAY_URL);
-        discoveryServiceRef.current = service;
+  // Load discovery map - DISABLED (map is hidden)
+  // useEffect(() => {
+  //   const loadDiscoveryMap = async () => {
+  //     try {
+  //       const service = new DiscoveryService(RELAY_URL);
+  //       discoveryServiceRef.current = service;
 
-        const map = await service.fetchDiscoveryMap();
-        setDiscoveryMap(map);
+  //       const map = await service.fetchDiscoveryMap();
+  //       setDiscoveryMap(map);
 
-        // Subscribe to updates
-        const unsubscribe = service.subscribeToDiscoveryUpdates((updatedMap) => {
-          setDiscoveryMap(updatedMap);
-        });
+  //       // Subscribe to updates
+  //       const unsubscribe = service.subscribeToDiscoveryUpdates((updatedMap) => {
+  //         setDiscoveryMap(updatedMap);
+  //       });
 
-        return () => {
-          unsubscribe();
-        };
-      } catch (error) {
-        console.error('Failed to load discovery map:', error);
-      }
-    };
+  //       return () => {
+  //         unsubscribe();
+  //       };
+  //     } catch (error) {
+  //       console.error('Failed to load discovery map:', error);
+  //     }
+  //   };
 
-    loadDiscoveryMap();
+  //   loadDiscoveryMap();
 
-    return () => {
-      if (discoveryServiceRef.current) {
-        discoveryServiceRef.current.close();
-      }
-    };
-  }, []);
+  //   return () => {
+  //     if (discoveryServiceRef.current) {
+  //       discoveryServiceRef.current.close();
+  //     }
+  //   };
+  // }, []);
 
   // Fetch user's communities (re-runs on navigation to home)
   useEffect(() => {
@@ -191,6 +193,7 @@ const Home = () => {
             joinedAt: cachedGroupInfo?.joinedAt || Date.now() / 1000,
             lastActivity: lastActivity || undefined,
             createdAt: group.metadata?.createdAt,
+            picture: group.metadata?.picture,
             location: cachedGroupInfo?.location
           };
         });
@@ -249,35 +252,36 @@ const Home = () => {
     navigate(`/c/${groupId}`);
   };
 
-  const handleFlyToLocation = useCallback(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLocation = new LatLng(
-            position.coords.latitude,
-            position.coords.longitude
-          );
-          setFlyToLocation(userLocation);
-          toast({
-            title: "📍 Location found",
-            description: "Centering map on your location",
-          });
-        },
-        (error) => {
-          toast({
-            title: "Location error",
-            description: error.message,
-            variant: "destructive"
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      );
-    }
-  }, [toast]);
+  // DISABLED - map is hidden
+  // const handleFlyToLocation = useCallback(() => {
+  //   if (navigator.geolocation) {
+  //     navigator.geolocation.getCurrentPosition(
+  //       (position) => {
+  //         const userLocation = new LatLng(
+  //           position.coords.latitude,
+  //           position.coords.longitude
+  //         );
+  //         setFlyToLocation(userLocation);
+  //         toast({
+  //           title: "📍 Location found",
+  //           description: "Centering map on your location",
+  //         });
+  //       },
+  //       (error) => {
+  //         toast({
+  //           title: "Location error",
+  //           description: error.message,
+  //           variant: "destructive"
+  //         });
+  //       },
+  //       {
+  //         enableHighAccuracy: true,
+  //         timeout: 5000,
+  //         maximumAge: 0
+  //       }
+  //     );
+  //   }
+  // }, [toast]);
 
   const handleCreateTestCommunity = useCallback(() => {
     const uuid = crypto.randomUUID();
@@ -377,41 +381,7 @@ const Home = () => {
 
       {/* Main Content - Map and Communities */}
       <main className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-        {/* Discovery Map Section */}
-        <div className="mb-6">
-          <div className="bg-card rounded-2xl shadow-lg overflow-hidden">
-            {/* Map Header */}
-            <div className="p-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-rubik font-bold">
-                    Discover Communities
-                  </h2>
-                </div>
-                <Button
-                  onClick={handleFlyToLocation}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 border-coral/30 hover:bg-coral/10"
-                  title="Center on my location"
-                >
-                  <Navigation className="h-4 w-4" />
-                  My Location
-                </Button>
-              </div>
-            </div>
-
-            {/* Map Container - Lazy loaded */}
-            <Suspense fallback={<MapLoadingSkeleton />}>
-              <DiscoveryMapComponent
-                discoveryMap={discoveryMap}
-                fogEnabled={fogEnabled}
-                mapCenter={mapCenter}
-                flyToLocation={flyToLocation}
-              />
-            </Suspense>
-          </div>
-        </div>
+        {/* Discovery Map Section - DISABLED (not rendered) */}
 
         {/* My Communities Section */}
         <div>
@@ -464,23 +434,40 @@ const Home = () => {
                   className="cursor-pointer bg-card hover:shadow-xl transition-all duration-200 border-0 shadow-md overflow-hidden group"
                   onClick={() => handleCommunityClick(community.groupId)}
                 >
-                  <CardHeader className="pb-3 bg-gradient-to-br from-coral/5 to-peach/5">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg font-rubik line-clamp-1">
+                  <CardHeader className="pb-3 relative h-32 bg-gradient-to-br from-coral/20 to-peach/20 overflow-hidden">
+                    {/* Background Image */}
+                    {community.picture && (
+                      <div
+                        className="absolute inset-0 bg-cover bg-center"
+                        style={{ backgroundImage: `url(${community.picture})` }}
+                      />
+                    )}
+
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70" />
+
+                    {/* Content */}
+                    <div className="relative h-full flex flex-col justify-between">
+                      <div className="flex justify-end">
+                        {community.isAdmin && (
+                          <Badge className="bg-coral text-white border-0">
+                            <Crown className="h-3 w-3 mr-1" />
+                            Founder
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex-1" />
+
+                      <div>
+                        <CardTitle className="text-lg font-rubik line-clamp-1 text-white drop-shadow-lg">
                           {community.name}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2 mt-1">
+                        <CardDescription className="flex items-center gap-2 mt-1 text-white/90">
                           <Users className="h-3 w-3" />
                           <span>{community.memberCount} members</span>
                         </CardDescription>
                       </div>
-                      {community.isAdmin && (
-                        <Badge className="bg-coral text-white border-0">
-                          <Crown className="h-3 w-3 mr-1" />
-                          Founder
-                        </Badge>
-                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-3">
