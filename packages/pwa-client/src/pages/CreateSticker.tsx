@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Download, Printer, MapPin, Zap, ArrowLeft } from 'lucide-react';
+import { Download, Printer, MapPin, Zap, ArrowLeft, AlertTriangle } from 'lucide-react';
 
 const VALIDATION_SERVICE_URL = import.meta.env.VITE_VALIDATION_SERVICE_URL || 'http://localhost:3001';
 
@@ -101,6 +101,14 @@ export default function CreateSticker() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Alpha Warning */}
+        <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10">
+          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+          <AlertDescription className="text-sm">
+            <strong>Alpha Release:</strong> Peek is in early testing. Communities may be reset or deleted as we improve the platform. Use for testing purposes only.
+          </AlertDescription>
+        </Alert>
+
         <div className="grid gap-8 md:grid-cols-2">
           {/* Instructions */}
           <div className="space-y-6">
