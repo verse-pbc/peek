@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { AdminPanel } from "../components/AdminPanel";
 import { JoinFlow } from "./JoinFlow";
-import { UserIdentityButton } from "@/components/UserIdentityButton";
 import { Button } from "../components/ui/button";
 import {
   Card,
@@ -13,7 +12,6 @@ import {
 } from "../components/ui/card";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   LayoutGrid,
   Settings,
@@ -537,7 +535,6 @@ const Community = () => {
                   </Button>
                 </>
               )}
-              <UserIdentityButton />
             </div>
           </div>
         </div>
