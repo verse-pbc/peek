@@ -92,10 +92,10 @@ export function CommunityFeed({
     return unsubscribe;
   }, [relayManager, groupId, connected]); // messages.length intentionally omitted - only check on connection change
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages (but not on initial load)
   useEffect(() => {
-    if (scrollRef.current) {
-      // Use setTimeout to ensure DOM is fully rendered
+    // Only auto-scroll if we've already done the initial scroll
+    if (scrollRef.current && hasScrolledToBottomRef.current) {
       setTimeout(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -108,20 +108,28 @@ export function CommunityFeed({
   // Scroll to bottom on initial load (after messages are loaded)
   useEffect(() => {
     if (!loading && messages.length > 0 && !hasScrolledToBottomRef.current) {
-      console.log('[CommunityFeed] Triggering initial scroll to bottom');
+      console.log('[CommunityFeed] Triggering initial scroll to bottom, messages:', messages.length);
       // Use multiple attempts to ensure scroll happens after render
       const scrollToBottom = () => {
         if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          console.log('[CommunityFeed] Initial scroll to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
+          const scrollHeight = scrollRef.current.scrollHeight;
+          scrollRef.current.scrollTop = scrollHeight;
+          console.log('[CommunityFeed] Initial scroll attempt - scrollTop:', scrollRef.current.scrollTop, 'scrollHeight:', scrollHeight);
         }
       };
 
       // Try multiple times with increasing delays to catch render
       setTimeout(scrollToBottom, 0);
-      setTimeout(scrollToBottom, 100);
-      setTimeout(scrollToBottom, 300);
-      hasScrolledToBottomRef.current = true;
+      setTimeout(scrollToBottom, 50);
+      setTimeout(scrollToBottom, 150);
+      setTimeout(scrollToBottom, 350);
+      setTimeout(scrollToBottom, 600);
+      setTimeout(scrollToBottom, 1000);
+
+      // Mark as done after first attempt
+      setTimeout(() => {
+        hasScrolledToBottomRef.current = true;
+      }, 100);
     }
   }, [loading, messages]);
 
