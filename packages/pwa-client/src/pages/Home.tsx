@@ -377,8 +377,8 @@ const Home = () => {
 
       {/* Main Content - Map and Communities */}
       <main className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-        {/* Discovery Map Section */}
-        <div className="mb-6">
+        {/* Discovery Map Section - Hidden */}
+        <div className="mb-6 hidden">
           <div className="bg-card rounded-2xl shadow-lg overflow-hidden">
             {/* Map Header */}
             <div className="p-4 border-b border-border">
