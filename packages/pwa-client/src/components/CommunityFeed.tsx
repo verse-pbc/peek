@@ -2,8 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Send } from 'lucide-react';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -153,19 +151,8 @@ export function CommunityFeed({
   }, {} as Record<string, Message[]>);
 
   return (
-    <Card className="flex flex-col h-[600px] overflow-hidden">
-      <CardHeader className="pb-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">{communityName}</CardTitle>
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <Badge>Admin</Badge>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex-1 p-0 flex flex-col min-h-0">
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex-1 p-0 flex flex-col min-h-0">
         <ScrollArea ref={scrollRef} className="flex-1 px-4 overflow-x-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -271,7 +258,7 @@ export function CommunityFeed({
             </p>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
