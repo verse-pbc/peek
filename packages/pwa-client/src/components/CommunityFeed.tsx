@@ -95,28 +95,33 @@ export function CommunityFeed({
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
-      // Use requestAnimationFrame to ensure DOM is updated
-      requestAnimationFrame(() => {
+      // Use setTimeout to ensure DOM is fully rendered
+      setTimeout(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
           console.log('[CommunityFeed] Auto-scrolled to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
         }
-      });
+      }, 100);
     }
   }, [messages]);
 
   // Scroll to bottom on initial load (after messages are loaded)
   useEffect(() => {
-    if (!loading && messages.length > 0 && !hasScrolledToBottomRef.current && scrollRef.current) {
-      console.log('[CommunityFeed] Scrolling to bottom on initial load');
-      // Use requestAnimationFrame to ensure DOM is updated
-      requestAnimationFrame(() => {
+    if (!loading && messages.length > 0 && !hasScrolledToBottomRef.current) {
+      console.log('[CommunityFeed] Triggering initial scroll to bottom');
+      // Use multiple attempts to ensure scroll happens after render
+      const scrollToBottom = () => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          hasScrolledToBottomRef.current = true;
           console.log('[CommunityFeed] Initial scroll to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
         }
-      });
+      };
+
+      // Try multiple times with increasing delays to catch render
+      setTimeout(scrollToBottom, 0);
+      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 300);
+      hasScrolledToBottomRef.current = true;
     }
   }, [loading, messages]);
 
@@ -176,7 +181,7 @@ export function CommunityFeed({
       {/* Messages ScrollArea */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-24"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-32"
       >
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -253,14 +258,15 @@ export function CommunityFeed({
       </div>
 
       {/* Fixed Input Container at Bottom */}
-      <div className="absolute bottom-0 left-0 right-0 bg-background border-t p-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            sendMessage();
-          }}
-          className="flex gap-2"
-        >
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-50 shadow-lg">
+        <div className="max-w-4xl mx-auto">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage();
+            }}
+            className="flex gap-2"
+          >
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -282,6 +288,7 @@ export function CommunityFeed({
             Connect your Nostr account to send messages
           </p>
         )}
+        </div>
       </div>
     </div>
   );
