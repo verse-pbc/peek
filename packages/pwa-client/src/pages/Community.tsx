@@ -7,7 +7,10 @@ import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "../components/ui/card";
+import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import {
   LayoutGrid,
@@ -481,36 +484,6 @@ const Community = () => {
 
   return (
     <div className="h-screen bg-background flex flex-col">
-      {/* Hero Image */}
-      {communityData.picture && (
-        <div className="relative h-48 w-full overflow-hidden">
-          <img
-            src={communityData.picture}
-            alt={communityData.name}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
-          {/* Community name overlay on image */}
-          <div className="absolute bottom-4 left-4 right-4 max-w-4xl mx-auto">
-            <h1 className="text-3xl font-rubik font-bold text-white drop-shadow-lg">
-              {communityData.name}
-            </h1>
-            <div className="flex items-center gap-4 mt-2 text-sm text-white/90">
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {communityData.memberCount} members
-              </span>
-              {communityData.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  Location verified
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <div className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4">
@@ -525,26 +498,23 @@ const Community = () => {
               >
                 <LayoutGrid className="h-4 w-4" />
               </Button>
-              {/* Only show name in header if no hero image */}
-              {!communityData.picture && (
-                <div className="min-w-0 flex-1">
-                  <h1 className="text-lg sm:text-xl font-rubik font-semibold truncate">
-                    {communityData.name}
-                  </h1>
-                  <div className="flex items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      {communityData.memberCount} members
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl font-rubik font-semibold truncate">
+                  {communityData.name}
+                </h1>
+                <div className="flex items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    {communityData.memberCount} members
+                  </span>
+                  {communityData.location && (
+                    <span className="hidden sm:flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      Location verified
                     </span>
-                    {communityData.location && (
-                      <span className="hidden sm:flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        Location verified
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {communityData.isAdmin && (

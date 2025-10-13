@@ -25,8 +25,8 @@ interface CommunityFeedProps {
 
 export function CommunityFeed({
   groupId,
-  communityName = 'Community',
-  isAdmin = false,
+  communityName: _communityName = 'Community',
+  isAdmin: _isAdmin = false,
   onMemberClick
 }: CommunityFeedProps) {
   const { identity } = useNostrLogin();
