@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom Fonts */
+@font-face {
+  font-family: 'Integral CF';
+  src: url('/fonts/IntegralCF-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Leaflet Map Styles */
 .leaflet-container {
   height: 100%;

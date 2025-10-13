@@ -497,7 +497,7 @@ const Community = () => {
               </Button>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg sm:text-xl font-rubik font-semibold truncate">
+                  <h1 className="text-lg sm:text-xl font-bold truncate" style={{ fontFamily: "'Integral CF', sans-serif" }}>
                     {communityData.name}
                   </h1>
                   <span className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
