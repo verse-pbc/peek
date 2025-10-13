@@ -201,7 +201,7 @@ export function CommunityFeed({
       {/* Messages ScrollArea */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-32 min-h-0"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-[88px] min-h-0"
       >
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
