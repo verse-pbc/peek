@@ -6,6 +6,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { useProfile, useNip05Verification } from '@/contexts/ProfileContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { cn } from '@/lib/utils';
+import { genUserName } from '@/lib/genUserName';
 
 interface UserProfileProps {
   pubkey: string;
@@ -56,8 +57,8 @@ export function UserProfile({
   const { data: nip05Verified } = useNip05Verification(profile?.nip05, resolvedPubkey);
 
   // Compute display values
-  const displayName = profile?.display_name || profile?.name || `${nip19.npubEncode(resolvedPubkey).slice(0, 8)}...`;
-  const initials = (profile?.display_name || profile?.name || 'U')[0].toUpperCase();
+  const displayName = profile?.display_name || profile?.name || genUserName(resolvedPubkey);
+  const initials = (profile?.display_name || profile?.name || genUserName(resolvedPubkey))[0].toUpperCase();
 
   if (isLoading) {
     return (

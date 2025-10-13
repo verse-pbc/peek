@@ -6,6 +6,7 @@ import {
   finalizeEvent,
   type EventTemplate,
   type VerifiedEvent,
+  nip19,
 } from "nostr-tools";
 
 // NIP-29 event kinds
@@ -869,6 +870,29 @@ export class RelayManager {
   }
 
   /**
+   * Extract mentioned pubkeys from content (NIP-27 format: nostr:npub1...)
+   */
+  private extractMentions(content: string): string[] {
+    const mentionRegex = /nostr:(npub1[023456789acdefghjklmnpqrstuvwxyz]+)/g;
+    const mentions: string[] = [];
+    let match;
+
+    while ((match = mentionRegex.exec(content)) !== null) {
+      try {
+        const npub = match[1];
+        const decoded = nip19.decode(npub);
+        if (decoded.type === 'npub') {
+          mentions.push(decoded.data);
+        }
+      } catch (e) {
+        console.warn('[RelayManager] Failed to decode mention:', match[1]);
+      }
+    }
+
+    return [...new Set(mentions)];
+  }
+
+  /**
    * Send a chat message to a group
    */
   async sendMessage(
@@ -882,6 +906,12 @@ export class RelayManager {
     }
 
     const tags: string[][] = [["h", groupId]];
+
+    // Add p-tags for mentioned users (NIP-27)
+    const mentionedPubkeys = this.extractMentions(content);
+    for (const pubkey of mentionedPubkeys) {
+      tags.push(["p", pubkey]);
+    }
 
     // Add reply tag if replying to another message
     if (replyTo) {
@@ -1004,6 +1034,9 @@ export class RelayManager {
 
     // Notify handlers
     this.notifyEventHandlers(`group-metadata-${dTag}`, event);
+    const pattern = `kind:${event.kind}`;
+    console.log(`[RelayManager] Notifying handlers for pattern: ${pattern}`);
+    this.notifyEventHandlers(pattern, event);
   }
 
   /**
@@ -1024,7 +1057,7 @@ export class RelayManager {
 
     // Notify handlers for this event type
     this.notifyEventHandlers(`group-${groupId}`, event);
-    this.notifyEventHandlers(`kind-${event.kind}`, event);
+    this.notifyEventHandlers(`kind:${event.kind}`, event);
   }
 
   /**

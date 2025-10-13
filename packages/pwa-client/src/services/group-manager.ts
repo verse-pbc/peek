@@ -182,6 +182,8 @@ export class GroupManager {
     const groupId = event.tags.find((t) => t[0] === "d")?.[1];
     if (!groupId) return;
 
+    console.log(`[GroupManager] 🎯 handleMembersEvent called for group: ${groupId}`);
+
     const cache = this.getOrCreateCache(groupId);
     cache.members.clear();
 

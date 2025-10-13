@@ -49,6 +49,7 @@ yarn-error.log*
 
 # Spec-kit artifacts
 .specify/
+specs/
 features/
 spec.md
 plan.md

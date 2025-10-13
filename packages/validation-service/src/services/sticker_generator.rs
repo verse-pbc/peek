@@ -65,8 +65,8 @@ pub fn generate_sticker_svg(config: &StickerConfig) -> Result<String, anyhow::Er
       <stop offset="100%" style="stop-color:#FFFFFF;stop-opacity:1" />
     </linearGradient>
     <linearGradient id="qrGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FF6B4A;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FF8C6B;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#2C3E50;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2C3E50;stop-opacity:1" />
     </linearGradient>
     <filter id="shadow">
       <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.1"/>

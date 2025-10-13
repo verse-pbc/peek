@@ -24,6 +24,7 @@ import { useNostrLogin } from "../lib/nostrify-shim";
 import { useRelayManager } from "../contexts/RelayContext";
 import { useMigrationState } from "../hooks/useMigrationState";
 import { useMigrationPolling } from "../hooks/useMigrationPolling";
+import { UserIdentityButton } from "@/components/UserIdentityButton";
 
 interface CommunityData {
   groupId: string;
@@ -507,17 +508,20 @@ const Community = () => {
                 </div>
               </div>
             </div>
-            {communityData.isAdmin && (
-              <Button
-                onClick={handleAdminClick}
-                variant="ghost"
-                size="icon"
-                className="hover:bg-coral/10 flex-shrink-0 [&_svg]:!size-[21px]"
-                title="Manage community"
-              >
-                <Settings />
-              </Button>
-            )}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <UserIdentityButton />
+              {communityData.isAdmin && (
+                <Button
+                  onClick={handleAdminClick}
+                  variant="ghost"
+                  size="icon"
+                  className="hover:bg-coral/10 [&_svg]:!size-[21px]"
+                  title="Manage community"
+                >
+                  <Settings />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
