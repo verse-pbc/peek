@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
-import { LatLng } from 'leaflet';
+// import { LatLng } from 'leaflet'; // DISABLED - map is hidden
 import { useNostrContext } from '@/hooks/useNostrContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,21 +17,21 @@ import {
   UserCircle,
   Crown,
   Sparkles,
-  Navigation
+  // Navigation // DISABLED - map is hidden
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
 import { UserIdentityButton } from '@/components/UserIdentityButton';
-import { DiscoveryService, DiscoveryMap as IDiscoveryMap } from '@/services/discovery-service';
-import { MapLoadingSkeleton } from '@/components/map/MapLoadingSkeleton';
+// import { DiscoveryService, DiscoveryMap as IDiscoveryMap } from '@/services/discovery-service'; // DISABLED - map is hidden
+// import { MapLoadingSkeleton } from '@/components/map/MapLoadingSkeleton'; // DISABLED - map is hidden
 
-// Lazy load the map component to improve initial LCP
-const DiscoveryMapComponent = lazy(() =>
-  import('@/components/map/DiscoveryMap').then(module => ({
-    default: module.DiscoveryMapComponent
-  }))
-);
+// Lazy load the map component to improve initial LCP - DISABLED (map is hidden)
+// const DiscoveryMapComponent = lazy(() =>
+//   import('@/components/map/DiscoveryMap').then(module => ({
+//     default: module.DiscoveryMapComponent
+//   }))
+// );
 
 const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
 
@@ -62,12 +62,12 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [rejoinMessage, setRejoinMessage] = useState<string | null>(null);
 
-  // Discovery map states
-  const [discoveryMap, setDiscoveryMap] = useState<IDiscoveryMap | null>(null);
-  const fogEnabled = true; // Always enabled, no toggle needed
-  const [mapCenter, setMapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF, will update with user location
-  const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
-  const discoveryServiceRef = useRef<DiscoveryService | null>(null);
+  // Discovery map states - DISABLED (map is hidden)
+  // const [discoveryMap, setDiscoveryMap] = useState<IDiscoveryMap | null>(null);
+  // const fogEnabled = true; // Always enabled, no toggle needed
+  // const [mapCenter, setMapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF, will update with user location
+  // const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
+  // const discoveryServiceRef = useRef<DiscoveryService | null>(null);
 
   // Dev mode detection - show "Create Dev Test Community" button when ?dev=true
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -86,63 +86,63 @@ const Home = () => {
     }
   }, [location.state]);
 
-  // Auto-center map on user location on load
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLocation = new LatLng(
-            position.coords.latitude,
-            position.coords.longitude
-          );
-          setMapCenter(userLocation);
-          setFlyToLocation(userLocation);
-          console.log('[Home] Auto-centered map on user location:', userLocation);
-        },
-        (error) => {
-          console.warn('[Home] Could not get user location:', error.message);
-          // Keep default SF coordinates if location access denied
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      );
-    }
-  }, []); // Run once on mount
+  // Auto-center map on user location on load - DISABLED (map is hidden)
+  // useEffect(() => {
+  //   if (navigator.geolocation) {
+  //     navigator.geolocation.getCurrentPosition(
+  //       (position) => {
+  //         const userLocation = new LatLng(
+  //           position.coords.latitude,
+  //           position.coords.longitude
+  //         );
+  //         setMapCenter(userLocation);
+  //         setFlyToLocation(userLocation);
+  //         console.log('[Home] Auto-centered map on user location:', userLocation);
+  //       },
+  //       (error) => {
+  //         console.warn('[Home] Could not get user location:', error.message);
+  //         // Keep default SF coordinates if location access denied
+  //       },
+  //       {
+  //         enableHighAccuracy: true,
+  //         timeout: 5000,
+  //         maximumAge: 0
+  //       }
+  //     );
+  //   }
+  // }, []); // Run once on mount
 
-  // Load discovery map
-  useEffect(() => {
-    const loadDiscoveryMap = async () => {
-      try {
-        const service = new DiscoveryService(RELAY_URL);
-        discoveryServiceRef.current = service;
+  // Load discovery map - DISABLED (map is hidden)
+  // useEffect(() => {
+  //   const loadDiscoveryMap = async () => {
+  //     try {
+  //       const service = new DiscoveryService(RELAY_URL);
+  //       discoveryServiceRef.current = service;
 
-        const map = await service.fetchDiscoveryMap();
-        setDiscoveryMap(map);
+  //       const map = await service.fetchDiscoveryMap();
+  //       setDiscoveryMap(map);
 
-        // Subscribe to updates
-        const unsubscribe = service.subscribeToDiscoveryUpdates((updatedMap) => {
-          setDiscoveryMap(updatedMap);
-        });
+  //       // Subscribe to updates
+  //       const unsubscribe = service.subscribeToDiscoveryUpdates((updatedMap) => {
+  //         setDiscoveryMap(updatedMap);
+  //       });
 
-        return () => {
-          unsubscribe();
-        };
-      } catch (error) {
-        console.error('Failed to load discovery map:', error);
-      }
-    };
+  //       return () => {
+  //         unsubscribe();
+  //       };
+  //     } catch (error) {
+  //       console.error('Failed to load discovery map:', error);
+  //     }
+  //   };
 
-    loadDiscoveryMap();
+  //   loadDiscoveryMap();
 
-    return () => {
-      if (discoveryServiceRef.current) {
-        discoveryServiceRef.current.close();
-      }
-    };
-  }, []);
+  //   return () => {
+  //     if (discoveryServiceRef.current) {
+  //       discoveryServiceRef.current.close();
+  //     }
+  //   };
+  // }, []);
 
   // Fetch user's communities (re-runs on navigation to home)
   useEffect(() => {
@@ -250,35 +250,36 @@ const Home = () => {
     navigate(`/c/${groupId}`);
   };
 
-  const handleFlyToLocation = useCallback(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLocation = new LatLng(
-            position.coords.latitude,
-            position.coords.longitude
-          );
-          setFlyToLocation(userLocation);
-          toast({
-            title: "📍 Location found",
-            description: "Centering map on your location",
-          });
-        },
-        (error) => {
-          toast({
-            title: "Location error",
-            description: error.message,
-            variant: "destructive"
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0
-        }
-      );
-    }
-  }, [toast]);
+  // DISABLED - map is hidden
+  // const handleFlyToLocation = useCallback(() => {
+  //   if (navigator.geolocation) {
+  //     navigator.geolocation.getCurrentPosition(
+  //       (position) => {
+  //         const userLocation = new LatLng(
+  //           position.coords.latitude,
+  //           position.coords.longitude
+  //         );
+  //         setFlyToLocation(userLocation);
+  //         toast({
+  //           title: "📍 Location found",
+  //           description: "Centering map on your location",
+  //         });
+  //       },
+  //       (error) => {
+  //         toast({
+  //           title: "Location error",
+  //           description: error.message,
+  //           variant: "destructive"
+  //         });
+  //       },
+  //       {
+  //         enableHighAccuracy: true,
+  //         timeout: 5000,
+  //         maximumAge: 0
+  //       }
+  //     );
+  //   }
+  // }, [toast]);
 
   const handleCreateTestCommunity = useCallback(() => {
     const uuid = crypto.randomUUID();
@@ -378,41 +379,7 @@ const Home = () => {
 
       {/* Main Content - Map and Communities */}
       <main className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-        {/* Discovery Map Section - Hidden */}
-        <div className="mb-6 hidden">
-          <div className="bg-card rounded-2xl shadow-lg overflow-hidden">
-            {/* Map Header */}
-            <div className="p-4 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-rubik font-bold">
-                    Discover Communities
-                  </h2>
-                </div>
-                <Button
-                  onClick={handleFlyToLocation}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 border-coral/30 hover:bg-coral/10"
-                  title="Center on my location"
-                >
-                  <Navigation className="h-4 w-4" />
-                  My Location
-                </Button>
-              </div>
-            </div>
-
-            {/* Map Container - Lazy loaded */}
-            <Suspense fallback={<MapLoadingSkeleton />}>
-              <DiscoveryMapComponent
-                discoveryMap={discoveryMap}
-                fogEnabled={fogEnabled}
-                mapCenter={mapCenter}
-                flyToLocation={flyToLocation}
-              />
-            </Suspense>
-          </div>
-        </div>
+        {/* Discovery Map Section - DISABLED (not rendered) */}
 
         {/* My Communities Section */}
         <div>
