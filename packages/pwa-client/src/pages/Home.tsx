@@ -33,7 +33,8 @@ import { UserIdentityButton } from '@/components/UserIdentityButton';
 //   }))
 // );
 
-const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
+// DISABLED - map is hidden
+// const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
 
 interface Community {
   groupId: string;
@@ -192,6 +193,7 @@ const Home = () => {
             joinedAt: cachedGroupInfo?.joinedAt || Date.now() / 1000,
             lastActivity: lastActivity || undefined,
             createdAt: group.metadata?.createdAt,
+            picture: group.metadata?.picture,
             location: cachedGroupInfo?.location
           };
         });
