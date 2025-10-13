@@ -115,6 +115,8 @@ mod tests {
         let svg = result.unwrap();
         assert!(svg.contains("svg"));
         assert!(svg.contains("PEEK"));
-        assert!(svg.contains("/c/"));
+        assert!(svg.contains("qrGradient"));
+        assert!(svg.contains("bgGradient"));
+        assert!(svg.contains("#4ECDC4")); // mint accent line
     }
 }
