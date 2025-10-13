@@ -3,16 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { AdminPanel } from "../components/AdminPanel";
 import { JoinFlow } from "./JoinFlow";
-import { UserIdentityButton } from "@/components/UserIdentityButton";
 import { Button } from "../components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "../components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
 import {
   LayoutGrid,
@@ -485,7 +480,7 @@ const Community = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col">
       {/* Hero Image */}
       {communityData.picture && (
         <div className="relative h-48 w-full overflow-hidden">
@@ -570,58 +565,18 @@ const Community = () => {
                   </Button>
                 </>
               )}
-              <UserIdentityButton />
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="grid gap-6">
-          {/* Community Info Card */}
-          <Card className="border-0 shadow-lg bg-card">
-            <CardHeader className="bg-gradient-to-br from-coral/5 to-peach/5">
-              <CardTitle className="font-rubik">
-                Welcome to the Community
-              </CardTitle>
-              <CardDescription>
-                This is a location-based group for people who have visited this
-                place
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4 pt-4">
-                <Alert className="border-mint/20 bg-mint/5 dark:bg-mint/10 dark:border-mint/30">
-                  <MapPin className="h-4 w-4 text-mint" />
-                  <AlertTitle>Location Verified Community</AlertTitle>
-                  <AlertDescription>
-                    All members have physically visited this location. New
-                    members must be present at the location to join.
-                  </AlertDescription>
-                </Alert>
-
-                {communityData.isAdmin && (
-                  <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
-                    <Crown className="h-4 w-4 text-coral" />
-                    <AlertTitle>You're the Founder</AlertTitle>
-                    <AlertDescription>
-                      You have admin privileges for this community. You can
-                      manage members and moderate content.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Feed */}
-          <CommunityFeed
-            groupId={communityData.groupId}
-            communityName={communityData.name}
-            isAdmin={communityData.isAdmin}
-          />
-        </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <CommunityFeed
+          groupId={communityData.groupId}
+          communityName={communityData.name}
+          isAdmin={communityData.isAdmin}
+        />
       </div>
 
       {/* Admin Panel Modal */}

@@ -1,9 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Send } from 'lucide-react';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -42,6 +39,7 @@ export function CommunityFeed({
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasScrolledToBottomRef = useRef(false);
 
   // Subscribe to connection status from context
   useEffect(() => {
@@ -94,12 +92,58 @@ export function CommunityFeed({
     return unsubscribe;
   }, [relayManager, groupId, connected]); // messages.length intentionally omitted - only check on connection change
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom on new messages (but not on initial load)
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    // Only auto-scroll if we've already done the initial scroll
+    if (scrollRef.current && hasScrolledToBottomRef.current) {
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          console.log('[CommunityFeed] Auto-scrolled to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
+        }
+      }, 100);
     }
   }, [messages]);
+
+  // Scroll to bottom on initial load (after messages are loaded)
+  useEffect(() => {
+    if (!loading && messages.length > 0 && !hasScrolledToBottomRef.current) {
+      console.log('[CommunityFeed] Triggering initial scroll to bottom, messages:', messages.length);
+      // Use multiple attempts to ensure scroll happens after render
+      const scrollToBottom = () => {
+        if (scrollRef.current) {
+          const element = scrollRef.current;
+          const scrollHeight = element.scrollHeight;
+          const clientHeight = element.clientHeight;
+          const maxScroll = scrollHeight - clientHeight;
+
+          console.log('[CommunityFeed] Scroll debug - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'maxScroll:', maxScroll);
+
+          // Try both methods
+          element.scrollTop = maxScroll;
+          element.scrollTo({ top: maxScroll, behavior: 'auto' });
+
+          // Also try scrolling to a large number as fallback
+          element.scrollTo({ top: 999999, behavior: 'auto' });
+
+          console.log('[CommunityFeed] Initial scroll attempt - scrollTop after set:', element.scrollTop, 'target was:', maxScroll);
+        }
+      };
+
+      // Try multiple times with increasing delays to catch render
+      setTimeout(scrollToBottom, 0);
+      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 300);
+      setTimeout(scrollToBottom, 500);
+      setTimeout(scrollToBottom, 800);
+      setTimeout(scrollToBottom, 1200);
+
+      // Mark as done after first attempt
+      setTimeout(() => {
+        hasScrolledToBottomRef.current = true;
+      }, 100);
+    }
+  }, [loading, messages]);
 
   const sendMessage = async () => {
     if (!relayManager || !identity || !newMessage.trim() || !connected) return;
@@ -153,95 +197,89 @@ export function CommunityFeed({
   }, {} as Record<string, Message[]>);
 
   return (
-    <Card className="flex flex-col h-[600px] overflow-hidden">
-      <CardHeader className="pb-3 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">{communityName}</CardTitle>
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <Badge>Admin</Badge>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex-1 p-0 flex flex-col min-h-0">
-        <ScrollArea ref={scrollRef} className="flex-1 px-4 overflow-x-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Loading messages...
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              No messages yet. Be the first to say hello!
-            </div>
-          ) : (
-            <div className="space-y-4 py-4">
-              {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-                <div key={date}>
-                  <div className="flex items-center justify-center my-4">
-                    <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                      {date}
-                    </div>
+    <div className="flex flex-col h-full overflow-hidden relative">
+      {/* Messages ScrollArea */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-[88px] min-h-0"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            Loading messages...
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            No messages yet. Be the first to say hello!
+          </div>
+        ) : (
+          <div className="space-y-4 py-4">
+            {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+              <div key={date}>
+                <div className="flex items-center justify-center my-4">
+                  <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                    {date}
                   </div>
+                </div>
 
-                  {dateMessages.map((message) => {
-                    // Resolve identity to handle migrations - show current identity not old one
-                    const resolvedPubkey = resolveIdentity(message.pubkey);
-                    if (resolvedPubkey !== message.pubkey) {
-                      console.log(`[CommunityFeed] 🔄 Resolved identity: ${message.pubkey.slice(0,8)}... → ${resolvedPubkey.slice(0,8)}...`);
-                    }
-                    const isOwnMessage = identity?.publicKey === resolvedPubkey;
+                {dateMessages.map((message) => {
+                  // Resolve identity to handle migrations - show current identity not old one
+                  const resolvedPubkey = resolveIdentity(message.pubkey);
+                  if (resolvedPubkey !== message.pubkey) {
+                    console.log(`[CommunityFeed] 🔄 Resolved identity: ${message.pubkey.slice(0,8)}... → ${resolvedPubkey.slice(0,8)}...`);
+                  }
+                  const isOwnMessage = identity?.publicKey === resolvedPubkey;
 
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex items-start gap-3 mb-4 overflow-hidden ${
-                          isOwnMessage ? 'flex-row-reverse' : ''
-                        }`}
-                      >
-                        <UserProfile
-                          pubkey={resolvedPubkey}
-                          size="sm"
-                          showName={false}
-                          onClick={() => onMemberClick?.(resolvedPubkey)}
-                          groupId={groupId}
-                        />
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex items-start gap-3 mb-4 overflow-hidden ${
+                        isOwnMessage ? 'flex-row-reverse' : ''
+                      }`}
+                    >
+                      <UserProfile
+                        pubkey={resolvedPubkey}
+                        size="sm"
+                        showName={false}
+                        onClick={() => onMemberClick?.(resolvedPubkey)}
+                        groupId={groupId}
+                      />
 
-                        <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
-                          <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
-                            <UserProfile
-                              pubkey={resolvedPubkey}
-                              size="sm"
-                              showName={true}
-                              showAvatar={false}
-                              className="inline-flex"
-                              nameClassName="text-sm font-medium truncate max-w-[150px]"
-                              groupId={groupId}
-                            />
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {formatTime(message.created_at)}
-                            </span>
-                          </div>
+                      <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
+                        <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
+                          <UserProfile
+                            pubkey={resolvedPubkey}
+                            size="sm"
+                            showName={true}
+                            showAvatar={false}
+                            className="inline-flex"
+                            nameClassName="text-sm font-medium truncate max-w-[150px]"
+                            groupId={groupId}
+                          />
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {formatTime(message.created_at)}
+                          </span>
+                        </div>
 
-                          <div className={`rounded-lg px-3 py-2 max-w-[280px] ${
-                            isOwnMessage
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted'
-                          }`}>
-                            <p className="text-sm break-words">{message.content}</p>
-                          </div>
+                        <div className={`rounded-lg px-3 py-2 max-w-[280px] ${
+                          isOwnMessage
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}>
+                          <p className="text-sm break-words">{message.content}</p>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-        <div className="p-4 border-t flex-shrink-0">
+      {/* Fixed Input Container at Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-50 shadow-lg">
+        <div className="max-w-4xl mx-auto">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -249,29 +287,29 @@ export function CommunityFeed({
             }}
             className="flex gap-2"
           >
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              disabled={sending || !identity || !connected}
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={sending || !identity || !connected || !newMessage.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            disabled={sending || !identity || !connected}
+            className="flex-1"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={sending || !identity || !connected || !newMessage.trim()}
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
 
-          {!identity && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Connect your Nostr account to send messages
-            </p>
-          )}
+        {!identity && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Connect your Nostr account to send messages
+          </p>
+        )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
