@@ -40,6 +40,7 @@ export function CommunityFeed({
   const [sending, setSending] = useState(false);
   const [connected, setConnected] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const hasScrolledToBottomRef = useRef(false);
 
   // Subscribe to connection status from context
   useEffect(() => {
@@ -99,6 +100,15 @@ export function CommunityFeed({
     }
   }, [messages]);
 
+  // Scroll to bottom on initial load (after messages are loaded)
+  useEffect(() => {
+    if (!loading && messages.length > 0 && !hasScrolledToBottomRef.current && scrollRef.current) {
+      console.log('[CommunityFeed] Scrolling to bottom on initial load');
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      hasScrolledToBottomRef.current = true;
+    }
+  }, [loading, messages]);
+
   const sendMessage = async () => {
     if (!relayManager || !identity || !newMessage.trim() || !connected) return;
 
@@ -151,9 +161,10 @@ export function CommunityFeed({
   }, {} as Record<string, Message[]>);
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="flex-1 p-0 flex flex-col min-h-0">
-        <ScrollArea ref={scrollRef} className="flex-1 px-4 overflow-x-hidden">
+    <div className="flex flex-col flex-1 overflow-hidden relative">
+      {/* Messages ScrollArea */}
+      <div className="flex-1 overflow-hidden pb-24">
+        <ScrollArea ref={scrollRef} className="h-full px-4 overflow-x-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               Loading messages...
@@ -227,37 +238,38 @@ export function CommunityFeed({
             </div>
           )}
         </ScrollArea>
+      </div>
 
-        <div className="p-4 border-t flex-shrink-0">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage();
-            }}
-            className="flex gap-2"
+      {/* Fixed Input Container at Bottom */}
+      <div className="absolute bottom-0 left-0 right-0 bg-background border-t p-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage();
+          }}
+          className="flex gap-2"
+        >
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Type a message..."
+            disabled={sending || !identity || !connected}
+            className="flex-1"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={sending || !identity || !connected || !newMessage.trim()}
           >
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              disabled={sending || !identity || !connected}
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={sending || !identity || !connected || !newMessage.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
 
-          {!identity && (
-            <p className="text-xs text-muted-foreground mt-2">
-              Connect your Nostr account to send messages
-            </p>
-          )}
-        </div>
+        {!identity && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Connect your Nostr account to send messages
+          </p>
+        )}
       </div>
     </div>
   );
