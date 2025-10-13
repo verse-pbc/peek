@@ -772,7 +772,6 @@ export class GroupManager {
    */
   async getUserGroups(): Promise<
     Array<{
-      groupId: string;
       communityId: string;
       nip29GroupId: string;
       name: string;
@@ -820,7 +819,6 @@ export class GroupManager {
       console.log(`[GroupManager] K-tag query: ${metadataEvents.length} peek groups found`);
 
       const userGroups: Array<{
-        groupId: string;
         communityId: string;
         nip29GroupId: string;
         name: string;
@@ -852,7 +850,6 @@ export class GroupManager {
         const isAdmin = this.isGroupAdmin(groupId, userPubkey);
 
         userGroups.push({
-          groupId: communityId,
           communityId,
           nip29GroupId: groupId,
           name: metadata?.name || `Community ${communityId.slice(0, 8)}`,
