@@ -101,7 +101,7 @@ export function UserProfile({
           <AvatarFallback>{initials}</AvatarFallback>
         )}
       </Avatar>
-      {isAdmin && (
+      {isAdmin && showAvatar && (
         <div className="absolute -bottom-0.5 -right-0.5 bg-[#FF6B35] rounded-full p-0.5">
           <Crown className="lucide-crown h-2.5 w-2.5 text-white" />
         </div>
