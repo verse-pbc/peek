@@ -480,7 +480,7 @@ const Community = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col">
       {/* Hero Image */}
       {communityData.picture && (
         <div className="relative h-48 w-full overflow-hidden">
