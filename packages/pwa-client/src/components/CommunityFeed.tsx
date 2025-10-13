@@ -252,7 +252,7 @@ export function CommunityFeed({
                             showName={true}
                             showAvatar={false}
                             className="inline-flex"
-                            nameClassName="text-sm font-medium truncate max-w-[150px]"
+                            nameClassName="text-sm font-semibold truncate max-w-[150px]"
                             groupId={groupId}
                           />
                           <span className="text-xs text-muted-foreground flex-shrink-0">
