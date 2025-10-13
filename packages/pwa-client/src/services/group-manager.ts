@@ -774,6 +774,7 @@ export class GroupManager {
     Array<{
       groupId: string;
       communityId: string;
+      nip29GroupId: string;
       name: string;
       memberCount: number;
       isAdmin: boolean;
@@ -821,6 +822,7 @@ export class GroupManager {
       const userGroups: Array<{
         groupId: string;
         communityId: string;
+        nip29GroupId: string;
         name: string;
         memberCount: number;
         isAdmin: boolean;
@@ -852,6 +854,7 @@ export class GroupManager {
         userGroups.push({
           groupId: communityId,
           communityId,
+          nip29GroupId: groupId,
           name: metadata?.name || `Community ${communityId.slice(0, 8)}`,
           memberCount,
           isAdmin,

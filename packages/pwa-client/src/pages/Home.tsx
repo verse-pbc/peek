@@ -173,8 +173,8 @@ const Home = () => {
         console.log(`[Home] Found ${userGroups.length} communities from NIP-29 events`);
 
         // Batch fetch last activity for all groups in a single query
-        const groupIds = userGroups.map(g => g.groupId);
-        const lastActivityMap = await relayManager.getMultipleGroupsLastActivity(groupIds);
+        const nip29GroupIds = userGroups.map(g => g.nip29GroupId);
+        const lastActivityMap = await relayManager.getMultipleGroupsLastActivity(nip29GroupIds);
 
         // Convert to Community format for the UI
         const userCommunities: Community[] = userGroups.map(group => {
@@ -183,7 +183,7 @@ const Home = () => {
           const cachedGroupInfo = joinedGroups.find((g: { communityId: string }) => g.communityId === group.communityId);
 
           // Get last activity from batched results
-          const lastActivity = lastActivityMap.get(group.groupId);
+          const lastActivity = lastActivityMap.get(group.nip29GroupId);
 
           return {
             groupId: group.groupId,
