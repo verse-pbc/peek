@@ -37,7 +37,7 @@ import { UserIdentityButton } from '@/components/UserIdentityButton';
 // const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
 
 interface Community {
-  groupId: string;
+  communityId: string;
   name: string;
   memberCount: number;
   lastActivity?: number;
@@ -186,7 +186,7 @@ const Home = () => {
           const lastActivity = lastActivityMap.get(group.nip29GroupId);
 
           return {
-            groupId: group.groupId,
+            communityId: group.communityId,
             name: group.name,
             memberCount: group.memberCount,
             isAdmin: group.isAdmin,
@@ -248,8 +248,8 @@ const Home = () => {
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
-  const handleCommunityClick = (groupId: string) => {
-    navigate(`/c/${groupId}`);
+  const handleCommunityClick = (communityId: string) => {
+    navigate(`/c/${communityId}`);
   };
 
   // DISABLED - map is hidden
@@ -430,9 +430,9 @@ const Home = () => {
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {communities.map((community) => (
                 <Card
-                  key={community.groupId}
+                  key={community.communityId}
                   className="cursor-pointer bg-card hover:shadow-xl transition-all duration-200 border-0 shadow-md overflow-hidden group"
-                  onClick={() => handleCommunityClick(community.groupId)}
+                  onClick={() => handleCommunityClick(community.communityId)}
                 >
                   <CardHeader className="pb-3 relative h-32 bg-gradient-to-br from-coral/20 to-peach/20 overflow-hidden">
                     {/* Background Image */}
