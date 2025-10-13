@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send } from 'lucide-react';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -96,7 +95,13 @@ export function CommunityFeed({
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          console.log('[CommunityFeed] Auto-scrolled to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
+        }
+      });
     }
   }, [messages]);
 
@@ -104,8 +109,14 @@ export function CommunityFeed({
   useEffect(() => {
     if (!loading && messages.length > 0 && !hasScrolledToBottomRef.current && scrollRef.current) {
       console.log('[CommunityFeed] Scrolling to bottom on initial load');
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      hasScrolledToBottomRef.current = true;
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          hasScrolledToBottomRef.current = true;
+          console.log('[CommunityFeed] Initial scroll to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
+        }
+      });
     }
   }, [loading, messages]);
 
@@ -163,81 +174,82 @@ export function CommunityFeed({
   return (
     <div className="flex flex-col flex-1 overflow-hidden relative">
       {/* Messages ScrollArea */}
-      <div className="flex-1 overflow-hidden pb-24">
-        <ScrollArea ref={scrollRef} className="h-full px-4 overflow-x-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Loading messages...
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              No messages yet. Be the first to say hello!
-            </div>
-          ) : (
-            <div className="space-y-4 py-4">
-              {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-                <div key={date}>
-                  <div className="flex items-center justify-center my-4">
-                    <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                      {date}
-                    </div>
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-24"
+      >
+        {loading ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            Loading messages...
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            No messages yet. Be the first to say hello!
+          </div>
+        ) : (
+          <div className="space-y-4 py-4">
+            {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+              <div key={date}>
+                <div className="flex items-center justify-center my-4">
+                  <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                    {date}
                   </div>
+                </div>
 
-                  {dateMessages.map((message) => {
-                    // Resolve identity to handle migrations - show current identity not old one
-                    const resolvedPubkey = resolveIdentity(message.pubkey);
-                    if (resolvedPubkey !== message.pubkey) {
-                      console.log(`[CommunityFeed] 🔄 Resolved identity: ${message.pubkey.slice(0,8)}... → ${resolvedPubkey.slice(0,8)}...`);
-                    }
-                    const isOwnMessage = identity?.publicKey === resolvedPubkey;
+                {dateMessages.map((message) => {
+                  // Resolve identity to handle migrations - show current identity not old one
+                  const resolvedPubkey = resolveIdentity(message.pubkey);
+                  if (resolvedPubkey !== message.pubkey) {
+                    console.log(`[CommunityFeed] 🔄 Resolved identity: ${message.pubkey.slice(0,8)}... → ${resolvedPubkey.slice(0,8)}...`);
+                  }
+                  const isOwnMessage = identity?.publicKey === resolvedPubkey;
 
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex items-start gap-3 mb-4 overflow-hidden ${
-                          isOwnMessage ? 'flex-row-reverse' : ''
-                        }`}
-                      >
-                        <UserProfile
-                          pubkey={resolvedPubkey}
-                          size="sm"
-                          showName={false}
-                          onClick={() => onMemberClick?.(resolvedPubkey)}
-                          groupId={groupId}
-                        />
+                  return (
+                    <div
+                      key={message.id}
+                      className={`flex items-start gap-3 mb-4 overflow-hidden ${
+                        isOwnMessage ? 'flex-row-reverse' : ''
+                      }`}
+                    >
+                      <UserProfile
+                        pubkey={resolvedPubkey}
+                        size="sm"
+                        showName={false}
+                        onClick={() => onMemberClick?.(resolvedPubkey)}
+                        groupId={groupId}
+                      />
 
-                        <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
-                          <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
-                            <UserProfile
-                              pubkey={resolvedPubkey}
-                              size="sm"
-                              showName={true}
-                              showAvatar={false}
-                              className="inline-flex"
-                              nameClassName="text-sm font-medium truncate max-w-[150px]"
-                              groupId={groupId}
-                            />
-                            <span className="text-xs text-muted-foreground flex-shrink-0">
-                              {formatTime(message.created_at)}
-                            </span>
-                          </div>
+                      <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
+                        <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
+                          <UserProfile
+                            pubkey={resolvedPubkey}
+                            size="sm"
+                            showName={true}
+                            showAvatar={false}
+                            className="inline-flex"
+                            nameClassName="text-sm font-medium truncate max-w-[150px]"
+                            groupId={groupId}
+                          />
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {formatTime(message.created_at)}
+                          </span>
+                        </div>
 
-                          <div className={`rounded-lg px-3 py-2 max-w-[280px] ${
-                            isOwnMessage
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted'
-                          }`}>
-                            <p className="text-sm break-words">{message.content}</p>
-                          </div>
+                        <div className={`rounded-lg px-3 py-2 max-w-[280px] ${
+                          isOwnMessage
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}>
+                          <p className="text-sm break-words">{message.content}</p>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Fixed Input Container at Bottom */}
