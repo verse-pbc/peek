@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Download, Printer, MapPin, Users, Zap, ArrowLeft } from 'lucide-react';
+import { Download, Printer, MapPin, Zap, ArrowLeft } from 'lucide-react';
 
 const VALIDATION_SERVICE_URL = import.meta.env.VITE_VALIDATION_SERVICE_URL || 'http://localhost:3001';
 
@@ -19,12 +19,19 @@ export default function CreateSticker() {
 
     try {
       const response = await fetch(`${VALIDATION_SERVICE_URL}/api/sticker`);
-      
+
       if (!response.ok) {
         throw new Error('Failed to generate sticker');
       }
 
-      const svg = await response.text();
+      let svg = await response.text();
+
+      // Make SVG responsive by adding CSS
+      svg = svg.replace(
+        '<svg ',
+        '<svg style="display: block; width: 100%; height: auto; max-width: 100%;" '
+      );
+
       setSvgContent(svg);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -153,14 +160,7 @@ export default function CreateSticker() {
             <Alert className="border-mint/30 bg-mint/10">
               <Zap className="h-4 w-4 text-mint" />
               <AlertDescription>
-                <strong>Pro tip:</strong> Print multiple copies and place them in a small area (within 25m) so people can easily find them!
-              </AlertDescription>
-            </Alert>
-
-            <Alert className="border-coral/30 bg-coral/10">
-              <Users className="h-4 w-4 text-coral" />
-              <AlertDescription>
-                Once created, the community belongs to everyone who's been there. It's decentralized and stored on Nostr.
+                <strong>Pro tip:</strong> You can place more than one copy if needed to make the QR code easier to find at your location.
               </AlertDescription>
             </Alert>
           </div>
@@ -187,11 +187,15 @@ export default function CreateSticker() {
                 ) : (
                   <>
                     <div className="border-2 border-coral/20 rounded-lg p-4 bg-white">
-                      <div 
+                      <div
                         className="mx-auto"
-                        style={{ maxWidth: '300px' }}
-                        dangerouslySetInnerHTML={{ __html: svgContent }}
-                      />
+                        style={{ width: '100%', maxWidth: '350px' }}
+                      >
+                        <div
+                          className="w-full h-auto"
+                          dangerouslySetInnerHTML={{ __html: svgContent }}
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">

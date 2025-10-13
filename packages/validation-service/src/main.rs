@@ -1,5 +1,6 @@
 use axum::{routing::get, Router};
 use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -66,10 +67,16 @@ async fn main() {
     });
 
     // Set up HTTP server for health checks
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/health", get(health))
-        .route("/api/sticker", get(generate_sticker));
+        .route("/api/sticker", get(generate_sticker))
+        .layer(cors);
 
     let addr: std::net::SocketAddr = format!("0.0.0.0:{}", config.port).parse().unwrap();
     info!("HTTP server listening on {}", addr);
