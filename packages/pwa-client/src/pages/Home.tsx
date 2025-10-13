@@ -43,6 +43,7 @@ interface Community {
   createdAt?: number;
   isAdmin: boolean;
   unreadCount?: number;
+  picture?: string;
   location?: {
     latitude: number;
     longitude: number;
@@ -464,23 +465,40 @@ const Home = () => {
                   className="cursor-pointer bg-card hover:shadow-xl transition-all duration-200 border-0 shadow-md overflow-hidden group"
                   onClick={() => handleCommunityClick(community.groupId)}
                 >
-                  <CardHeader className="pb-3 bg-gradient-to-br from-coral/5 to-peach/5">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-lg font-rubik line-clamp-1">
+                  <CardHeader className="pb-3 relative h-32 bg-gradient-to-br from-coral/20 to-peach/20 overflow-hidden">
+                    {/* Background Image */}
+                    {community.picture && (
+                      <div
+                        className="absolute inset-0 bg-cover bg-center"
+                        style={{ backgroundImage: `url(${community.picture})` }}
+                      />
+                    )}
+
+                    {/* Gradient Overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70" />
+
+                    {/* Content */}
+                    <div className="relative h-full flex flex-col justify-between">
+                      <div className="flex justify-end">
+                        {community.isAdmin && (
+                          <Badge className="bg-coral text-white border-0">
+                            <Crown className="h-3 w-3 mr-1" />
+                            Founder
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex-1" />
+
+                      <div>
+                        <CardTitle className="text-lg font-rubik line-clamp-1 text-white drop-shadow-lg">
                           {community.name}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-2 mt-1">
+                        <CardDescription className="flex items-center gap-2 mt-1 text-white/90">
                           <Users className="h-3 w-3" />
                           <span>{community.memberCount} members</span>
                         </CardDescription>
                       </div>
-                      {community.isAdmin && (
-                        <Badge className="bg-coral text-white border-0">
-                          <Crown className="h-3 w-3 mr-1" />
-                          Founder
-                        </Badge>
-                      )}
                     </div>
                   </CardHeader>
                   <CardContent className="pt-3">
