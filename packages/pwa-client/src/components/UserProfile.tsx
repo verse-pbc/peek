@@ -7,6 +7,7 @@ import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { cn } from '@/lib/utils';
 import { genUserName } from '@/lib/genUserName';
+import { getDiceBearDataUrl } from '@/lib/dicebear';
 
 interface UserProfileProps {
   pubkey: string;
@@ -73,6 +74,9 @@ export function UserProfile({
     );
   }
 
+  const hasNostrProfile = !!profile?.picture || !!profile?.display_name || !!profile?.name;
+  const dicebearUrl = !hasNostrProfile ? getDiceBearDataUrl(resolvedPubkey, 128) : null;
+
   const avatarContent = (
     <div className="relative inline-flex">
       <Avatar
@@ -80,14 +84,20 @@ export function UserProfile({
         onClick={onClick}
         style={{ overflow: 'visible' }}
       >
-        {profile?.picture && (
+        {profile?.picture ? (
           <AvatarImage
             src={profile.picture}
             alt={displayName}
             loading="lazy"
           />
+        ) : dicebearUrl ? (
+          <AvatarImage
+            src={dicebearUrl}
+            alt={displayName}
+          />
+        ) : (
+          <AvatarFallback>{initials}</AvatarFallback>
         )}
-        <AvatarFallback>{initials}</AvatarFallback>
       </Avatar>
       {isAdmin && (
         <div className="absolute -top-1 -right-1 bg-mint rounded-full p-0.5 shadow-sm ring-2 ring-background">
