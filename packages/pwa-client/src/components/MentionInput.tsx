@@ -170,7 +170,7 @@ export function MentionInput({
           trigger="@"
           data={mentionData}
           markup="nostr:__id__"
-          displayTransform={(_id, display) => `@${display}`}
+          displayTransform={(id, _display) => `@${id}`}
           appendSpaceOnAdd
           renderSuggestion={(suggestion, _search, highlightedDisplay) => (
             <div className="flex flex-col">
