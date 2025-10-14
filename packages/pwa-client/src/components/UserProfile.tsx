@@ -74,10 +74,11 @@ export function UserProfile({
   }
 
   const avatarContent = (
-    <div className="relative">
+    <div className="relative inline-flex">
       <Avatar
         className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity")}
         onClick={onClick}
+        style={{ overflow: 'visible' }}
       >
         {profile?.picture && (
           <AvatarImage
@@ -89,8 +90,8 @@ export function UserProfile({
         <AvatarFallback>{initials}</AvatarFallback>
       </Avatar>
       {isAdmin && (
-        <div className="absolute -top-1 -right-1 bg-mint rounded-full p-0.5">
-          <Crown className="h-2.5 w-2.5 text-white" fill="white" />
+        <div className="absolute -top-1 -right-1 bg-mint rounded-full p-0.5 shadow-sm ring-2 ring-background">
+          <Crown className="h-3 w-3 text-white" fill="white" strokeWidth={0} />
         </div>
       )}
     </div>
@@ -136,8 +137,8 @@ export function UserProfile({
 
   return (
     <div className={cn(
-      "flex items-center gap-2",
-      compact ? "space-x-1" : "space-x-2",
+      "flex items-center",
+      compact ? "gap-1" : "gap-2",
       className
     )}>
       {showAvatar && avatarContent}

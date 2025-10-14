@@ -234,7 +234,7 @@ export function CommunityFeed({
                   return (
                     <div
                       key={message.id}
-                      className={`flex items-start gap-3 mb-4 overflow-hidden ${
+                      className={`flex items-start gap-3 mb-4 ${
                         isOwnMessage ? 'flex-row-reverse' : ''
                       }`}
                     >
