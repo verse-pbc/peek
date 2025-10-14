@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Send } from 'lucide-react';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
-import { Event } from 'nostr-tools';
+import { Event, nip19 } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { UserProfile } from '@/components/UserProfile';
+import { MentionInput } from '@/components/MentionInput';
+import { useProfile } from '@/contexts/ProfileContext';
+import { genUserName } from '@/lib/genUserName';
 
 interface Message {
   id: string;
@@ -265,7 +267,7 @@ export function CommunityFeed({
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-muted'
                         }`}>
-                          <p className="text-sm break-words">{message.content}</p>
+                          <MessageContent content={message.content} groupId={groupId} />
                         </div>
                       </div>
                     </div>
@@ -287,12 +289,13 @@ export function CommunityFeed({
             }}
             className="flex gap-2"
           >
-          <Input
+          <MentionInput
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={setNewMessage}
+            onSubmit={sendMessage}
             placeholder="Type a message..."
             disabled={sending || !identity || !connected}
-            className="flex-1"
+            groupId={groupId}
           />
           <Button
             type="submit"
@@ -311,5 +314,43 @@ export function CommunityFeed({
         </div>
       </div>
     </div>
+  );
+}
+
+function MessageContent({ content, groupId }: { content: string; groupId: string }) {
+  const { resolveIdentity } = useIdentityResolution(groupId);
+
+  const parts = content.split(/(nostr:npub1[023456789acdefghjklmnpqrstuvwxyz]+)/g);
+
+  return (
+    <p className="text-sm break-words">
+      {parts.map((part, index) => {
+        if (part.startsWith('nostr:npub1')) {
+          const npub = part.replace('nostr:', '');
+          try {
+            const decoded = nip19.decode(npub);
+            if (decoded.type === 'npub') {
+              const pubkey = decoded.data;
+              const resolvedPubkey = resolveIdentity(pubkey);
+              return <MentionDisplay key={index} pubkey={resolvedPubkey} />;
+            }
+          } catch {
+            return <span key={index}>{part}</span>;
+          }
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </p>
+  );
+}
+
+function MentionDisplay({ pubkey }: { pubkey: string }) {
+  const { data: profile } = useProfile(pubkey);
+  const displayName = profile?.display_name || profile?.name || genUserName(pubkey);
+
+  return (
+    <span className="font-medium bg-accent/30 px-1 rounded">
+      @{displayName}
+    </span>
   );
 }

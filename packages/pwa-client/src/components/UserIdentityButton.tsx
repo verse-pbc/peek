@@ -10,13 +10,14 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, LogOut, Shield, UserPlus, Sun, Moon, Monitor } from 'lucide-react';
+import { User, LogOut, Shield, UserPlus, Sun, Moon, Monitor, Copy } from 'lucide-react';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
 import { IdentityMigrationService } from '@/services/identity-migration';
 import { useTheme } from '@/components/theme-provider';
+import { genUserName } from '@/lib/genUserName';
 import type { Event } from 'nostr-tools';
 
 export const UserIdentityButton: React.FC = () => {
@@ -218,8 +219,8 @@ export const UserIdentityButton: React.FC = () => {
     window.location.href = '/';
   };
 
-  const displayName = npub ? `${npub.slice(0, 8)}...${npub.slice(-4)}` : 'Not logged in';
   const userPubkey = identity?.publicKey;
+  const anonymousName = userPubkey ? genUserName(userPubkey) : 'Anonymous';
 
   return (
     <>
@@ -229,7 +230,7 @@ export const UserIdentityButton: React.FC = () => {
             {isAnonymous ? (
               <>
                 <Shield className="h-4 w-4" />
-                <span className="hidden sm:inline">Anonymous</span>
+                <span className="hidden sm:inline">{anonymousName}</span>
               </>
             ) : userPubkey ? (
               <UserProfile
@@ -243,7 +244,7 @@ export const UserIdentityButton: React.FC = () => {
             ) : (
               <>
                 <User className="h-4 w-4" />
-                <span className="hidden sm:inline">{displayName}</span>
+                <span className="hidden sm:inline">Not logged in</span>
               </>
             )}
           </Button>
@@ -255,11 +256,14 @@ export const UserIdentityButton: React.FC = () => {
           {npub && (
             <>
               <DropdownMenuItem
-                className="font-mono text-xs"
-                onClick={() => navigator.clipboard.writeText(npub)}
+                className="font-mono text-xs justify-between"
+                onClick={() => {
+                  navigator.clipboard.writeText(npub);
+                  toast({ title: "Copied to clipboard" });
+                }}
               >
-                {npub.slice(0, 20)}...
-                <span className="ml-auto text-xs">Click to copy</span>
+                <span className="truncate">{npub.slice(0, 20)}...</span>
+                <Copy className="h-3 w-3 ml-2 flex-shrink-0" />
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>

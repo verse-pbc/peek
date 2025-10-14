@@ -81,8 +81,9 @@ export class ProfileService {
     }
   }
 
-  async getBatchProfiles(pubkeys: string[]): Promise<Map<string, ProfileData | null>> {
-    const results = new Map<string, ProfileData | null>();
+  async getBatchProfiles(pubkeys: string[]): Promise<Record<string, ProfileData | null>> {
+    console.log('[ProfileService] getBatchProfiles called with', pubkeys.length, 'pubkeys');
+    const results: Record<string, ProfileData | null> = {};
     const toFetch: string[] = [];
 
     // 1. Check cache for all
@@ -92,7 +93,7 @@ export class ProfileService {
       ]);
 
       if (cached.length > 0) {
-        results.set(pubkey, this.parseProfile(cached[0]));
+        results[pubkey] = this.parseProfile(cached[0]);
       } else {
         toFetch.push(pubkey);
       }
@@ -106,13 +107,17 @@ export class ProfileService {
         limit: toFetch.length
       };
 
+      console.log('[ProfileService] Fetching', toFetch.length, 'profiles from relays');
+
       try {
         const events = await this.pool.querySync(this.METADATA_RELAYS, filter);
+        console.log('[ProfileService] Received', events.length, 'profile events');
 
         for (const event of events) {
           await this.cache.event(event);
           const profile = this.parseProfile(event);
-          results.set(event.pubkey, profile);
+          results[event.pubkey] = profile;
+          console.log('[ProfileService] Cached profile for', event.pubkey.slice(0, 8), 'name:', profile.display_name || profile.name);
         }
       } catch (error) {
         console.error('Failed to batch fetch profiles:', error);
@@ -120,12 +125,14 @@ export class ProfileService {
 
       // Mark not found
       for (const pubkey of toFetch) {
-        if (!results.has(pubkey)) {
-          results.set(pubkey, null);
+        if (!results[pubkey]) {
+          results[pubkey] = null;
+          console.log('[ProfileService] No profile found for', pubkey.slice(0, 8));
         }
       }
     }
 
+    console.log('[ProfileService] Returning', Object.keys(results).length, 'profiles');
     return results;
   }
 
