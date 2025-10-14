@@ -25,11 +25,11 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
   const { toast } = useToast();
   const { resolveIdentity } = useIdentityResolution(groupId);
 
-  if (!pubkey) return null;
+  const resolvedPubkey = pubkey ? resolveIdentity(pubkey) : '';
+  const { data: profile } = useProfile(resolvedPubkey || undefined);
+  const { data: nip05Verified } = useNip05Verification(profile?.nip05, resolvedPubkey || undefined);
 
-  const resolvedPubkey = resolveIdentity(pubkey);
-  const { data: profile } = useProfile(resolvedPubkey);
-  const { data: nip05Verified } = useNip05Verification(profile?.nip05, resolvedPubkey);
+  if (!pubkey) return null;
 
   const displayName = profile?.display_name || profile?.name || genUserName(resolvedPubkey);
   const initials = displayName[0].toUpperCase();
