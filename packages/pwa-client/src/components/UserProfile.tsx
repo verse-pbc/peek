@@ -21,7 +21,6 @@ interface UserProfileProps {
   nameClassName?: string;
   compact?: boolean;
   groupId?: string; // Optional group context for resolution
-  isAdmin?: boolean; // Show admin badge
 }
 
 const sizeMap = {
@@ -49,8 +48,7 @@ export function UserProfile({
   className,
   nameClassName,
   compact = false,
-  groupId,
-  isAdmin = false
+  groupId
 }: UserProfileProps) {
   // Use centralized identity resolution
   const { resolveIdentity } = useIdentityResolution(groupId);

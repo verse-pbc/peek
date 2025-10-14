@@ -230,7 +230,6 @@ export function CommunityFeed({
                     console.log(`[CommunityFeed] 🔄 Resolved identity: ${message.pubkey.slice(0,8)}... → ${resolvedPubkey.slice(0,8)}...`);
                   }
                   const isOwnMessage = identity?.publicKey === resolvedPubkey;
-                  const isMessageSenderAdmin = groupManager?.isGroupAdmin(groupId, resolvedPubkey) || false;
 
                   return (
                     <div
@@ -245,7 +244,6 @@ export function CommunityFeed({
                         showName={false}
                         onClick={() => onMemberClick?.(resolvedPubkey)}
                         groupId={groupId}
-                        isAdmin={isMessageSenderAdmin}
                       />
 
                       <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
