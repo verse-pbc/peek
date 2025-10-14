@@ -332,7 +332,7 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Simplified Header */}
-      <header className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
+      <header className="bg-card/90 backdrop-blur border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-3 sm:px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
