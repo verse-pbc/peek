@@ -31,7 +31,7 @@ export function CommunityFeed({
   isAdmin: _isAdmin = false,
   onMemberClick
 }: CommunityFeedProps) {
-  const { identity } = useNostrLogin();
+  const { identity, isAnonymous } = useNostrLogin();
   const { relayManager, groupManager: _groupManager, connected: relayConnected } = useRelayManager();
   const { resolveIdentity } = useIdentityResolution(groupId);
   // Note: resolutionVersion from hook automatically triggers re-render when lazy resolutions complete
@@ -247,7 +247,7 @@ export function CommunityFeed({
                       />
 
                       <div className={`flex-1 min-w-0 ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
-                        <div className={`flex items-baseline gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
+                        <div className={`flex items-baseline gap-1 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
                           <UserProfile
                             pubkey={resolvedPubkey}
                             size="sm"
@@ -257,6 +257,11 @@ export function CommunityFeed({
                             nameClassName="text-sm font-semibold truncate max-w-[150px]"
                             groupId={groupId}
                           />
+                          {isOwnMessage && isAnonymous && (
+                            <span className="text-xs text-muted-foreground/60 italic">
+                              (you)
+                            </span>
+                          )}
                           <span className="text-xs text-muted-foreground flex-shrink-0">
                             {formatTime(message.created_at)}
                           </span>
