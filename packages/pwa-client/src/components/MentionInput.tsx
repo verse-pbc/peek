@@ -125,7 +125,7 @@ export function MentionInput({
         )}
         style={{
           control: {
-            fontSize: 14,
+            fontSize: 16,
             fontFamily: 'inherit',
             width: '100%',
           },
@@ -145,6 +145,7 @@ export function MentionInput({
               backgroundColor: 'hsl(var(--background))',
               color: 'hsl(var(--foreground))',
               outline: 'none',
+              fontSize: 16,
             },
           },
           suggestions: {
@@ -152,7 +153,7 @@ export function MentionInput({
               backgroundColor: 'hsl(var(--popover))',
               border: '1px solid hsl(var(--border))',
               borderRadius: '8px',
-              fontSize: 14,
+              fontSize: 16,
               maxHeight: 200,
               overflow: 'hidden',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
