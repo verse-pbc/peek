@@ -3,7 +3,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use crate::services::sticker_generator::{generate_sticker_svg, StickerConfig};
+use crate::services::sticker_generator::{generate_sticker_png, StickerConfig};
 
 pub async fn generate_sticker() -> Response {
     let config = StickerConfig {
@@ -12,11 +12,11 @@ pub async fn generate_sticker() -> Response {
         ..Default::default()
     };
 
-    match generate_sticker_svg(&config) {
-        Ok(svg_content) => (
+    match generate_sticker_png(&config) {
+        Ok(png_data) => (
             StatusCode::OK,
-            [(header::CONTENT_TYPE, "image/svg+xml")],
-            svg_content,
+            [(header::CONTENT_TYPE, "image/png")],
+            png_data,
         )
             .into_response(),
         Err(e) => (

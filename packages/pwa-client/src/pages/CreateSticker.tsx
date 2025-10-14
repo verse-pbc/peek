@@ -11,7 +11,7 @@ const VALIDATION_SERVICE_URL = import.meta.env.VITE_VALIDATION_SERVICE_URL || (
 
 export default function CreateSticker() {
   const navigate = useNavigate();
-  const [svgContent, setSvgContent] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,15 +26,9 @@ export default function CreateSticker() {
         throw new Error('Failed to generate sticker');
       }
 
-      let svg = await response.text();
-
-      // Make SVG responsive by adding CSS
-      svg = svg.replace(
-        '<svg ',
-        '<svg style="display: block; width: 100%; height: auto; max-width: 100%;" '
-      );
-
-      setSvgContent(svg);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setImageUrl(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -43,21 +37,18 @@ export default function CreateSticker() {
   };
 
   const downloadSticker = () => {
-    if (!svgContent) return;
+    if (!imageUrl) return;
 
-    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url;
-    link.download = `peek-sticker-${Date.now()}.svg`;
+    link.href = imageUrl;
+    link.download = `peek-sticker-${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
   };
 
   const printSticker = () => {
-    if (!svgContent) return;
+    if (!imageUrl) return;
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -72,7 +63,7 @@ export default function CreateSticker() {
             @media print { body { margin: 0; } }
           </style>
         </head>
-        <body>${svgContent}</body>
+        <body><img src="${imageUrl}" alt="Peek QR Sticker" style="max-width: 6in;" /></body>
       </html>
     `);
     printWindow.document.close();
@@ -185,7 +176,7 @@ export default function CreateSticker() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!svgContent ? (
+                {!imageUrl ? (
                   <Button
                     onClick={generateSticker}
                     disabled={loading}
@@ -201,10 +192,7 @@ export default function CreateSticker() {
                         className="mx-auto"
                         style={{ width: '100%', maxWidth: '350px' }}
                       >
-                        <div
-                          className="w-full h-auto"
-                          dangerouslySetInnerHTML={{ __html: svgContent }}
-                        />
+                        <img src={imageUrl} alt="Peek QR Sticker" className="w-full h-auto" />
                       </div>
                     </div>
 
@@ -215,7 +203,7 @@ export default function CreateSticker() {
                         className="gap-2 border-coral/30 hover:bg-coral/10"
                       >
                         <Download className="h-4 w-4" />
-                        Download SVG
+                        Download PNG
                       </Button>
                       <Button
                         onClick={printSticker}

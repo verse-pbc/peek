@@ -1,10 +1,13 @@
 use qrcode::{types::Color, QrCode};
+use resvg::usvg;
+use tiny_skia::Pixmap;
 use uuid::Uuid;
 
 pub struct StickerConfig {
     pub base_url: String,
     pub width: u32,
     pub height: u32,
+    pub scale: f32,
 }
 
 impl Default for StickerConfig {
@@ -13,6 +16,7 @@ impl Default for StickerConfig {
             base_url: "https://peek.verse.app".to_string(),
             width: 400,
             height: 480,
+            scale: 5.0, // 5x scale for print quality (2000x2400px at 300 DPI = ~6.7" sticker)
         }
     }
 }
@@ -102,6 +106,26 @@ pub fn generate_sticker_svg(config: &StickerConfig) -> Result<String, anyhow::Er
     Ok(svg)
 }
 
+pub fn generate_sticker_png(config: &StickerConfig) -> Result<Vec<u8>, anyhow::Error> {
+    let svg_string = generate_sticker_svg(config)?;
+
+    let options = usvg::Options::default();
+    let tree = usvg::Tree::from_str(&svg_string, &options)?;
+
+    let scaled_width = (config.width as f32 * config.scale) as u32;
+    let scaled_height = (config.height as f32 * config.scale) as u32;
+
+    let mut pixmap = Pixmap::new(scaled_width, scaled_height)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create pixmap"))?;
+
+    let render_ts = tiny_skia::Transform::from_scale(config.scale, config.scale);
+
+    resvg::render(&tree, render_ts, &mut pixmap.as_mut());
+
+    let png_data = pixmap.encode_png()?;
+    Ok(png_data)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,5 +142,16 @@ mod tests {
         assert!(svg.contains("qrGradient"));
         assert!(svg.contains("bgGradient"));
         assert!(svg.contains("#4ECDC4")); // mint accent line
+    }
+
+    #[test]
+    fn test_generate_sticker_png() {
+        let config = StickerConfig::default();
+        let result = generate_sticker_png(&config);
+        assert!(result.is_ok());
+
+        let png_data = result.unwrap();
+        assert!(png_data.len() > 1000); // PNG should be reasonably sized
+        assert_eq!(&png_data[0..8], b"\x89PNG\r\n\x1a\n"); // PNG magic bytes
     }
 }
