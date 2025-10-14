@@ -74,9 +74,9 @@ export function UserProfile({
   }
 
   const avatarContent = (
-    <div className="relative inline-block">
+    <div className="relative inline-flex">
       <Avatar
-        className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity")}
+        className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity", "overflow-visible")}
         onClick={onClick}
       >
         {profile?.picture && (
@@ -89,8 +89,8 @@ export function UserProfile({
         <AvatarFallback>{initials}</AvatarFallback>
       </Avatar>
       {isAdmin && (
-        <div className="absolute -top-0.5 -right-0.5 bg-mint rounded-full p-1 shadow-sm">
-          <Crown className="h-2.5 w-2.5 text-white" fill="white" strokeWidth={0} />
+        <div className="absolute -top-1 -right-1 bg-mint rounded-full p-0.5 shadow-sm ring-2 ring-background">
+          <Crown className="h-3 w-3 text-white" fill="white" strokeWidth={0} />
         </div>
       )}
     </div>

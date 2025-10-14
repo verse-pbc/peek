@@ -282,6 +282,8 @@ const Community = () => {
         metadataName: metadata?.name,
         hasMetadata: !!metadata,
         memberCount,
+        isAdmin,
+        userPubkey: pubkey,
       });
 
       const community: CommunityData = {
@@ -295,8 +297,8 @@ const Community = () => {
       };
 
       console.log(
-        "[Community] Setting communityData with name:",
-        community.name,
+        "[Community] Setting communityData:",
+        { name: community.name, isAdmin: community.isAdmin },
       );
 
       // Get stored location from localStorage if available
