@@ -74,7 +74,7 @@ export function UserProfile({
   }
 
   const avatarContent = (
-    <div className="relative">
+    <div className="relative inline-block">
       <Avatar
         className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity")}
         onClick={onClick}
@@ -89,8 +89,8 @@ export function UserProfile({
         <AvatarFallback>{initials}</AvatarFallback>
       </Avatar>
       {isAdmin && (
-        <div className="absolute -top-1 -right-1 bg-mint rounded-full p-0.5">
-          <Crown className="h-2.5 w-2.5 text-white" fill="white" />
+        <div className="absolute -top-0.5 -right-0.5 bg-mint rounded-full p-1 shadow-sm">
+          <Crown className="h-2.5 w-2.5 text-white" fill="white" strokeWidth={0} />
         </div>
       )}
     </div>
