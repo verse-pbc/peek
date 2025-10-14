@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
-// import { LatLng } from 'leaflet'; // DISABLED - map is hidden
 import { useNostrContext } from '@/hooks/useNostrContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,24 +17,11 @@ import {
   Crown,
   Sparkles,
   Plus,
-  // Navigation // DISABLED - map is hidden
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
 import { UserIdentityButton } from '@/components/UserIdentityButton';
-// import { DiscoveryService, DiscoveryMap as IDiscoveryMap } from '@/services/discovery-service'; // DISABLED - map is hidden
-// import { MapLoadingSkeleton } from '@/components/map/MapLoadingSkeleton'; // DISABLED - map is hidden
-
-// Lazy load the map component to improve initial LCP - DISABLED (map is hidden)
-// const DiscoveryMapComponent = lazy(() =>
-//   import('@/components/map/DiscoveryMap').then(module => ({
-//     default: module.DiscoveryMapComponent
-//   }))
-// );
-
-// DISABLED - map is hidden
-// const RELAY_URL = import.meta.env.VITE_RELAY_URL || 'wss://peek.hol.is';
 
 interface Community {
   communityId: string;
@@ -63,13 +49,6 @@ const Home = () => {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
   const [rejoinMessage, setRejoinMessage] = useState<string | null>(null);
-
-  // Discovery map states - DISABLED (map is hidden)
-  // const [discoveryMap, setDiscoveryMap] = useState<IDiscoveryMap | null>(null);
-  // const fogEnabled = true; // Always enabled, no toggle needed
-  // const [mapCenter, setMapCenter] = useState<LatLng>(new LatLng(37.7749, -122.4194)); // Default to SF, will update with user location
-  // const [flyToLocation, setFlyToLocation] = useState<LatLng | null>(null);
-  // const discoveryServiceRef = useRef<DiscoveryService | null>(null);
 
   // Dev mode detection - show "Create Dev Test Community" button when ?dev=true
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -253,37 +232,6 @@ const Home = () => {
     navigate(`/c/${communityId}`);
   };
 
-  // DISABLED - map is hidden
-  // const handleFlyToLocation = useCallback(() => {
-  //   if (navigator.geolocation) {
-  //     navigator.geolocation.getCurrentPosition(
-  //       (position) => {
-  //         const userLocation = new LatLng(
-  //           position.coords.latitude,
-  //           position.coords.longitude
-  //         );
-  //         setFlyToLocation(userLocation);
-  //         toast({
-  //           title: "📍 Location found",
-  //           description: "Centering map on your location",
-  //         });
-  //       },
-  //       (error) => {
-  //         toast({
-  //           title: "Location error",
-  //           description: error.message,
-  //           variant: "destructive"
-  //         });
-  //       },
-  //       {
-  //         enableHighAccuracy: true,
-  //         timeout: 5000,
-  //         maximumAge: 0
-  //       }
-  //     );
-  //   }
-  // }, [toast]);
-
   const handleCreateTestCommunity = useCallback(() => {
     const uuid = crypto.randomUUID();
     navigate(`/c/${uuid}?dev=true`);
@@ -389,10 +337,8 @@ const Home = () => {
         </div>
       )}
 
-      {/* Main Content - Map and Communities */}
+      {/* Main Content */}
       <main className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-        {/* Discovery Map Section - DISABLED (not rendered) */}
-
         {/* My Communities Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
