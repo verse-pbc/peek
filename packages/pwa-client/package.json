@@ -19,6 +19,8 @@
     "generate-keypair": "node -e \"const {generateSecretKey, getPublicKey, nip19} = require('nostr-tools'); const sk = generateSecretKey(); const pk = getPublicKey(sk); console.log('Private key (hex):', Buffer.from(sk).toString('hex')); console.log('Public key (hex):', pk); console.log('nsec:', nip19.nsecEncode(sk)); console.log('npub:', nip19.npubEncode(pk));\""
   },
   "dependencies": {
+    "@dicebear/collection": "^9.2.4",
+    "@dicebear/core": "^9.2.4",
     "@fontsource-variable/inter": "^5.2.6",
     "@fontsource-variable/rubik": "^5.2.8",
     "@getalby/sdk": "^5.1.1",

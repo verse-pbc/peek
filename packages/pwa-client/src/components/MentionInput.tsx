@@ -5,6 +5,7 @@ import { useRelayManager } from '@/contexts/RelayContext';
 import { useBatchProfiles } from '@/contexts/ProfileContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { genUserName } from '@/lib/genUserName';
+import { getDiceBearDataUrl } from '@/lib/dicebear';
 
 interface MentionInputProps {
   value: string;
@@ -66,6 +67,7 @@ export function MentionInput({
       const resolvedPubkey = resolveIdentity(member.pubkey);
       const npub = nip19.npubEncode(resolvedPubkey);
       const profile = profilesData[resolvedPubkey];
+      const hasProfile = !!(profile?.display_name || profile?.name);
       const displayName = profile?.display_name || profile?.name || genUserName(resolvedPubkey);
 
       console.log('[MentionInput] Member:', resolvedPubkey.slice(0, 8), 'profile:', profile ? 'found' : 'not found', 'name:', displayName);
@@ -73,7 +75,8 @@ export function MentionInput({
       return {
         id: npub,
         display: displayName,
-        npub: npub,
+        pubkey: resolvedPubkey,
+        hasProfile,
       };
     });
   }, [members, profilesData, resolveIdentity, profilesLoading]);
@@ -172,14 +175,23 @@ export function MentionInput({
           markup="nostr:__id__"
           displayTransform={(id, _display) => `@${id}`}
           appendSpaceOnAdd
-          renderSuggestion={(suggestion, _search, highlightedDisplay) => (
-            <div className="flex flex-col">
-              <div className="font-medium">{highlightedDisplay}</div>
-              <div className="text-xs text-muted-foreground opacity-60 font-mono">
-                {(suggestion as { npub?: string }).npub}
+          renderSuggestion={(suggestion, _search, highlightedDisplay) => {
+            const pubkey = (suggestion as { pubkey?: string }).pubkey;
+            const hasProfile = (suggestion as { hasProfile?: boolean }).hasProfile;
+
+            return (
+              <div className="flex items-center gap-2">
+                <div className="font-medium flex-1">{highlightedDisplay}</div>
+                {pubkey && !hasProfile && (
+                  <img
+                    src={getDiceBearDataUrl(pubkey, 32)}
+                    alt=""
+                    className="w-6 h-6 rounded-full flex-shrink-0"
+                  />
+                )}
               </div>
-            </div>
-          )}
+            );
+          }}
           style={{
             backgroundColor: 'hsl(var(--accent) / 0.2)',
             borderRadius: '4px',

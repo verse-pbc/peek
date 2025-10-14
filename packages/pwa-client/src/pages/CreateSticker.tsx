@@ -5,7 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Download, Printer, MapPin, Zap, ArrowLeft, AlertTriangle } from 'lucide-react';
 
-const VALIDATION_SERVICE_URL = import.meta.env.VITE_VALIDATION_SERVICE_URL || 'http://localhost:3001';
+const VALIDATION_SERVICE_URL = import.meta.env.VITE_VALIDATION_SERVICE_URL || (
+  import.meta.env.MODE === 'production' ? 'https://peek-validation.verse.app' : 'http://localhost:3001'
+);
 
 export default function CreateSticker() {
   const navigate = useNavigate();
