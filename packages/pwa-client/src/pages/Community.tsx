@@ -26,6 +26,7 @@ import { useMigrationState } from "../hooks/useMigrationState";
 import { useMigrationPolling } from "../hooks/useMigrationPolling";
 import { UserIdentityButton } from "@/components/UserIdentityButton";
 import { UserProfileModal } from "@/components/UserProfileModal";
+import { MembersListModal } from "@/components/MembersListModal";
 
 interface CommunityData {
   groupId: string;
@@ -58,6 +59,7 @@ const Community = () => {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showJoinFlow, setShowJoinFlow] = useState(false);
   const [selectedMemberPubkey, setSelectedMemberPubkey] = useState<string | null>(null);
+  const [showMembersList, setShowMembersList] = useState(false);
   const { relayManager, groupManager, connected, waitForConnection } =
     useRelayManager();
 
@@ -503,10 +505,13 @@ const Community = () => {
                   <h1 className="text-lg sm:text-xl font-bold truncate" style={{ fontFamily: "'Integral CF', sans-serif" }}>
                     {communityData.name}
                   </h1>
-                  <span className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                  <button
+                    onClick={() => setShowMembersList(true)}
+                    className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0 hover:text-foreground transition-colors cursor-pointer"
+                  >
                     <Users className="h-4 w-4" />
                     {communityData.memberCount}
-                  </span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -537,6 +542,17 @@ const Community = () => {
           onMemberClick={setSelectedMemberPubkey}
         />
       </div>
+
+      {/* Members List Modal */}
+      <MembersListModal
+        groupId={communityData.groupId}
+        open={showMembersList}
+        onOpenChange={setShowMembersList}
+        onMemberClick={(pubkey) => {
+          setSelectedMemberPubkey(pubkey);
+          setShowMembersList(false);
+        }}
+      />
 
       {/* Profile Modal */}
       <UserProfileModal
