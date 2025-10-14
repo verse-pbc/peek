@@ -5,6 +5,7 @@ import { useRelayManager } from '@/contexts/RelayContext';
 import { useBatchProfiles } from '@/contexts/ProfileContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { genUserName } from '@/lib/genUserName';
+import { getDiceBearDataUrl } from '@/lib/dicebear';
 
 interface MentionInputProps {
   value: string;
