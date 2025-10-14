@@ -25,6 +25,7 @@ import { useRelayManager } from "../contexts/RelayContext";
 import { useMigrationState } from "../hooks/useMigrationState";
 import { useMigrationPolling } from "../hooks/useMigrationPolling";
 import { UserIdentityButton } from "@/components/UserIdentityButton";
+import { UserProfileModal } from "@/components/UserProfileModal";
 
 interface CommunityData {
   groupId: string;
@@ -56,6 +57,7 @@ const Community = () => {
   const [error, setError] = useState<string | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showJoinFlow, setShowJoinFlow] = useState(false);
+  const [selectedMemberPubkey, setSelectedMemberPubkey] = useState<string | null>(null);
   const { relayManager, groupManager, connected, waitForConnection } =
     useRelayManager();
 
@@ -532,8 +534,17 @@ const Community = () => {
           groupId={communityData.groupId}
           communityName={communityData.name}
           isAdmin={communityData.isAdmin}
+          onMemberClick={setSelectedMemberPubkey}
         />
       </div>
+
+      {/* Profile Modal */}
+      <UserProfileModal
+        pubkey={selectedMemberPubkey}
+        open={selectedMemberPubkey !== null}
+        onOpenChange={(open) => !open && setSelectedMemberPubkey(null)}
+        groupId={communityData.groupId}
+      />
 
       {/* Admin Panel Modal */}
       {showAdminPanel && communityData && (
