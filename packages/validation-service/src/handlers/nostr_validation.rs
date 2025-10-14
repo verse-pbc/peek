@@ -538,26 +538,6 @@ impl NostrValidationHandler {
             }
         };
 
-        // Validate timestamp (must be within last 30 seconds)
-        let current_timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
-
-        let timestamp_age = current_timestamp - location.timestamp;
-        if timestamp_age > 30 {
-            return LocationValidationResponse {
-                response_type: Some("location_validation_response".to_string()),
-                success: false,
-                group_id: None,
-                relay_url: None,
-                is_admin: None,
-                is_member: None,
-                error: Some("Location data is outdated. Please refresh and try again.".to_string()),
-                error_code: Some("TIMESTAMP_EXPIRED".to_string()),
-            };
-        }
-
         // Extract location
         let user_location = LocationPoint {
             latitude: location.latitude,
