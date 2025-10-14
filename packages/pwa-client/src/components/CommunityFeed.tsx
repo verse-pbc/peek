@@ -287,20 +287,23 @@ export function CommunityFeed({
               e.preventDefault();
               sendMessage();
             }}
-            className="flex gap-2"
+            className="flex gap-2 items-center"
           >
-          <MentionInput
-            value={newMessage}
-            onChange={setNewMessage}
-            onSubmit={sendMessage}
-            placeholder="Type a message..."
-            disabled={sending || !identity || !connected}
-            groupId={groupId}
-          />
+          <div className="flex-1 min-w-0">
+            <MentionInput
+              value={newMessage}
+              onChange={setNewMessage}
+              onSubmit={sendMessage}
+              placeholder="Type a message..."
+              disabled={sending || !identity || !connected}
+              groupId={groupId}
+            />
+          </div>
           <Button
             type="submit"
             size="icon"
             disabled={sending || !identity || !connected || !newMessage.trim()}
+            className="flex-shrink-0"
           >
             <Send className="h-4 w-4" />
           </Button>
