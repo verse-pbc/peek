@@ -80,14 +80,19 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
             <div className="text-xs text-muted-foreground text-center">
               Public Key
             </div>
-            <Button
-              variant="outline"
-              className="w-full justify-between font-mono text-xs"
-              onClick={handleCopyNpub}
-            >
-              <span className="truncate">{npub}</span>
-              <Copy className="h-3 w-3 ml-2 flex-shrink-0" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 text-center font-mono text-xs text-muted-foreground truncate">
+                {npub}
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0 h-8 w-8"
+                onClick={handleCopyNpub}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
