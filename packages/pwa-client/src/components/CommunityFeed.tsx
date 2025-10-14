@@ -334,7 +334,7 @@ function MessageContent({ content, groupId }: { content: string; groupId: string
               const resolvedPubkey = resolveIdentity(pubkey);
               return <MentionDisplay key={index} pubkey={resolvedPubkey} />;
             }
-          } catch (e) {
+          } catch {
             return <span key={index}>{part}</span>;
           }
         }
@@ -346,7 +346,7 @@ function MessageContent({ content, groupId }: { content: string; groupId: string
 
 function MentionDisplay({ pubkey }: { pubkey: string }) {
   const { data: profile } = useProfile(pubkey);
-  const displayName = profile?.metadata?.display_name || profile?.metadata?.name || genUserName(pubkey);
+  const displayName = profile?.display_name || profile?.name || genUserName(pubkey);
 
   return (
     <span className="font-medium bg-accent/30 px-1 rounded">

@@ -880,11 +880,11 @@ export class RelayManager {
     while ((match = mentionRegex.exec(content)) !== null) {
       try {
         const npub = match[1];
-        const decoded = nip19.decode(npub);
-        if (decoded.type === 'npub') {
+        const decoded = nip19.decode(npub) as { type: string; data: string | object };
+        if (decoded.type === 'npub' && typeof decoded.data === 'string') {
           mentions.push(decoded.data);
         }
-      } catch (e) {
+      } catch {
         console.warn('[RelayManager] Failed to decode mention:', match[1]);
       }
     }
