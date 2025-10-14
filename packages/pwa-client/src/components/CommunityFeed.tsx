@@ -32,7 +32,7 @@ export function CommunityFeed({
   onMemberClick
 }: CommunityFeedProps) {
   const { identity } = useNostrLogin();
-  const { relayManager, connected: relayConnected } = useRelayManager();
+  const { relayManager, groupManager: _groupManager, connected: relayConnected } = useRelayManager();
   const { resolveIdentity } = useIdentityResolution(groupId);
   // Note: resolutionVersion from hook automatically triggers re-render when lazy resolutions complete
   const [messages, setMessages] = useState<Message[]>([]);

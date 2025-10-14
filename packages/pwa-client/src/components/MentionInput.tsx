@@ -177,12 +177,11 @@ export function MentionInput({
           appendSpaceOnAdd
           renderSuggestion={(suggestion, _search, highlightedDisplay) => {
             const pubkey = (suggestion as { pubkey?: string }).pubkey;
-            const hasProfile = (suggestion as { hasProfile?: boolean }).hasProfile;
 
             return (
               <div className="flex items-center gap-2">
                 <div className="font-medium flex-1">{highlightedDisplay}</div>
-                {pubkey && !hasProfile && (
+                {pubkey && (
                   <img
                     src={getDiceBearDataUrl(pubkey, 32)}
                     alt=""

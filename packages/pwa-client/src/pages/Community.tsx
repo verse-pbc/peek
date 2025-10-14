@@ -503,7 +503,7 @@ const Community = () => {
   return (
     <div className="h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
+      <div className="bg-card/90 backdrop-blur border-b border-border sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">

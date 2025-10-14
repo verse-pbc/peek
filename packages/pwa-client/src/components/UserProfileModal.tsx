@@ -6,11 +6,12 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import { Button } from './ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
+import { Avatar, AvatarImage } from './ui/avatar';
 import { CheckCircle2, Copy } from 'lucide-react';
 import { useProfile, useNip05Verification } from '@/contexts/ProfileContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { genUserName } from '@/lib/genUserName';
+import { getDiceBearDataUrl } from '@/lib/dicebear';
 import { nip19 } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
 
@@ -32,7 +33,6 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
   if (!pubkey) return null;
 
   const displayName = profile?.display_name || profile?.name || genUserName(resolvedPubkey);
-  const initials = displayName[0].toUpperCase();
   const npub = nip19.npubEncode(resolvedPubkey);
 
   const handleCopyNpub = () => {
@@ -48,12 +48,21 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4 py-4">
-          <Avatar className="h-24 w-24">
-            {profile?.picture && (
-              <AvatarImage src={profile.picture} alt={displayName} />
-            )}
-            <AvatarFallback className="text-3xl">{initials}</AvatarFallback>
-          </Avatar>
+          <div className="flex gap-4 items-center">
+            <Avatar className="h-24 w-24">
+              {profile?.picture ? (
+                <AvatarImage src={profile.picture} alt={displayName} />
+              ) : (
+                <AvatarImage src={getDiceBearDataUrl(resolvedPubkey, 128)} alt={displayName} />
+              )}
+            </Avatar>
+
+            <img
+              src={getDiceBearDataUrl(resolvedPubkey, 64)}
+              alt={`${displayName} DiceBear`}
+              className="w-16 h-16 rounded-full"
+            />
+          </div>
 
           <div className="text-center space-y-2">
             <h3 className="text-2xl font-bold">{displayName}</h3>
