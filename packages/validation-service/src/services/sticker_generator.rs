@@ -1,3 +1,4 @@
+use fontdb;
 use qrcode::{types::Color, QrCode};
 use resvg::usvg;
 use tiny_skia::Pixmap;
@@ -109,7 +110,16 @@ pub fn generate_sticker_svg(config: &StickerConfig) -> Result<String, anyhow::Er
 pub fn generate_sticker_png(config: &StickerConfig) -> Result<Vec<u8>, anyhow::Error> {
     let svg_string = generate_sticker_svg(config)?;
 
-    let options = usvg::Options::default();
+    // Load system fonts for text rendering
+    let mut fontdb = fontdb::Database::new();
+    fontdb.load_system_fonts();
+
+    // Parse SVG with fontdb - text will be converted to paths automatically
+    let options = usvg::Options {
+        fontdb: std::sync::Arc::new(fontdb),
+        ..usvg::Options::default()
+    };
+
     let tree = usvg::Tree::from_str(&svg_string, &options)?;
 
     let scaled_width = (config.width as f32 * config.scale) as u32;
