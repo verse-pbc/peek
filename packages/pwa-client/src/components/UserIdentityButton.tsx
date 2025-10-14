@@ -297,11 +297,15 @@ export const UserIdentityButton: React.FC = () => {
             {theme === 'system' && <span className="ml-auto">✓</span>}
           </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </DropdownMenuItem>
+          {!isAnonymous && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
