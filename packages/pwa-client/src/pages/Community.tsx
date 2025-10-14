@@ -570,6 +570,10 @@ const Community = () => {
           communityLocation={communityData.location}
           open={showAdminPanel}
           onOpenChange={setShowAdminPanel}
+          onMemberClick={(pubkey) => {
+            setSelectedMemberPubkey(pubkey);
+            setShowAdminPanel(false);
+          }}
         />
       )}
     </div>
