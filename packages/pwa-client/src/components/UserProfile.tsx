@@ -1,9 +1,10 @@
 import React from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Crown } from 'lucide-react';
 import { useProfile, useNip05Verification } from '@/contexts/ProfileContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
+import { useRelayManager } from '@/contexts/RelayContext';
 import { cn } from '@/lib/utils';
 import { genUserName } from '@/lib/genUserName';
 
@@ -51,9 +52,13 @@ export function UserProfile({
   // Use centralized identity resolution
   const { resolveIdentity } = useIdentityResolution(groupId);
   const resolvedPubkey = resolveIdentity(pubkey);
+  const { groupManager } = useRelayManager();
 
   const { data: profile, isLoading } = useProfile(resolvedPubkey);
   const { data: nip05Verified } = useNip05Verification(profile?.nip05, resolvedPubkey);
+
+  // Check if user is admin in this group
+  const isAdmin = groupId && groupManager ? groupManager.isGroupAdmin(groupId, resolvedPubkey) : false;
 
   // Compute display values
   const displayName = profile?.display_name || profile?.name || genUserName(resolvedPubkey);
@@ -69,19 +74,26 @@ export function UserProfile({
   }
 
   const avatarContent = (
-    <Avatar
-      className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity")}
-      onClick={onClick}
-    >
-      {profile?.picture && (
-        <AvatarImage
-          src={profile.picture}
-          alt={displayName}
-          loading="lazy"
-        />
+    <div className="relative">
+      <Avatar
+        className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity")}
+        onClick={onClick}
+      >
+        {profile?.picture && (
+          <AvatarImage
+            src={profile.picture}
+            alt={displayName}
+            loading="lazy"
+          />
+        )}
+        <AvatarFallback>{initials}</AvatarFallback>
+      </Avatar>
+      {isAdmin && (
+        <div className="absolute -top-1 -right-1 bg-mint rounded-full p-0.5">
+          <Crown className="h-2.5 w-2.5 text-white" fill="white" />
+        </div>
       )}
-      <AvatarFallback>{initials}</AvatarFallback>
-    </Avatar>
+    </div>
   );
 
   if (!showName && !showNip05 && !showAbout && showAvatar) {

@@ -62,6 +62,7 @@ interface AdminPanelProps {
   communityLocation?: { latitude: number; longitude: number };
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onMemberClick?: (pubkey: string) => void;
 }
 
 export function AdminPanel({
@@ -69,7 +70,8 @@ export function AdminPanel({
   communityName,
   communityLocation,
   open,
-  onOpenChange
+  onOpenChange,
+  onMemberClick
 }: AdminPanelProps) {
   const { identity } = useNostrLogin();
   const { toast } = useToast();
@@ -683,6 +685,8 @@ export function AdminPanel({
                                 pubkey={member.pubkey}
                                 size="sm"
                                 showName={true}
+                                groupId={groupId}
+                                onClick={() => onMemberClick?.(member.pubkey)}
                               />
                               {isCurrentUser && (
                                 <span className="text-sm text-muted-foreground">(You)</span>
