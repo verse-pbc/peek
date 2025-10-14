@@ -226,7 +226,7 @@ export const UserIdentityButton: React.FC = () => {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2 px-2">
+          <Button variant="ghost" size="sm" className="gap-2 px-1 hover:bg-transparent">
             {isAnonymous ? (
               <>
                 <Shield className="h-4 w-4" />
