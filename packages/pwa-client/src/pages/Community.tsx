@@ -24,7 +24,6 @@ import { useNostrLogin } from "../lib/nostrify-shim";
 import { useRelayManager } from "../contexts/RelayContext";
 import { useMigrationState } from "../hooks/useMigrationState";
 import { useMigrationPolling } from "../hooks/useMigrationPolling";
-import { UserIdentityButton } from "@/components/UserIdentityButton";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { MembersListModal } from "@/components/MembersListModal";
 
@@ -511,7 +510,7 @@ const Community = () => {
                 onClick={handleBack}
                 variant="ghost"
                 size="icon"
-                className="hover:bg-coral/10 flex-shrink-0 [&_svg]:!size-[24px]"
+                className="bg-muted/80 hover:bg-muted flex-shrink-0 [&_svg]:!size-[24px]"
                 title="My Communities"
               >
                 <ChevronLeft />
@@ -532,13 +531,12 @@ const Community = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <UserIdentityButton />
               {communityData.isAdmin && (
                 <Button
                   onClick={handleAdminClick}
                   variant="ghost"
                   size="icon"
-                  className="hover:bg-coral/10 [&_svg]:!size-[21px]"
+                  className="bg-muted/80 hover:bg-muted [&_svg]:!size-[21px]"
                   title="Manage community"
                 >
                   <Settings />
