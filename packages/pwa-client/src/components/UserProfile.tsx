@@ -76,8 +76,9 @@ export function UserProfile({
   const avatarContent = (
     <div className="relative inline-flex">
       <Avatar
-        className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity", "overflow-visible")}
+        className={cn(sizeMap[size], onClick && "cursor-pointer hover:opacity-80 transition-opacity")}
         onClick={onClick}
+        style={{ overflow: 'visible' }}
       >
         {profile?.picture && (
           <AvatarImage
@@ -136,8 +137,8 @@ export function UserProfile({
 
   return (
     <div className={cn(
-      "flex items-center gap-2",
-      compact ? "space-x-1" : "space-x-2",
+      "flex items-center",
+      compact ? "gap-1" : "gap-2",
       className
     )}>
       {showAvatar && avatarContent}

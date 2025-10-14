@@ -182,6 +182,20 @@ const Community = () => {
           }
           return { ...prev, memberCount };
         });
+      } else if (event.kind === 39001) {
+        // GROUP_ADMINS event - refresh admin status
+        if (pubkey && groupManager) {
+          const isAdmin = groupManager.isGroupAdmin(groupId);
+          console.log("[Community] 📝 Admin status updated from 39001:", isAdmin);
+          setCommunityData((prev) => {
+            if (!prev) return prev;
+            if (prev.isAdmin !== isAdmin) {
+              console.log("[Community] ✅ Updated isAdmin to:", isAdmin);
+              return { ...prev, isAdmin };
+            }
+            return prev;
+          });
+        }
       }
     });
 
