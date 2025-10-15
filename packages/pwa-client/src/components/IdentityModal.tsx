@@ -201,7 +201,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                   Paste a Nostr key from another app to use that identity here.
                 </p>
                 <a
-                  href="https://nostr.how/"
+                  href="https://nostr.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-coral hover:underline inline-flex items-center gap-1"

@@ -10,8 +10,9 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, Shield, UserPlus, Sun, Moon, Monitor, Copy, Key, RefreshCw } from 'lucide-react';
+import { User, Shield, UserPlus, Sun, Moon, Monitor, Copy, Key, RefreshCw, Edit } from 'lucide-react';
 import { UserProfile } from './UserProfile';
+import { ProfileEditModal } from './ProfileEditModal';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { hexToBytes } from '@/lib/hex';
 import { useToast } from '@/hooks/useToast';
@@ -36,6 +37,7 @@ export const UserIdentityButton: React.FC = () => {
   const { theme, setTheme } = useTheme();
 
   const [isSwapping, setIsSwapping] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
 
   const handleIdentitySwap = async (newIdentity: { publicKey: string; secretKey: string }) => {
     if (!identity || !relayManager) return;
@@ -309,6 +311,16 @@ export const UserIdentityButton: React.FC = () => {
             </>
           )}
 
+          {!isAnonymous && userPubkey && (
+            <>
+              <DropdownMenuItem onClick={() => setShowProfileEdit(true)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+
           {/* Theme Toggle Options */}
           <DropdownMenuLabel className="text-xs">Theme</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => setTheme("light")}>
@@ -362,6 +374,15 @@ export const UserIdentityButton: React.FC = () => {
             ? nip19.nsecEncode(hexToBytes(identity.secretKey))
             : undefined
           }
+        />
+      )}
+
+      {/* Profile Edit Modal */}
+      {showProfileEdit && userPubkey && (
+        <ProfileEditModal
+          open={showProfileEdit}
+          onOpenChange={setShowProfileEdit}
+          pubkey={userPubkey}
         />
       )}
     </>
