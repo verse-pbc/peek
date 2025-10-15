@@ -12,14 +12,18 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { AlertCircle, Zap } from 'lucide-react';
+import { Checkbox } from './ui/checkbox';
+import { AlertCircle, Zap, Copy, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/useToast';
 
 interface IdentityModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (nsec: string) => void;
+  onImport: (nsec: string, shouldMigrate?: boolean) => void;
   onExtension?: () => void;
-  isUpgrade?: boolean;
+  mode: 'upgrade' | 'switch';
+  hasBackedUpNsec?: boolean;
+  currentNsec?: string;
 }
 
 export const IdentityModal: React.FC<IdentityModalProps> = ({
@@ -27,11 +31,38 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   onOpenChange,
   onImport,
   onExtension,
-  isUpgrade,
+  mode,
+  hasBackedUpNsec = false,
+  currentNsec,
 }) => {
+  const { toast } = useToast();
   const [nsecInput, setNsecInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'import' | 'extension'>('import');
+  const [keepCommunities, setKeepCommunities] = useState(true);
+  const [showBackupWarning, setShowBackupWarning] = useState(false);
+  const [hasConfirmedBackup, setHasConfirmedBackup] = useState(false);
+
+  const isUpgradeMode = mode === 'upgrade';
+  const showMigrationChoice = isUpgradeMode; // Show checkbox for all anonymous users
+
+  const handleCopyCurrentNsec = () => {
+    if (!currentNsec) return;
+    navigator.clipboard.writeText(currentNsec);
+    setHasConfirmedBackup(true);
+    toast({ title: "Secret key copied!", description: "Store this safely to return to your communities later." });
+  };
+
+  const handleCheckboxChange = (checked: boolean | 'indeterminate') => {
+    const isChecked = checked === true;
+    setKeepCommunities(isChecked);
+    // If unchecking and haven't backed up yet, show warning
+    if (!isChecked && !hasConfirmedBackup && !hasBackedUpNsec) {
+      setShowBackupWarning(true);
+    } else {
+      setShowBackupWarning(false);
+    }
+  };
 
   const handleImport = React.useCallback(() => {
     console.log('[IdentityModal] handleImport called with nsec:', nsecInput.substring(0, 10) + '...');
@@ -47,15 +78,14 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
     }
 
     try {
-      console.log('[IdentityModal] Calling onImport with nsec:', nsecInput);
-      onImport(nsecInput);
+      console.log('[IdentityModal] Calling onImport with shouldMigrate:', keepCommunities);
+      onImport(nsecInput, keepCommunities);
       console.log('[IdentityModal] onImport completed successfully');
-      // Don't close modal or clear input here - let UserIdentityButton handle it after successful migration
     } catch (err) {
       console.error('[IdentityModal] onImport failed:', err);
       setError('Invalid nsec key - please check and try again');
     }
-  }, [nsecInput, onImport]);
+  }, [nsecInput, onImport, keepCommunities]);
 
   const handleExtension = () => {
     if (onExtension) {
@@ -69,14 +99,70 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{isUpgrade ? 'Upgrade to Personal Identity' : 'Choose Your Identity'}</DialogTitle>
+          <DialogTitle>
+            {mode === 'upgrade' ? 'Upgrade to Personal Identity' : 'Switch to Different Account'}
+          </DialogTitle>
           <DialogDescription>
-            {isUpgrade
-              ? 'Replace your anonymous identity with a personal one that you can use across all Nostr apps'
-              : 'Import an existing identity or use a browser extension'
+            {mode === 'upgrade'
+              ? 'Import your Nostr key or connect a browser extension'
+              : 'Start fresh with a different identity. You\'ll leave your current communities.'
             }
           </DialogDescription>
         </DialogHeader>
+
+        {/* Migration choice for backed-up anonymous users */}
+        {showMigrationChoice && (
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="keep-communities"
+                checked={keepCommunities}
+                onCheckedChange={handleCheckboxChange}
+                className="mt-0.5"
+              />
+              <div className="flex-1 space-y-1">
+                <label
+                  htmlFor="keep-communities"
+                  className="text-sm font-medium cursor-pointer leading-tight"
+                >
+                  Keep my communities and admin roles
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  Your previous messages will belong to your new identity
+                </p>
+              </div>
+            </div>
+
+            {/* Inline backup warning when unchecked */}
+            {!keepCommunities && (
+              <div className="space-y-3 pt-3 border-t">
+                <div className="flex gap-2 text-destructive">
+                  <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm space-y-2">
+                    <div className="font-medium">Save your secret key first!</div>
+                    <div>
+                      You need this to return to your current communities later.
+                    </div>
+                  </div>
+                </div>
+                {currentNsec && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleCopyCurrentNsec}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    {hasConfirmedBackup ? '✓ Secret Key Copied' : 'Copy Secret Key to Continue'}
+                  </Button>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Store it in a password manager or secure notes. Never share it with anyone.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'import' | 'extension')}>
           <TabsList className="grid w-full grid-cols-2">
@@ -87,7 +173,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           <TabsContent value="import" className="space-y-4">
             <div className="space-y-3">
               <div className="space-y-2">
-                <Label htmlFor="nsec">Your Private Key (nsec)</Label>
+                <Label htmlFor="nsec">Nostr Key to Import (nsec)</Label>
                 <Input
                   id="nsec"
                   type="password"
@@ -102,18 +188,27 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                   }}
                 />
               </div>
-              
+
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
-              
-              <p className="text-sm text-muted-foreground">
-                Import your existing Nostr private key to use the same identity
-                you have on other Nostr apps.
-              </p>
+
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Paste a Nostr key from another app to use that identity here.
+                </p>
+                <a
+                  href="https://nostr.how/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-coral hover:underline inline-flex items-center gap-1"
+                >
+                  New to Nostr? Learn more →
+                </a>
+              </div>
             </div>
             
             <DialogFooter>
@@ -122,32 +217,10 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
               </Button>
               <Button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('[Button] Import Identity clicked, nsec:', nsecInput.substring(0, 10) + '...');
-
-                  if (!nsecInput.trim()) {
-                    setError('Please enter your nsec key');
-                    return;
-                  }
-
-                  if (!nsecInput.startsWith('nsec1')) {
-                    setError('Invalid nsec format - must start with nsec1');
-                    return;
-                  }
-
-                  try {
-                    console.log('[Button] Calling onImport directly...');
-                    onImport(nsecInput);
-                    console.log('[Button] onImport completed');
-                  } catch (err) {
-                    console.error('[Button] onImport error:', err);
-                    setError('Invalid nsec key - please check and try again');
-                  }
-                }}
+                onClick={handleImport}
+                disabled={showBackupWarning && !hasConfirmedBackup}
               >
-                Import Identity
+                {mode === 'upgrade' && keepCommunities ? 'Upgrade Identity' : 'Switch Account'}
               </Button>
             </DialogFooter>
           </TabsContent>

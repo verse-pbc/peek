@@ -10,7 +10,7 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, LogOut, Shield, UserPlus, Sun, Moon, Monitor, Copy, Key } from 'lucide-react';
+import { User, Shield, UserPlus, Sun, Moon, Monitor, Copy, Key, RefreshCw } from 'lucide-react';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { hexToBytes } from '@/lib/hex';
@@ -83,11 +83,16 @@ export const UserIdentityButton: React.FC = () => {
 
             toast({
               title: "Migration complete!",
-              description: "Reconnecting with new identity...",
+              description: "Refreshing your communities...",
             });
 
             if (unsubscribe) unsubscribe();
             if (fallbackTimer) clearTimeout(fallbackTimer);
+
+            // Reload page to refresh communities with new identity
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 1000);
           }
         }
       };
@@ -136,6 +141,26 @@ export const UserIdentityButton: React.FC = () => {
       // Set migrating state with groups we're expecting updates for
       // Need to resolve UUIDs to h-tags
       const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+
+      // If no groups, no need to wait - switch immediately
+      if (joinedGroups.length === 0) {
+        console.log('[UserIdentityButton] No groups to migrate, switching immediately');
+        localStorage.setItem('peek_nostr_identity', JSON.stringify(newIdentity));
+
+        toast({
+          title: "Identity switched!",
+          description: "Refreshing...",
+        });
+
+        if (unsubscribe) unsubscribe();
+        if (fallbackTimer) clearTimeout(fallbackTimer);
+
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
+        return;
+      }
+
       const groupIds = await Promise.all(
         joinedGroups.map(async (g: { communityId: string }) => {
           const groupId = await relayManager.findGroupByUuid(g.communityId);
@@ -174,22 +199,30 @@ export const UserIdentityButton: React.FC = () => {
     }
   };
 
-  const handleImport = async (nsec: string) => {
-    console.log('[UserIdentityButton] handleImport called');
+  const handleImport = async (nsec: string, shouldMigrate: boolean = true) => {
+    console.log('[UserIdentityButton] handleImport called, shouldMigrate:', shouldMigrate);
     try {
       const newIdentity = importIdentity(nsec);
       console.log('[UserIdentityButton] New identity:', newIdentity);
 
-      if (isAnonymous && relayManager) {
+      // Close modal immediately
+      setShowIdentityModal(false);
+
+      if (isAnonymous && shouldMigrate && relayManager) {
+        // Upgrade with migration (keep communities)
         console.log('[UserIdentityButton] Calling handleIdentitySwap...');
         await handleIdentitySwap(newIdentity);
       } else {
-        console.error('[UserIdentityButton] Cannot migrate - not anonymous or no relay manager');
-        throw new Error('Migration is only available for anonymous users');
+        // Clean switch (fresh start)
+        console.log('[UserIdentityButton] Clean switch - clearing state');
+        localStorage.removeItem('joinedGroups');
+        localStorage.removeItem('identity_migrations');
+        localStorage.removeItem('identity_migrating');
+        window.location.href = '/';
       }
     } catch (error) {
       console.error('[UserIdentityButton] handleImport error:', error);
-      throw error; // Re-throw so IdentityModal can catch it
+      throw error;
     }
   };
 
@@ -210,20 +243,8 @@ export const UserIdentityButton: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    // Clear all identity data (unified single key)
-    localStorage.removeItem('peek_nostr_identity');
-    localStorage.removeItem('joinedGroups');
-    localStorage.removeItem('identity_migrations');
-
-    // Navigate to home and reload for fresh anonymous identity
-    window.location.href = '/';
-  };
-
   const userPubkey = identity?.publicKey;
   const anonymousName = userPubkey ? genUserName(userPubkey) : 'Anonymous';
-  const hasBackedUp = identity?.hasBackedUpNsec ?? false;
-  const canLogout = !isAnonymous || hasBackedUp;
 
   const handleCopyNsec = () => {
     if (!identity?.secretKey || identity.secretKey === 'NIP07_EXTENSION') return;
@@ -237,7 +258,7 @@ export const UserIdentityButton: React.FC = () => {
 
     toast({
       title: "Secret key copied!",
-      description: "Store this safely - you can now logout without losing access to your communities."
+      description: "Store this safely. You can now switch accounts without losing access."
     });
   };
 
@@ -288,20 +309,6 @@ export const UserIdentityButton: React.FC = () => {
             </>
           )}
 
-          {isAnonymous ? (
-            <>
-              <DropdownMenuItem onClick={handleCopyNsec}>
-                <Key className="mr-2 h-4 w-4" />
-                Backup Secret Key
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowIdentityModal(true)} disabled={isSwapping}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                {isSwapping ? 'Upgrading...' : 'Upgrade to Personal Identity'}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
-
           {/* Theme Toggle Options */}
           <DropdownMenuLabel className="text-xs">Theme</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => setTheme("light")}>
@@ -320,26 +327,41 @@ export const UserIdentityButton: React.FC = () => {
             {theme === 'system' && <span className="ml-auto">✓</span>}
           </DropdownMenuItem>
 
-          {canLogout && (
+          <DropdownMenuSeparator />
+
+          {isAnonymous ? (
             <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
-                Logout
+              <DropdownMenuItem onClick={handleCopyNsec}>
+                <Key className="mr-2 h-4 w-4" />
+                Backup Secret Key
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowIdentityModal(true)} disabled={isSwapping}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                {isSwapping ? 'Switching...' : 'Switch Identity'}
               </DropdownMenuItem>
             </>
+          ) : (
+            <DropdownMenuItem onClick={() => setShowIdentityModal(true)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Switch Account
+            </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Identity Modal for upgrade (anonymous users only) */}
-      {showIdentityModal && isAnonymous && (
+      {/* Identity Modal */}
+      {showIdentityModal && (
         <IdentityModal
           open={showIdentityModal}
           onOpenChange={setShowIdentityModal}
           onImport={handleImport}
           onExtension={handleLoginWithExtension}
-          isUpgrade={true}
+          mode={isAnonymous ? 'upgrade' : 'switch'}
+          hasBackedUpNsec={identity?.hasBackedUpNsec ?? false}
+          currentNsec={identity?.secretKey && identity.secretKey !== 'NIP07_EXTENSION'
+            ? nip19.nsecEncode(hexToBytes(identity.secretKey))
+            : undefined
+          }
         />
       )}
     </>
