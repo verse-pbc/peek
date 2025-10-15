@@ -13,7 +13,6 @@ import {
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   ChevronLeft,
-  Settings,
   Users,
   AlertCircle,
   Loader2,
@@ -517,7 +516,12 @@ const Community = () => {
               </Button>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg sm:text-xl font-bold truncate" style={{ fontFamily: "'Integral CF', sans-serif" }}>
+                  <h1
+                    className={`text-lg sm:text-xl font-bold truncate ${communityData.isAdmin ? 'cursor-pointer hover:text-primary transition-colors' : ''}`}
+                    style={{ fontFamily: "'Integral CF', sans-serif" }}
+                    onClick={communityData.isAdmin ? handleAdminClick : undefined}
+                    title={communityData.isAdmin ? "Manage community" : undefined}
+                  >
                     {communityData.name}
                   </h1>
                   <button
@@ -529,19 +533,6 @@ const Community = () => {
                   </button>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {communityData.isAdmin && (
-                <Button
-                  onClick={handleAdminClick}
-                  variant="ghost"
-                  size="icon"
-                  className="bg-muted/80 hover:bg-muted [&_svg]:!size-[21px]"
-                  title="Manage community"
-                >
-                  <Settings />
-                </Button>
-              )}
             </div>
           </div>
         </div>
