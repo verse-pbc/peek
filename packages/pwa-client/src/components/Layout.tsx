@@ -3,8 +3,8 @@ import { UserIdentityButton } from "@/components/UserIdentityButton"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  // Never show identity button on /c/ pages (scan/join pages) or home page (has its own)
-  const showIdentityButton = !location.pathname.startsWith('/c/') && location.pathname !== '/';
+  // Only hide on home page (has its own in header)
+  const showIdentityButton = location.pathname !== '/';
 
   return (
     <div className="relative min-h-screen">
