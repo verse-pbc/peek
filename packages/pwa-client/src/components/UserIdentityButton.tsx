@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import {
   DropdownMenu,
@@ -37,10 +37,14 @@ export const UserIdentityButton: React.FC = () => {
   const [isSwapping, setIsSwapping] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [identityModalMode, setIdentityModalMode] = useState<'upgrade' | 'switch'>('upgrade');
+  const [hasJoinedCommunities, setHasJoinedCommunities] = useState(false);
 
-  const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
-  const hasJoinedCommunities = joinedGroups.length > 0;
   const isUsingExtension = identity?.secretKey === 'NIP07_EXTENSION';
+
+  useEffect(() => {
+    const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
+    setHasJoinedCommunities(joinedGroups.length > 0);
+  }, []);
 
   const handleIdentitySwap = async (newIdentity: { publicKey: string; secretKey: string }) => {
     if (!identity || !relayManager) return;
