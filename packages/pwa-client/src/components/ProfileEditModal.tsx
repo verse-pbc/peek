@@ -13,7 +13,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, Loader2 } from 'lucide-react';
-import { useProfile, useProfileService } from '@/contexts/ProfileContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { EventTemplate, finalizeEvent } from 'nostr-tools';
@@ -31,7 +31,6 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   const { toast } = useToast();
   const { identity } = useNostrLogin();
   const { data: profile } = useProfile(pubkey);
-  const profileService = useProfileService();
   const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
@@ -101,9 +100,6 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
       // Invalidate React Query cache to force refetch
       queryClient.invalidateQueries({ queryKey: ['profile', pubkey] });
 
-      // Also update ProfileService cache directly with the new event
-      await profileService.cache.event(signedEvent);
-
       toast({
         title: "Profile updated!",
         description: "Your profile has been published to Nostr relays.",
@@ -124,9 +120,19 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription>
-            Update your Nostr profile. This will be published to relays and visible across all Nostr apps.
+            Update your Nostr profile. This will be visible across all Nostr apps.
           </DialogDescription>
         </DialogHeader>
+
+        <Alert className="bg-mint/10 border-mint/30">
+          <AlertCircle className="h-4 w-4 text-mint" />
+          <AlertDescription className="text-sm">
+            <strong>💡 Your identity works everywhere</strong>
+            <p className="mt-1">
+              Backup your secret key to use this same profile on any Nostr app. Everything goes with you!
+            </p>
+          </AlertDescription>
+        </Alert>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
