@@ -10,7 +10,7 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { IdentityModal } from './IdentityModal';
-import { User, LogOut, Shield, UserPlus, Sun, Moon, Monitor, Copy } from 'lucide-react';
+import { User, LogOut, Shield, UserPlus, Sun, Moon, Monitor, Copy, Key } from 'lucide-react';
 import { UserProfile } from './UserProfile';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { hexToBytes } from '@/lib/hex';
@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/useToast';
 import { IdentityMigrationService } from '@/services/identity-migration';
 import { useTheme } from '@/components/theme-provider';
 import { genUserName } from '@/lib/genUserName';
+import { nip19 } from 'nostr-tools';
 import type { Event } from 'nostr-tools';
 
 export const UserIdentityButton: React.FC = () => {
@@ -221,6 +222,24 @@ export const UserIdentityButton: React.FC = () => {
 
   const userPubkey = identity?.publicKey;
   const anonymousName = userPubkey ? genUserName(userPubkey) : 'Anonymous';
+  const hasBackedUp = identity?.hasBackedUpNsec ?? false;
+  const canLogout = !isAnonymous || hasBackedUp;
+
+  const handleCopyNsec = () => {
+    if (!identity?.secretKey || identity.secretKey === 'NIP07_EXTENSION') return;
+
+    const nsec = nip19.nsecEncode(hexToBytes(identity.secretKey));
+    navigator.clipboard.writeText(nsec);
+
+    // Mark as backed up
+    const updatedIdentity = { ...identity, hasBackedUpNsec: true };
+    localStorage.setItem('peek_nostr_identity', JSON.stringify(updatedIdentity));
+
+    toast({
+      title: "Secret key copied!",
+      description: "Store this safely - you can now logout without losing access to your communities."
+    });
+  };
 
   return (
     <>
@@ -271,6 +290,10 @@ export const UserIdentityButton: React.FC = () => {
 
           {isAnonymous ? (
             <>
+              <DropdownMenuItem onClick={handleCopyNsec}>
+                <Key className="mr-2 h-4 w-4" />
+                Backup Secret Key
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowIdentityModal(true)} disabled={isSwapping}>
                 <UserPlus className="mr-2 h-4 w-4" />
                 {isSwapping ? 'Upgrading...' : 'Upgrade to Personal Identity'}
@@ -297,7 +320,7 @@ export const UserIdentityButton: React.FC = () => {
             {theme === 'system' && <span className="ml-auto">✓</span>}
           </DropdownMenuItem>
 
-          {!isAnonymous && (
+          {canLogout && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>

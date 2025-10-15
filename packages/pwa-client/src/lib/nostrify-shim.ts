@@ -21,6 +21,7 @@ interface StoredIdentity {
   publicKey: string; // hex encoded
   npub: string;
   isAnonymous: boolean; // true for auto-generated anonymous identities
+  hasBackedUpNsec?: boolean; // true if user has copied their nsec for backup
   createdAt?: number;
   // SECURITY: Never store nsec in localStorage or logs
 }
