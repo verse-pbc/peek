@@ -1,12 +1,5 @@
 import { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
   Table,
   TableBody,
   TableCell,
@@ -42,7 +35,8 @@ import {
   Save,
   X,
   Image,
-  FileText
+  FileText,
+  ChevronLeft
 } from 'lucide-react';
 import { NIP29_KINDS } from '@/services/relay-manager';
 import { GroupManager, type GroupMetadata } from '@/services/group-manager';
@@ -479,19 +473,47 @@ export function AdminPanel({
   const isCurrentUserAdmin = members.find(m => m.pubkey === identity?.publicKey)?.isAdmin || false;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Admin Panel - {communityName}
-          </DialogTitle>
-          <DialogDescription>
-            Manage members and community settings
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          onClick={() => onOpenChange(false)}
+        />
+      )}
 
-        <div className="flex-1 overflow-y-auto space-y-4">
+      {/* Slide-in Panel */}
+      <div className={`fixed top-0 right-0 h-full w-full bg-background z-50 flex flex-col transition-transform duration-300 ease-in-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+        {/* Header */}
+        <div className="bg-card/90 backdrop-blur border-b border-border">
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => onOpenChange(false)}
+                variant="ghost"
+                size="icon"
+                className="bg-muted/80 hover:bg-muted flex-shrink-0 [&_svg]:!size-[24px]"
+                title="Back to chat"
+              >
+                <ChevronLeft />
+              </Button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 flex-shrink-0" />
+                  <h2 className="text-lg sm:text-xl font-bold truncate" style={{ fontFamily: "'Integral CF', sans-serif" }}>
+                    Community Info
+                  </h2>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  View members and community information
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Community Info */}
           <Card className="border-2 border-primary/20 bg-gradient-to-br from-background to-primary/5">
             <CardHeader>
@@ -772,7 +794,7 @@ export function AdminPanel({
             </CardContent>
           </Card>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </>
   );
 }
