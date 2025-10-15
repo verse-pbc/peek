@@ -163,6 +163,8 @@ export class GroupManager {
     const groupId = event.tags.find((t) => t[0] === "d")?.[1];
     if (!groupId) return;
 
+    console.log(`[GroupManager] 👑 handleAdminsEvent called for group: ${groupId}`);
+
     const cache = this.getOrCreateCache(groupId);
     cache.admins.clear();
 
@@ -171,8 +173,11 @@ export class GroupManager {
       .forEach((tag) => {
         const pubkey = tag[1];
         const roles = tag.slice(2);
+        console.log(`[GroupManager] Adding admin: ${pubkey.slice(0, 8)}... with roles: ${JSON.stringify(roles)}`);
         cache.admins.set(pubkey, roles);
       });
+
+    console.log(`[GroupManager] Total admins for ${groupId}: ${cache.admins.size}`);
 
     this.updateMyMembership(groupId);
     cache.lastUpdated = Date.now();

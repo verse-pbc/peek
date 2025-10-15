@@ -61,6 +61,11 @@ export function UserProfile({
   // Check if user is admin in this group
   const isAdmin = groupId && groupManager ? groupManager.isGroupAdmin(groupId, resolvedPubkey) : false;
 
+  // Debug logging
+  if (groupId && showAvatar) {
+    console.log(`[UserProfile] Admin check for ${resolvedPubkey.slice(0, 8)} in group ${groupId}: ${isAdmin}`);
+  }
+
   // Compute display values
   const displayName = profile?.display_name || profile?.name || genUserName(resolvedPubkey);
   const initials = (profile?.display_name || profile?.name || genUserName(resolvedPubkey))[0].toUpperCase();
