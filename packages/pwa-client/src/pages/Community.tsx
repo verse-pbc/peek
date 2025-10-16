@@ -418,10 +418,8 @@ const Community = () => {
     navigate("/");
   };
 
-  const handleAdminClick = () => {
-    if (communityData?.isAdmin) {
-      setShowAdminPanel(true);
-    }
+  const handleInfoClick = () => {
+    setShowAdminPanel(true);
   };
 
   // Use the state variable set during access verification
@@ -517,10 +515,10 @@ const Community = () => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h1
-                    className={`text-lg sm:text-xl font-bold truncate ${communityData.isAdmin ? 'cursor-pointer hover:text-primary transition-colors' : ''}`}
+                    className="text-lg sm:text-xl font-bold truncate cursor-pointer hover:text-primary transition-colors"
                     style={{ fontFamily: "'Integral CF', sans-serif" }}
-                    onClick={communityData.isAdmin ? handleAdminClick : undefined}
-                    title={communityData.isAdmin ? "Manage community" : undefined}
+                    onClick={handleInfoClick}
+                    title="View community info"
                   >
                     {communityData.name}
                   </h1>
@@ -567,7 +565,7 @@ const Community = () => {
         groupId={communityData.groupId}
       />
 
-      {/* Admin Panel Modal */}
+      {/* Community Info Panel Modal */}
       {showAdminPanel && communityData && (
         <AdminPanel
           groupId={communityData.groupId}

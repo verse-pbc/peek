@@ -1,11 +1,4 @@
-import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { useState, useEffect, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -24,7 +17,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,18 +26,15 @@ import {
   ShieldOff,
   UserX,
   UserCheck,
-  Copy,
-  MapPin,
   Users,
-  Settings,
-  Edit2,
   Save,
   X,
   Image,
-  FileText
+  FileText,
+  ChevronLeft
 } from 'lucide-react';
 import { NIP29_KINDS } from '@/services/relay-manager';
-import { GroupManager, type GroupMetadata } from '@/services/group-manager';
+import { type GroupMetadata } from '@/services/group-manager';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { EventTemplate } from 'nostr-tools';
@@ -68,20 +57,21 @@ interface AdminPanelProps {
 export function AdminPanel({
   groupId,
   communityName,
-  communityLocation,
+  communityLocation: _communityLocation,
   open,
   onOpenChange,
   onMemberClick
 }: AdminPanelProps) {
   const { identity } = useNostrLogin();
   const { toast } = useToast();
-  const { relayManager, connected: relayConnected, migrationService } = useRelayManager();
-  const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
+  const { relayManager, groupManager, connected } = useRelayManager();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
-  const [connected, setConnected] = useState(false);
   const [hasFetchedMembers, setHasFetchedMembers] = useState(false);
+
+  // Ref for scrolling to members section
+  const membersRef = useRef<HTMLDivElement>(null);
 
   // Metadata editing state
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
@@ -103,22 +93,11 @@ export function AdminPanel({
   // Event signer (data-oriented hook)
   const signEvent = useEventSigner(identity);
 
-  // Initialize group manager with shared relay manager
+  // Set up event signer for shared group manager
   useEffect(() => {
-    if (!relayManager || !identity) return;
-
-    const groupMgr = new GroupManager(relayManager, migrationService!);
-
-    // Set up event signer using the hook
-    groupMgr.setEventSigner(signEvent);
-
-    setGroupManager(groupMgr);
-  }, [relayManager, identity, migrationService, signEvent]);
-
-  // Subscribe to connection status from context
-  useEffect(() => {
-    setConnected(relayConnected);
-  }, [relayConnected]);
+    if (!groupManager) return;
+    groupManager.setEventSigner(signEvent);
+  }, [groupManager, signEvent]);
 
   // Reset fetch state when panel closes
   useEffect(() => {
@@ -194,8 +173,7 @@ export function AdminPanel({
     };
 
     fetchMembers();
-    // Dependencies exclude 'connected' to avoid re-fetching on reconnect
-  }, [relayManager, groupManager, groupId, open, hasFetchedMembers]);
+  }, [relayManager, groupManager, groupId, open, connected, hasFetchedMembers, toast]);
 
   // Listen for real-time member updates
   useEffect(() => {
@@ -379,13 +357,6 @@ export function AdminPanel({
     }
   };
 
-  const copyGroupId = () => {
-    navigator.clipboard.writeText(groupId);
-    toast({
-      title: 'Copied',
-      description: 'Group ID copied to clipboard'
-    });
-  };
 
   const handleSaveMetadata = async () => {
     if (!groupManager || !identity) return;
@@ -478,179 +449,177 @@ export function AdminPanel({
 
   const isCurrentUserAdmin = members.find(m => m.pubkey === identity?.publicKey)?.isAdmin || false;
 
+  const scrollToMembers = () => {
+    membersRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Admin Panel - {communityName}
-          </DialogTitle>
-          <DialogDescription>
-            Manage members and community settings
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          onClick={() => onOpenChange(false)}
+        />
+      )}
 
-        <div className="flex-1 overflow-y-auto space-y-4">
-          {/* Community Info */}
-          <Card className="border-2 border-primary/20 bg-gradient-to-br from-background to-primary/5">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-rubik">Community Information</CardTitle>
-                {isCurrentUserAdmin && !isEditingMetadata && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsEditingMetadata(true)}
-                    className="bg-coral/10 hover:bg-coral/20 border-coral/30 text-coral"
-                  >
-                    <Edit2 className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isEditingMetadata && isCurrentUserAdmin ? (
-                <>
-                  {/* Editing Form */}
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="name" className="text-sm font-rubik flex items-center gap-1 mb-2">
-                        <FileText className="h-3 w-3 text-coral" />
-                        Community Name
-                      </Label>
-                      <Input
-                        id="name"
-                        value={editedName}
-                        onChange={(e) => setEditedName(e.target.value)}
-                        placeholder="Enter community name"
-                        className="bg-background/50 border-primary/20 focus:border-coral focus:ring-coral"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="about" className="text-sm font-rubik flex items-center gap-1 mb-2">
-                        <FileText className="h-3 w-3 text-mint" />
-                        About
-                      </Label>
-                      <Textarea
-                        id="about"
-                        value={editedAbout}
-                        onChange={(e) => setEditedAbout(e.target.value)}
-                        placeholder="Describe your community..."
-                        rows={3}
-                        className="bg-background/50 border-primary/20 focus:border-mint focus:ring-mint resize-none"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="picture" className="text-sm font-rubik flex items-center gap-1 mb-2">
-                        <Image className="h-3 w-3 text-peach" />
-                        Picture URL
-                      </Label>
-                      <Input
-                        id="picture"
-                        value={editedPicture}
-                        onChange={(e) => setEditedPicture(e.target.value)}
-                        placeholder="https://example.com/image.jpg"
-                        className="bg-background/50 border-primary/20 focus:border-peach focus:ring-peach"
-                      />
-                      {editedPicture && !isValidUrl(editedPicture) && (
-                        <p className="text-xs text-destructive mt-1">Please enter a valid URL</p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        onClick={handleSaveMetadata}
-                        disabled={savingMetadata || !editedName.trim()}
-                        className="bg-coral hover:bg-coral/90 text-white font-rubik"
-                      >
-                        {savingMetadata ? (
-                          <>Saving...</>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-1" />
-                            Save
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={handleCancelEdit}
-                        disabled={savingMetadata}
-                        className="border-primary/20 hover:bg-primary/10"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* View Mode */}
-                  {currentMetadata.picture && (
-                    <div className="flex justify-center mb-4">
-                      <img
-                        src={currentMetadata.picture}
-                        alt={currentMetadata.name}
-                        className="w-20 h-20 rounded-lg object-cover border-2 border-primary/20"
-                        onError={(e) => e.currentTarget.style.display = 'none'}
-                      />
-                    </div>
-                  )}
-
-                  {currentMetadata.about && (
-                    <div className="bg-mint/10 rounded-lg p-3 mb-3">
-                      <p className="text-sm">{currentMetadata.about}</p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Group ID</span>
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs bg-peach/20 px-2 py-1 rounded font-mono">
-                          {groupId}
-                        </code>
-                        <Button size="icon" variant="ghost" onClick={copyGroupId} className="hover:bg-peach/20">
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {communityLocation && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground">Location</span>
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="h-3 w-3 text-coral" />
-                          {communityLocation.latitude.toFixed(4)}, {communityLocation.longitude.toFixed(4)}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Members</span>
-                      <div className="flex items-center gap-1 text-sm">
-                        <Users className="h-3 w-3 text-mint" />
-                        {members.length}
-                      </div>
-                    </div>
-                  </div>
-
-                  <Alert className="border-coral/20 bg-coral/5">
-                    <AlertDescription className="text-xs">
-                      This community is private and closed. Only users who prove physical presence at the location can join.
-                    </AlertDescription>
-                  </Alert>
-                </>
+      {/* Slide-in Panel */}
+      <div className={`fixed top-0 right-0 h-full w-full bg-background z-50 flex flex-col transition-transform duration-300 ease-in-out ${open ? 'translate-x-0' : 'translate-x-full'}`}>
+        {/* Header */}
+        <div className="bg-card/90 backdrop-blur border-b border-border">
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={() => onOpenChange(false)}
+                variant="ghost"
+                size="icon"
+                className="bg-muted/80 hover:bg-muted flex-shrink-0 [&_svg]:!size-[24px]"
+                title="Back to chat"
+              >
+                <ChevronLeft />
+              </Button>
+              <h2 className="text-base font-semibold flex-1">
+                Community Info
+              </h2>
+              {isCurrentUserAdmin && (
+                <button
+                  onClick={() => setIsEditingMetadata(true)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Edit
+                </button>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+        </div>
 
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Hero Section */}
+          <div className="w-full">
+            {/* 16:9 Community Image */}
+            <div className="w-full aspect-video bg-muted relative overflow-hidden">
+              {currentMetadata.picture ? (
+                <img
+                  src={currentMetadata.picture}
+                  alt={currentMetadata.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.parentElement!.classList.add('bg-gradient-to-br', 'from-primary/10', 'to-primary/5');
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                  <Users className="h-16 w-16 text-muted-foreground/30" />
+                </div>
+              )}
+            </div>
+
+            {/* Community Name and Info */}
+            <div className="px-4 py-6 text-center">
+              <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: "'Integral CF', sans-serif" }}>
+                {currentMetadata.name}
+              </h1>
+              <p className="text-sm text-muted-foreground mb-3">
+                Closed community • <button onClick={scrollToMembers} className="underline hover:text-foreground transition-colors">{members.length} {members.length === 1 ? 'member' : 'members'}</button>
+              </p>
+              {currentMetadata.about && (
+                <p className="text-sm text-muted-foreground mt-3 max-w-2xl mx-auto">
+                  {currentMetadata.about}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Editing Modal Overlay */}
+          {isEditingMetadata && isCurrentUserAdmin && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+                <CardHeader>
+                  <CardTitle>Edit Community</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="name" className="text-sm font-rubik flex items-center gap-1 mb-2">
+                      <FileText className="h-3 w-3 text-coral" />
+                      Community Name
+                    </Label>
+                    <Input
+                      id="name"
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      placeholder="Enter community name"
+                      className="bg-background/50 border-primary/20 focus:border-coral focus:ring-coral"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="about" className="text-sm font-rubik flex items-center gap-1 mb-2">
+                      <FileText className="h-3 w-3 text-mint" />
+                      About
+                    </Label>
+                    <Textarea
+                      id="about"
+                      value={editedAbout}
+                      onChange={(e) => setEditedAbout(e.target.value)}
+                      placeholder="Describe your community..."
+                      rows={3}
+                      className="bg-background/50 border-primary/20 focus:border-mint focus:ring-mint resize-none"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="picture" className="text-sm font-rubik flex items-center gap-1 mb-2">
+                      <Image className="h-3 w-3 text-peach" />
+                      Picture URL
+                    </Label>
+                    <Input
+                      id="picture"
+                      value={editedPicture}
+                      onChange={(e) => setEditedPicture(e.target.value)}
+                      placeholder="https://example.com/image.jpg"
+                      className="bg-background/50 border-primary/20 focus:border-peach focus:ring-peach"
+                    />
+                    {editedPicture && !isValidUrl(editedPicture) && (
+                      <p className="text-xs text-destructive mt-1">Please enter a valid URL</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={handleSaveMetadata}
+                      disabled={savingMetadata || !editedName.trim()}
+                      className="bg-coral hover:bg-coral/90 text-white font-rubik"
+                    >
+                      {savingMetadata ? (
+                        <>Saving...</>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-1" />
+                          Save
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleCancelEdit}
+                      disabled={savingMetadata}
+                      className="border-primary/20 hover:bg-primary/10"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Rest of Content */}
+          <div className="px-4 pb-4 space-y-4">
           {/* Members Table */}
+          <div ref={membersRef}>
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Members</CardTitle>
@@ -771,8 +740,10 @@ export function AdminPanel({
               )}
             </CardContent>
           </Card>
+          </div>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </>
   );
 }

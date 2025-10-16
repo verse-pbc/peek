@@ -263,8 +263,14 @@ export class GroupManager {
       joinedAt: event.created_at,
     });
 
-    if (roles.length > 0) {
-      cache.admins.set(pubkey, roles);
+    // Only add to admins if they have actual admin roles
+    // Admin roles include: 'admin', 'creator', 'moderator', etc. (but NOT 'member')
+    const adminRoles = roles.filter(role => role !== 'member');
+    if (adminRoles.length > 0) {
+      cache.admins.set(pubkey, adminRoles);
+    } else {
+      // If they don't have admin roles, make sure they're NOT in the admins map
+      cache.admins.delete(pubkey);
     }
 
     this.updateMyMembership(groupId);
