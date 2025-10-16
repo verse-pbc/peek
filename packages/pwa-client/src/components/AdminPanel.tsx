@@ -3,8 +3,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from '@/components/ui/table';
 import {
@@ -15,7 +13,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -442,10 +439,6 @@ export function AdminPanel({
     }
   };
 
-  const formatDate = (timestamp?: number) => {
-    if (!timestamp) return 'Unknown';
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
 
   const isCurrentUserAdmin = members.find(m => m.pubkey === identity?.publicKey)?.isAdmin || false;
 
@@ -627,28 +620,20 @@ export function AdminPanel({
                 {members.filter(m => m.isAdmin).length} admins, {members.filter(m => m.isMuted).length} muted
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-0">
               {loading ? (
                 <div className="text-center py-4 text-muted-foreground">
                   Loading members...
                 </div>
               ) : (
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Member</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
                   <TableBody>
                     {members.map((member) => {
                       const isCurrentUser = member.pubkey === identity?.publicKey;
 
                       return (
                         <TableRow key={member.pubkey}>
-                          <TableCell>
+                          <TableCell className="w-full">
                             <div className="flex items-center gap-2">
                               <UserProfile
                                 pubkey={member.pubkey}
@@ -663,26 +648,7 @@ export function AdminPanel({
                             </div>
                           </TableCell>
 
-                          <TableCell>
-                            <div className="flex gap-1">
-                              {member.isAdmin && (
-                                <Badge variant="default" className="text-xs">
-                                  Admin
-                                </Badge>
-                              )}
-                              {member.isMuted && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Muted
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-
-                          <TableCell className="text-sm">
-                            {formatDate(member.joinedAt)}
-                          </TableCell>
-
-                          <TableCell className="text-right">
+                          <TableCell className="text-right pr-2 w-auto whitespace-nowrap">
                             {!isCurrentUser && isCurrentUserAdmin && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
