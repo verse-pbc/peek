@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Layout } from "./components/Layout";
+import { usePushNotificationRefresh } from "./hooks/usePushNotificationRefresh";
 
 import Index from "./pages/Index";
 import Community from "./pages/Community";
@@ -12,6 +13,9 @@ import JoinCommunityMock from "./pages/JoinCommunityMock";
 import NotFound from "./pages/NotFound";
 
 export function AppRouter() {
+  // Check and refresh expired push notification tokens/subscriptions on app startup
+  usePushNotificationRefresh();
+
   return (
     <BrowserRouter
       future={{

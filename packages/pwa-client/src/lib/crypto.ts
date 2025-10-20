@@ -1,0 +1,128 @@
+/**
+ * Cryptography Utilities for Push Notifications
+ *
+ * Provides NIP-44 encryption/decryption for secure communication with nostr_push_service.
+ * Compatible with nostr_push_service's Rust nostr-sdk implementation.
+ */
+
+import * as nip44 from 'nostr-tools/nip44'
+
+/**
+ * Convert hex string to Uint8Array
+ */
+export function hexToBytes(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0) {
+    throw new Error('Hex string must have even length')
+  }
+
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < hex.length; i += 2) {
+    const byte = parseInt(hex.substring(i, i + 2), 16)
+    if (isNaN(byte)) {
+      throw new Error(`Invalid hex string at position ${i}: ${hex.substring(i, i + 2)}`)
+    }
+    bytes[i / 2] = byte
+  }
+
+  return bytes
+}
+
+/**
+ * Convert Uint8Array to hex string
+ */
+export function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+/**
+ * Encrypt plaintext for nostr_push_service using NIP-44
+ *
+ * @param plaintext - Data to encrypt (usually JSON.stringify of payload)
+ * @param senderPrivateKey - User's Nostr private key (Uint8Array 32 bytes or hex string)
+ * @param recipientPubkey - Service's public key (hex string)
+ * @returns Base64-encoded NIP-44 ciphertext
+ */
+export function encryptForService(
+  plaintext: string,
+  senderPrivateKey: Uint8Array | string,
+  recipientPubkey: string
+): string {
+  // Convert private key to Uint8Array if hex string
+  const privateKeyBytes = typeof senderPrivateKey === 'string'
+    ? hexToBytes(senderPrivateKey)
+    : senderPrivateKey
+
+  // Derive conversation key (ECDH shared secret)
+  const conversationKey = nip44.v2.utils.getConversationKey(
+    privateKeyBytes,
+    recipientPubkey
+  )
+
+  // Encrypt with NIP-44 v2
+  const ciphertext = nip44.v2.encrypt(plaintext, conversationKey)
+
+  return ciphertext
+}
+
+/**
+ * Decrypt ciphertext from nostr_push_service using NIP-44
+ *
+ * @param ciphertext - Base64-encoded NIP-44 ciphertext
+ * @param recipientPrivateKey - User's Nostr private key (Uint8Array 32 bytes or hex string)
+ * @param senderPubkey - Service's public key (hex string)
+ * @returns Decrypted plaintext
+ */
+export function decryptFromService(
+  ciphertext: string,
+  recipientPrivateKey: Uint8Array | string,
+  senderPubkey: string
+): string {
+  // Convert private key to Uint8Array if hex string
+  const privateKeyBytes = typeof recipientPrivateKey === 'string'
+    ? hexToBytes(recipientPrivateKey)
+    : recipientPrivateKey
+
+  // Derive conversation key (ECDH shared secret)
+  const conversationKey = nip44.v2.utils.getConversationKey(
+    privateKeyBytes,
+    senderPubkey
+  )
+
+  // Decrypt with NIP-44 v2
+  const plaintext = nip44.v2.decrypt(ciphertext, conversationKey)
+
+  return plaintext
+}
+
+/**
+ * Validate that a string is valid NIP-44 ciphertext
+ */
+export function isValidNIP44Ciphertext(content: string): boolean {
+  if (!content || content.length < 88) {
+    return false
+  }
+
+  // NIP-44 ciphertext is base64-encoded
+  const base64Regex = /^[A-Za-z0-9+/=]+$/
+  return base64Regex.test(content)
+}
+
+/**
+ * Get private key as Uint8Array from Peek's StoredIdentity
+ * Returns null if using NIP-07 extension (no direct access to private key)
+ */
+export function getPrivateKeyFromIdentity(identity: { secretKey: string } | null): Uint8Array | null {
+  if (!identity || !identity.secretKey) {
+    return null
+  }
+
+  // NIP-07 extension case - no direct access to private key
+  if (identity.secretKey === 'NIP07_EXTENSION') {
+    return null
+  }
+
+  // Regular case - secretKey is hex encoded
+  return hexToBytes(identity.secretKey)
+}
