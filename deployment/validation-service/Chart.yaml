@@ -2,5 +2,5 @@ apiVersion: v2
 name: peek-validation-service
 description: Peek Validation Service - Backend API
 type: application
-version: 0.1.20251020-1920-7dc7d1e
-appVersion: "0.1.20251020-1920-7dc7d1e"
+version: 0.1.20251020-1942-1b8690f
+appVersion: "0.1.20251020-1942-1b8690f"
