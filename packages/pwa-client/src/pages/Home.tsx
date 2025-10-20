@@ -284,11 +284,9 @@ const Home = () => {
         <div className="container mx-auto px-3 sm:px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <img
-                src="/peek_logo.svg"
-                alt="Peek"
-                className="w-9 h-9 sm:w-10 sm:h-10"
-              />
+              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-coral rounded-full flex items-center justify-center">
+                <span className="text-white font-rubik text-lg sm:text-xl font-bold">P</span>
+              </div>
               <h1 className="text-xl sm:text-2xl font-rubik font-bold">Peek</h1>
             </div>
 
