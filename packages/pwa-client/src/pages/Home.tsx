@@ -287,7 +287,7 @@ const Home = () => {
               <div className="w-9 h-9 sm:w-10 sm:h-10 bg-coral rounded-full flex items-center justify-center">
                 <span className="text-white font-rubik text-lg sm:text-xl font-bold">P</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-rubik font-bold">Peek</h1>
+              <h1 className="text-xl sm:text-2xl font-bold" style={{ fontFamily: "'Integral CF', sans-serif" }}>Peek</h1>
             </div>
 
             <div className="flex items-center gap-2">
@@ -342,7 +342,7 @@ const Home = () => {
         {/* My Communities Section */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-rubik font-bold">
+            <h2 className="font-rubik font-bold" style={{ fontSize: '1.25rem' }}>
               My Communities
             </h2>
             <Badge className="bg-coral/10 text-coral border-0 px-3 py-1">
@@ -390,7 +390,7 @@ const Home = () => {
                   className="cursor-pointer bg-card hover:shadow-xl transition-all duration-200 border-0 shadow-md overflow-hidden group"
                   onClick={() => handleCommunityClick(community.communityId)}
                 >
-                  <CardHeader className="pb-3 relative h-32 bg-gradient-to-br from-coral/20 to-peach/20 overflow-hidden">
+                  <CardHeader className={`pb-3 relative h-32 overflow-hidden ${community.picture ? 'bg-gradient-to-br from-coral/20 to-peach/20' : 'bg-coral'}`}>
                     {/* Background Image */}
                     {community.picture && (
                       <div
@@ -406,7 +406,7 @@ const Home = () => {
                     <div className="relative h-full flex flex-col justify-between">
                       <div className="flex justify-end">
                         {community.isAdmin && (
-                          <Badge className="bg-coral text-white border-0">
+                          <Badge className="bg-white text-coral border-0">
                             <Crown className="h-3 w-3 mr-1" />
                             Founder
                           </Badge>
@@ -416,7 +416,10 @@ const Home = () => {
                       <div className="flex-1" />
 
                       <div>
-                        <CardTitle className="text-lg font-rubik line-clamp-1 text-white drop-shadow-lg">
+                        <CardTitle
+                          className="font-bold line-clamp-1 text-white drop-shadow-lg"
+                          style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '1.25rem' }}
+                        >
                           {community.name}
                         </CardTitle>
                         <CardDescription className="flex items-center gap-2 mt-1 text-white/90">
@@ -440,7 +443,7 @@ const Home = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          <span>{formatTimeAgo(community.lastActivity || community.createdAt || community.joinedAt)}</span>
+                          <span>Last message {formatTimeAgo(community.lastActivity || community.createdAt || community.joinedAt)}</span>
                         </div>
 
                         {community.unreadCount && community.unreadCount > 0 && (

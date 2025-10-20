@@ -471,16 +471,18 @@ export function AdminPanel({
               >
                 <ChevronLeft />
               </Button>
-              <h2 className="text-base font-semibold flex-1">
+              <h2 className="font-semibold flex-1 text-center" style={{ fontSize: '1.25rem' }}>
                 Community Info
               </h2>
               {isCurrentUserAdmin && (
-                <button
+                <Button
                   onClick={() => setIsEditingMetadata(true)}
-                  className="text-sm text-primary hover:underline"
+                  variant="ghost"
+                  size="sm"
+                  className="bg-muted/80 hover:bg-muted text-primary"
                 >
                   Edit
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -620,7 +622,7 @@ export function AdminPanel({
                 {members.filter(m => m.isAdmin).length} admins, {members.filter(m => m.isMuted).length} muted
               </CardDescription>
             </CardHeader>
-            <CardContent className="px-0">
+            <CardContent className="px-0 pb-0">
               {loading ? (
                 <div className="text-center py-4 text-muted-foreground">
                   Loading members...
@@ -628,11 +630,11 @@ export function AdminPanel({
               ) : (
                 <Table>
                   <TableBody>
-                    {members.map((member) => {
+                    {members.map((member, index) => {
                       const isCurrentUser = member.pubkey === identity?.publicKey;
 
                       return (
-                        <TableRow key={member.pubkey}>
+                        <TableRow key={member.pubkey} className={index === 0 ? 'border-t' : ''}>
                           <TableCell className="w-full">
                             <div className="flex items-center gap-2">
                               <UserProfile
@@ -655,6 +657,7 @@ export function AdminPanel({
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="h-8 w-8"
                                     disabled={processingAction === member.pubkey}
                                   >
                                     <MoreVertical className="h-4 w-4" />
