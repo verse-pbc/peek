@@ -3,8 +3,8 @@ import { UserIdentityButton } from "@/components/UserIdentityButton"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  // Only hide on home page (has its own in header)
-  const showIdentityButton = location.pathname !== '/';
+  // Hide identity button on home page and community pages
+  const showIdentityButton = location.pathname !== '/' && !location.pathname.startsWith('/c/');
 
   return (
     <div className="relative min-h-screen">
