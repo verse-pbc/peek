@@ -2,6 +2,10 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Layout } from "./components/Layout";
 import { usePushNotificationRefresh } from "./hooks/usePushNotificationRefresh";
+import { debugFirebaseConfig } from "./config/firebase";
+import { initializeForegroundNotifications } from "./services/firebase";
+import { useToast } from "./hooks/useToast";
+import { useEffect } from "react";
 
 import Index from "./pages/Index";
 import Community from "./pages/Community";
@@ -12,9 +16,49 @@ import { TestCommunityPreviewPage } from "./pages/TestCommunityPreview";
 import JoinCommunityMock from "./pages/JoinCommunityMock";
 import NotFound from "./pages/NotFound";
 
+// Expose debug helper to window object for console access
+if (typeof window !== 'undefined') {
+  (window as any).debugFirebaseConfig = debugFirebaseConfig;
+}
+
 export function AppRouter() {
+  const { toast } = useToast();
+
   // Check and refresh expired push notification tokens/subscriptions on app startup
   usePushNotificationRefresh();
+
+  // Listen for service worker logs (debugging bridge)
+  useEffect(() => {
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data && event.data.__SW_LOG__) {
+        const prefix = '[SW]'
+        const message = `${prefix} ${event.data.level}: ${event.data.text}`
+
+        if (event.data.level === 'error') {
+          console.error(message)
+        } else if (event.data.level === 'warn') {
+          console.warn(message)
+        } else {
+          console.log(message)
+        }
+      }
+    }
+
+    navigator.serviceWorker?.addEventListener('message', handleSWMessage)
+
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', handleSWMessage)
+    }
+  }, [])
+
+  // Initialize foreground notification handler (for when app is in focus)
+  useEffect(() => {
+    const setupForegroundNotifications = async () => {
+      await initializeForegroundNotifications()
+    }
+
+    setupForegroundNotifications()
+  }, [])
 
   return (
     <BrowserRouter

@@ -78,9 +78,10 @@ export function CommunityFeed({
       setMessages(prev => {
         const exists = prev.find(m => m.id === message.id);
         if (!exists) {
-          console.log(`[CommunityFeed] Adding message to UI:`, message.content.substring(0, 30));
+          // Reduced verbosity
+          // console.log(`[CommunityFeed] Adding message to UI:`, message.content.substring(0, 30));
           const updated = [...prev, message].sort((a, b) => a.created_at - b.created_at);
-          console.log(`[CommunityFeed] Total messages: ${updated.length}`);
+          // console.log(`[CommunityFeed] Total messages: ${updated.length}`);
           return updated.slice(-100); // Keep last 100 messages
         } else {
           return prev; // Skip duplicates
@@ -101,7 +102,8 @@ export function CommunityFeed({
       setTimeout(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          console.log('[CommunityFeed] Auto-scrolled to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
+          // Reduced verbosity
+          // console.log('[CommunityFeed] Auto-scrolled to:', scrollRef.current.scrollTop, 'height:', scrollRef.current.scrollHeight);
         }
       }, 100);
     }
@@ -119,7 +121,8 @@ export function CommunityFeed({
           const clientHeight = element.clientHeight;
           const maxScroll = scrollHeight - clientHeight;
 
-          console.log('[CommunityFeed] Scroll debug - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'maxScroll:', maxScroll);
+          // Reduced verbosity
+          // console.log('[CommunityFeed] Scroll debug - scrollHeight:', scrollHeight, 'clientHeight:', clientHeight, 'maxScroll:', maxScroll);
 
           // Try both methods
           element.scrollTop = maxScroll;
@@ -128,7 +131,8 @@ export function CommunityFeed({
           // Also try scrolling to a large number as fallback
           element.scrollTo({ top: 999999, behavior: 'auto' });
 
-          console.log('[CommunityFeed] Initial scroll attempt - scrollTop after set:', element.scrollTop, 'target was:', maxScroll);
+          // Reduced verbosity
+          // console.log('[CommunityFeed] Initial scroll attempt - scrollTop after set:', element.scrollTop, 'target was:', maxScroll);
         }
       };
 

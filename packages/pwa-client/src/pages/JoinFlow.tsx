@@ -345,25 +345,18 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
           // Subscribe to push notifications for this community (if notifications enabled)
           if (identity && isDeviceRegistered() && relayManager) {
-            // Get private key (hex to Uint8Array)
-            const privateKey = identity.secretKey !== 'NIP07_EXTENSION'
-              ? new Uint8Array(Buffer.from(identity.secretKey, 'hex'))
-              : null;
-
-            if (privateKey) {
-              console.log('[JoinFlow] User has notifications enabled, subscribing to community...');
-              subscribeToCommunity(response.group_id, privateKey, (event) => relayManager.publishEvent(event))
-                .then((success) => {
-                  if (success) {
-                    console.log('[JoinFlow] Successfully subscribed to community notifications');
-                  } else {
-                    console.warn('[JoinFlow] Failed to subscribe to community notifications');
-                  }
-                })
-                .catch((error) => {
-                  console.error('[JoinFlow] Error subscribing to notifications:', error);
-                });
-            }
+            console.log('[JoinFlow] User has notifications enabled, subscribing to community...');
+            subscribeToCommunity(response.group_id, identity, (event) => relayManager.publishEvent(event))
+              .then((success) => {
+                if (success) {
+                  console.log('[JoinFlow] Successfully subscribed to community notifications');
+                } else {
+                  console.warn('[JoinFlow] Failed to subscribe to community notifications');
+                }
+              })
+              .catch((error) => {
+                console.error('[JoinFlow] Error subscribing to notifications:', error);
+              });
           }
 
           onJoinSuccess(response.group_id);

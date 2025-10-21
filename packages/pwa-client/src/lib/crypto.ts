@@ -3,9 +3,11 @@
  *
  * Provides NIP-44 encryption/decryption for secure communication with nostr_push_service.
  * Compatible with nostr_push_service's Rust nostr-sdk implementation.
+ * Supports both local keys and NIP-07 browser extensions.
  */
 
 import * as nip44 from 'nostr-tools/nip44'
+import { hasNip44Support } from './nostrify-shim'
 
 /**
  * Convert hex string to Uint8Array
@@ -125,4 +127,78 @@ export function getPrivateKeyFromIdentity(identity: { secretKey: string } | null
 
   // Regular case - secretKey is hex encoded
   return hexToBytes(identity.secretKey)
+}
+
+/**
+ * Encrypt plaintext for nostr_push_service using NIP-44 (async version)
+ * Supports both local keys and NIP-07 browser extensions
+ *
+ * @param plaintext - Data to encrypt (usually JSON.stringify of payload)
+ * @param identity - User's identity (local key or NIP-07)
+ * @param recipientPubkey - Service's public key (hex string)
+ * @returns Base64-encoded NIP-44 ciphertext
+ */
+export async function encryptForServiceAsync(
+  plaintext: string,
+  identity: { secretKey: string; publicKey: string } | null,
+  recipientPubkey: string
+): Promise<string> {
+  if (!identity) {
+    throw new Error('No identity provided for encryption')
+  }
+
+  // Check if using NIP-07 extension with nip44 support
+  if (identity.secretKey === 'NIP07_EXTENSION') {
+    if (!hasNip44Support()) {
+      throw new Error('NIP-07 extension does not support nip44 encryption')
+    }
+
+    // Use extension's nip44.encrypt method
+    if (!window.nostr?.nip44) {
+      throw new Error('NIP-07 nip44 not available')
+    }
+
+    return await window.nostr.nip44.encrypt(recipientPubkey, plaintext)
+  }
+
+  // Local key path - use synchronous encryption
+  const privateKeyBytes = hexToBytes(identity.secretKey)
+  return encryptForService(plaintext, privateKeyBytes, recipientPubkey)
+}
+
+/**
+ * Decrypt ciphertext from nostr_push_service using NIP-44 (async version)
+ * Supports both local keys and NIP-07 browser extensions
+ *
+ * @param ciphertext - Base64-encoded NIP-44 ciphertext
+ * @param identity - User's identity (local key or NIP-07)
+ * @param senderPubkey - Service's public key (hex string)
+ * @returns Decrypted plaintext
+ */
+export async function decryptFromServiceAsync(
+  ciphertext: string,
+  identity: { secretKey: string; publicKey: string } | null,
+  senderPubkey: string
+): Promise<string> {
+  if (!identity) {
+    throw new Error('No identity provided for decryption')
+  }
+
+  // Check if using NIP-07 extension with nip44 support
+  if (identity.secretKey === 'NIP07_EXTENSION') {
+    if (!hasNip44Support()) {
+      throw new Error('NIP-07 extension does not support nip44 decryption')
+    }
+
+    // Use extension's nip44.decrypt method
+    if (!window.nostr?.nip44) {
+      throw new Error('NIP-07 nip44 not available')
+    }
+
+    return await window.nostr.nip44.decrypt(senderPubkey, ciphertext)
+  }
+
+  // Local key path - use synchronous decryption
+  const privateKeyBytes = hexToBytes(identity.secretKey)
+  return decryptFromService(ciphertext, privateKeyBytes, senderPubkey)
 }

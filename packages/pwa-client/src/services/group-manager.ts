@@ -126,9 +126,10 @@ export class GroupManager {
     // This filters out testing/invalid groups from subscriptions
     const hasValidUuid = this.extractUuidFromMetadata(event);
     if (!hasValidUuid) {
-      console.log(
-        `[GroupManager] 🚫 Ignoring metadata for ${groupId}: No valid i-tag (testing/invalid group)`,
-      );
+      // Reduced verbosity - only log once per group
+      // console.log(
+      //   `[GroupManager] 🚫 Ignoring metadata for ${groupId}: No valid i-tag (testing/invalid group)`,
+      // );
       return;
     }
 
@@ -140,12 +141,13 @@ export class GroupManager {
     const isPublic = event.tags.some((t) => t[0] === "public");
     const isOpen = event.tags.some((t) => t[0] === "open");
 
-    console.log(
-      "[GroupManager] 📝 Updating metadata cache for",
-      groupId,
-      "name:",
-      name,
-    );
+    // Reduced verbosity: only log metadata updates in verbose mode
+    // console.log(
+    //   "[GroupManager] 📝 Updating metadata cache for",
+    //   groupId,
+    //   "name:",
+    //   name,
+    // );
 
     cache.metadata = {
       id: groupId,

@@ -73,6 +73,18 @@ export function updateDeviceRegistration(registered: boolean, timestamp?: number
 }
 
 /**
+ * Clear device registration (for deregistration - kind 3080)
+ * Also clears all community subscriptions
+ */
+export function clearDeviceRegistration(): void {
+  const state = loadState()
+  state.deviceRegistered = false
+  state.deviceTokenTimestamp = 0
+  state.communitySubscriptions = {}
+  saveState(state)
+}
+
+/**
  * Update community subscription state
  */
 export function updateSubscriptionState(

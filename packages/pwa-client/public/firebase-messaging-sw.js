@@ -1,111 +1,106 @@
 // Firebase Cloud Messaging Service Worker
 // Handles background push notifications for Peek
+// Version: 1.0.0
 
-// Import Firebase scripts
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js')
-importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js')
+// SW to Page log bridge - posts logs to main window console for easier debugging
+const swLog = async (level, text) => {
+  const cs = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' })
+  for (const c of cs) c.postMessage({ __SW_LOG__: true, level, text })
+}
 
-// Firebase config will be injected at build time
-// For now, using placeholder - will be loaded from /firebase-config.js at runtime
-let firebaseConfig = null
+// Load Firebase libraries with error handling
+try {
+  importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js')
+  importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js')
+  swLog('info', 'Firebase compat libs loaded')
+  console.log('[SW] Firebase compat libs loaded')
+} catch (e) {
+  swLog('error', `Failed to load Firebase libs: ${e.message}`)
+  console.error('[SW] Failed to load Firebase libs:', e)
+}
 
-// Initialize Firebase (config fetched at runtime)
-async function initializeFirebase() {
+// Load config synchronously with error handling
+let firebaseConfigOk = false
+try {
+  self.importScripts('/firebase-config.js')
+  if (typeof firebaseConfig === 'undefined') throw new Error('firebaseConfig undefined')
+  firebase.initializeApp(firebaseConfig)
+  swLog('info', 'firebase-config.js loaded and app initialized')
+  console.log('[SW] Firebase app initialized with config:', firebaseConfig.projectId)
+  firebaseConfigOk = true
+} catch (e) {
+  swLog('error', `Failed to load /firebase-config.js: ${e.message}`)
+  console.error('[SW] Failed to load firebase-config.js:', e)
+}
+
+// Initialize messaging if config loaded
+let messaging
+if (firebaseConfigOk) {
   try {
-    const response = await fetch('/firebase-config.js')
-    const configText = await response.text()
-
-    // Extract config object from JavaScript code
-    // Config file format: const firebaseConfig = {...};
-    const match = configText.match(/const firebaseConfig\s*=\s*({[^}]+})/s)
-    if (match) {
-      firebaseConfig = JSON.parse(match[1])
-      firebase.initializeApp(firebaseConfig)
-      console.log('[SW] Firebase initialized with config from /firebase-config.js')
-    } else {
-      console.error('[SW] Failed to parse Firebase config')
-    }
-  } catch (error) {
-    console.error('[SW] Failed to fetch Firebase config:', error)
+    messaging = firebase.messaging()
+    swLog('info', 'Firebase Messaging initialized')
+    console.log('[SW] Firebase Messaging initialized')
+  } catch (e) {
+    swLog('error', `Messaging init failed: ${e.message}`)
+    console.error('[SW] Messaging init failed:', e)
   }
 }
 
-// Initialize on service worker activation
-self.addEventListener('activate', (event) => {
-  console.log('[SW] Service worker activated')
-  event.waitUntil(initializeFirebase())
-})
+// Handle background messages - this is the proper FCM way for data-only messages
+if (messaging) {
+  messaging.onBackgroundMessage((payload) => {
+    console.log('[SW] Received background message:', payload)
+    console.log('[SW] Payload data:', payload.data)
+    console.log('[SW] Title from data:', payload.data?.title)
+    console.log('[SW] Body from data:', payload.data?.body)
+    swLog('info', `Background message: ${payload.data?.title || 'Notification'}`)
 
-// Handle background messages (when app is not in focus)
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'FIREBASE_CONFIG') {
-    // Receive config from main thread
-    firebaseConfig = event.data.config
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig)
-      console.log('[SW] Firebase initialized from main thread config')
-    }
-  }
-})
+    // Extract notification data from FCM payload
+    // nostr_push_service sends data-only messages (no notification field)
+    if (payload.data && payload.data.title && payload.data.body) {
+      const title = payload.data.title
+      const body = payload.data.body
+      const groupId = payload.data.groupId
+      const eventId = payload.data.nostrEventId
+      const senderPubkey = payload.data.senderPubkey
+      const receiverPubkey = payload.data.receiverPubkey
 
-// Firebase messaging instance (lazy init)
-let messaging = null
-
-function getMessaging() {
-  if (!messaging && firebase.apps.length) {
-    messaging = firebase.messaging()
-
-    // Register background message handler
-    messaging.onBackgroundMessage((payload) => {
-      console.log('[SW] Received background message:', payload)
-
-      // Extract notification data from FCM payload
-      // nostr_push_service sends data-only messages (no notification field)
-      const notificationTitle = payload.data?.title || 'New Notification'
-      const notificationBody = payload.data?.body || ''
-      const groupId = payload.data?.groupId
-      const eventId = payload.data?.nostrEventId
-      const senderPubkey = payload.data?.senderPubkey
-      const receiverPubkey = payload.data?.receiverPubkey
-
-      console.log('[SW] Notification details:', {
-        title: notificationTitle,
-        groupId,
-        eventId,
-        sender: senderPubkey?.substring(0, 8)
-      })
+      console.log('[SW] Creating notification:', { title, body, groupId, eventId })
+      swLog('info', `Showing notification: ${title}`)
 
       const notificationOptions = {
-        body: notificationBody,
+        body: body,
         icon: '/icon-192x192.png',
         badge: '/icon-192x192.png',
-        tag: eventId || 'peek-notification', // Prevent duplicate notifications
+        tag: eventId || 'peek-notification',
         data: {
-          url: groupId ? `/community/${groupId}` : '/',
+          url: groupId ? `/c/${groupId}` : '/',
           eventId: eventId,
           groupId: groupId,
           senderPubkey: senderPubkey,
           receiverPubkey: receiverPubkey,
           timestamp: Date.now()
         },
-        requireInteraction: false, // Auto-dismiss after a few seconds
-        silent: false, // Allow sound/vibration
-        vibrate: [200, 100, 200], // Vibration pattern for mobile
-        renotify: true, // Replace previous notifications with same tag
-        actions: [] // No action buttons in MVP
+        requireInteraction: false,
+        silent: false,
+        vibrate: [200, 100, 200],
+        renotify: true,
+        actions: []
       }
 
-      return self.registration.showNotification(notificationTitle, notificationOptions)
-    })
-  }
-  return messaging
-}
+      console.log('[SW] Showing notification with options:', notificationOptions)
+      return self.registration.showNotification(title, notificationOptions)
+    } else {
+      console.error('[SW] Missing required data fields in payload:', payload.data)
+      swLog('error', 'Missing required data fields in FCM payload')
+    }
+  })
 
-// Attempt to initialize messaging on load
-try {
-  getMessaging()
-} catch (error) {
-  console.log('[SW] Messaging will be initialized when config is available')
+  console.log('[SW] Background message handler registered')
+  swLog('info', 'Background message handler registered')
+} else {
+  console.warn('[SW] Messaging not initialized - notifications disabled')
+  swLog('warn', 'Messaging not initialized - notifications disabled')
 }
 
 // Handle notification clicks
@@ -139,10 +134,18 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
-// Handle service worker installation
+// Service worker lifecycle management
 self.addEventListener('install', (event) => {
   console.log('[SW] Service worker installing')
+  swLog('info', 'SW installing')
   self.skipWaiting() // Activate immediately
 })
 
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Service worker activated')
+  swLog('info', 'SW activated')
+  event.waitUntil(clients.claim()) // Take control of all clients immediately
+})
+
 console.log('[SW] Firebase messaging service worker loaded')
+swLog('info', 'Firebase messaging service worker loaded')

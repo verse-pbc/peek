@@ -14,11 +14,13 @@ import {
   requestNotificationPermission,
   getFCMToken,
   registerDevice,
+  deregisterDevice,
+  checkRegistrationFromRelay,
   isPushSupported
 } from '@/services/push'
 import { subscribeToAllCommunities, unsubscribeFromAllCommunities } from '@/services/notifications'
-import { isDeviceRegistered } from '@/lib/pushStorage'
-import { getPrivateKeyFromIdentity } from '@/lib/crypto'
+import { isDeviceRegistered, clearDeviceRegistration } from '@/lib/pushStorage'
+import { hasNip44Support } from '@/lib/nostrify-shim'
 import { useNostrLogin } from '@/lib/nostrify-shim'
 import { useRelayManager } from '@/contexts/RelayContext'
 
@@ -27,13 +29,43 @@ export function NotificationToggle() {
   const { identity } = useNostrLogin()
   const { relayManager, groupManager } = useRelayManager()
   const [enabled, setEnabled] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [checkingRelay, setCheckingRelay] = useState(true)
 
-  // Load initial state from localStorage
+  // Query relay for actual registration status on mount
   useEffect(() => {
-    const registered = isDeviceRegistered()
-    setEnabled(registered)
-  }, [])
+    const checkActualStatus = async () => {
+      if (!identity || !relayManager) {
+        // No identity yet, use localStorage as fallback
+        const registered = isDeviceRegistered()
+        setEnabled(registered)
+        setLoading(false)
+        setCheckingRelay(false)
+        return
+      }
+
+      try {
+        // Query relay for latest 3079/3080 events (source of truth)
+        const isRegistered = await checkRegistrationFromRelay(
+          identity.publicKey,
+          (filter) => relayManager.queryEventsDirectly(filter)
+        )
+
+        setEnabled(isRegistered)
+      } catch (error) {
+        console.error('[NotificationToggle] Failed to query relay, using localStorage:', error)
+
+        // Fall back to localStorage on error
+        const registered = isDeviceRegistered()
+        setEnabled(registered)
+      } finally {
+        setLoading(false)
+        setCheckingRelay(false)
+      }
+    }
+
+    checkActualStatus()
+  }, [identity, relayManager])
 
   const handleToggle = async (checked: boolean) => {
     if (!identity) {
@@ -45,15 +77,28 @@ export function NotificationToggle() {
       return
     }
 
-    // Get private key (returns null for NIP-07 extension users)
-    const privateKey = getPrivateKeyFromIdentity(identity)
-    if (!privateKey) {
-      toast({
-        title: 'Not Supported',
-        description: 'Push notifications require a local identity (not supported with browser extensions yet)',
-        variant: 'destructive'
-      })
-      return
+    setLoading(true)
+
+    // If using NIP-07, wait for extension to fully load (extensions inject asynchronously)
+    if (identity.secretKey === 'NIP07_EXTENSION') {
+      let attempts = 0
+      const maxAttempts = 30 // 30 * 100ms = 3 seconds
+
+      while (attempts < maxAttempts && !hasNip44Support()) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
+
+      // Check if NIP-07 extension supports NIP-44 encryption
+      if (!hasNip44Support()) {
+        toast({
+          title: 'Not Supported',
+          description: 'Your browser extension does not support NIP-44 encryption. Please update your extension.',
+          variant: 'destructive'
+        })
+        setLoading(false)
+        return
+      }
     }
 
     if (!isPushSupported()) {
@@ -62,10 +107,9 @@ export function NotificationToggle() {
         description: 'Push notifications are not supported in this browser',
         variant: 'destructive'
       })
+      setLoading(false)
       return
     }
-
-    setLoading(true)
 
     try {
       if (checked) {
@@ -100,7 +144,7 @@ export function NotificationToggle() {
         // Register device (publish kind 3079)
         const success = await registerDevice(
           fcmToken,
-          privateKey,
+          identity,
           (event) => relayManager!.publishEvent(event)
         )
 
@@ -117,7 +161,7 @@ export function NotificationToggle() {
 
               const subscribedCount = await subscribeToAllCommunities(
                 communityIds,
-                privateKey,
+                identity,
                 (event) => relayManager!.publishEvent(event)
               )
 
@@ -141,17 +185,38 @@ export function NotificationToggle() {
           setEnabled(false)
         }
       } else {
-        // Disable notifications - unsubscribe from all communities
+        // Disable notifications
+        console.log('[NotificationToggle] Disabling push notifications...')
+
+        // Step 1: Unsubscribe from all communities (kind 3082)
         const unsubscribedCount = await unsubscribeFromAllCommunities(
-          privateKey,
+          identity,
+          (event) => relayManager!.publishEvent(event)
+        )
+        console.log(`[NotificationToggle] Unsubscribed from ${unsubscribedCount} communities`)
+
+        // Step 2: Deregister device (kind 3080)
+        const deregistered = await deregisterDevice(
+          identity,
           (event) => relayManager!.publishEvent(event)
         )
 
-        setEnabled(false)
-        toast({
-          title: 'Notifications Disabled',
-          description: `Unsubscribed from ${unsubscribedCount} communities`
-        })
+        if (deregistered) {
+          // Step 3: Clear local storage
+          clearDeviceRegistration()
+
+          setEnabled(false)
+          toast({
+            title: 'Notifications Disabled',
+            description: `Deregistered device and unsubscribed from ${unsubscribedCount} communities`
+          })
+        } else {
+          toast({
+            title: 'Deregistration Failed',
+            description: 'Could not deregister device. Please try again.',
+            variant: 'destructive'
+          })
+        }
       }
     } catch (error) {
       console.error('[NotificationToggle] Error:', error)
@@ -191,7 +256,7 @@ export function NotificationToggle() {
         id="push-notifications"
         checked={enabled}
         onCheckedChange={handleToggle}
-        disabled={loading || !identity}
+        disabled={loading || checkingRelay || !identity}
       />
     </div>
   )

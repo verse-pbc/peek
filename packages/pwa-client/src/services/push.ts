@@ -3,12 +3,13 @@
  *
  * Handles device registration (kind 3079) for push notifications.
  * Integrates with Firebase Cloud Messaging and nostr_push_service.
+ * Supports both local keys and NIP-07 browser extensions.
  */
 
 import { finalizeEvent, type EventTemplate, type Event } from 'nostr-tools/pure'
-import { requestNotificationPermissionAndGetToken } from './firebase'
-import { encryptForService } from '../lib/crypto'
-import { updateDeviceRegistration, needsDeviceRefresh, isDeviceRegistered } from '../lib/pushStorage'
+import { requestNotificationPermissionAndGetToken, deleteFCMToken } from './firebase'
+import { encryptForServiceAsync, getPrivateKeyFromIdentity } from '../lib/crypto'
+import { updateDeviceRegistration, needsDeviceRefresh, isDeviceRegistered, clearDeviceRegistration } from '../lib/pushStorage'
 import { PUSH_SERVICE_NPUB, APP_NAME, TOKEN_EXPIRATION_SECONDS } from '../config/push'
 import { nip19 } from 'nostr-tools'
 
@@ -57,18 +58,23 @@ export async function getFCMToken(): Promise<string | null> {
 
 /**
  * Register device for push notifications (publish kind 3079 event)
+ * Supports both local keys and NIP-07 browser extensions
  *
  * @param fcmToken - Firebase Cloud Messaging token
- * @param userPrivateKey - User's Nostr private key (Uint8Array)
+ * @param identity - User's identity (local key or NIP-07)
  * @param publishEvent - Function to publish event to relay
  * @returns true if successful
  */
 export async function registerDevice(
   fcmToken: string,
-  userPrivateKey: Uint8Array,
+  identity: { secretKey: string; publicKey: string } | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
   try {
+    if (!identity) {
+      throw new Error('No identity provided')
+    }
+
     // Decrypt service npub to hex pubkey
     const { data: servicePubkeyHex } = nip19.decode(PUSH_SERVICE_NPUB)
 
@@ -81,10 +87,10 @@ export async function registerDevice(
       token: fcmToken
     }
 
-    // Encrypt payload with NIP-44
-    const encryptedContent = encryptForService(
+    // Encrypt payload with NIP-44 (supports both NIP-07 and local keys)
+    const encryptedContent = await encryptForServiceAsync(
       JSON.stringify(payload),
-      userPrivateKey,
+      identity,
       servicePubkeyHex
     )
 
@@ -104,8 +110,20 @@ export async function registerDevice(
       content: encryptedContent
     }
 
-    // Sign and publish
-    const signedEvent = finalizeEvent(eventTemplate, userPrivateKey)
+    // Sign event (NIP-07 or local key)
+    let signedEvent: Event
+    if (identity.secretKey === 'NIP07_EXTENSION' && window.nostr?.signEvent) {
+      // Use NIP-07 extension for signing
+      signedEvent = await window.nostr.signEvent(eventTemplate) as Event
+    } else {
+      // Use local private key for signing
+      const privateKey = getPrivateKeyFromIdentity(identity)
+      if (!privateKey) {
+        throw new Error('No private key available for signing')
+      }
+      signedEvent = finalizeEvent(eventTemplate, privateKey)
+    }
+
     await publishEvent(signedEvent)
 
     // Update localStorage
@@ -132,13 +150,14 @@ export function isDeviceRegistrationExpired(): boolean {
 
 /**
  * Check and refresh device token if needed
+ * Supports both local keys and NIP-07 browser extensions
  *
- * @param userPrivateKey - User's Nostr private key
+ * @param identity - User's identity (local key or NIP-07)
  * @param publishEvent - Function to publish event to relay
  * @returns true if refreshed, false if no refresh needed or failed
  */
 export async function checkAndRefreshDeviceToken(
-  userPrivateKey: Uint8Array,
+  identity: { secretKey: string; publicKey: string } | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
   // Check if refresh needed
@@ -158,13 +177,152 @@ export async function checkAndRefreshDeviceToken(
   }
 
   // Re-register with new expiration
-  const success = await registerDevice(fcmToken, userPrivateKey, publishEvent)
+  const success = await registerDevice(fcmToken, identity, publishEvent)
 
   if (success) {
     console.log('[Push] Device registration refreshed successfully')
   }
 
   return success
+}
+
+/**
+ * Deregister device from push notifications (publish kind 3080 event)
+ * Supports both local keys and NIP-07 browser extensions
+ *
+ * @param identity - User's identity (local key or NIP-07)
+ * @param publishEvent - Function to publish event to relay
+ * @returns true if successful
+ */
+export async function deregisterDevice(
+  identity: { secretKey: string; publicKey: string } | null,
+  publishEvent: (event: Event) => Promise<void>
+): Promise<boolean> {
+  try {
+    if (!identity) {
+      throw new Error('No identity provided')
+    }
+
+    // Get current FCM token to include in deregistration (optional but recommended)
+    const fcmToken = await getFCMToken()
+
+    // Delete the FCM token from Firebase to stop receiving push notifications
+    try {
+      await deleteFCMToken()
+      console.log('[Push] FCM token deleted from Firebase')
+    } catch (error) {
+      console.warn('[Push] Failed to delete FCM token, continuing with deregistration:', error)
+      // Continue with deregistration even if token deletion fails
+    }
+
+    // Decrypt service npub to hex pubkey
+    const { data: servicePubkeyHex } = nip19.decode(PUSH_SERVICE_NPUB)
+
+    if (typeof servicePubkeyHex !== 'string') {
+      throw new Error('Invalid service npub format')
+    }
+
+    // Create payload with token (if available)
+    const payload = {
+      token: fcmToken || ''
+    }
+
+    // Encrypt payload with NIP-44 (supports both NIP-07 and local keys)
+    const encryptedContent = await encryptForServiceAsync(
+      JSON.stringify(payload),
+      identity,
+      servicePubkeyHex
+    )
+
+    // Create kind 3080 event (no expiration tag for deregistration)
+    const now = Math.floor(Date.now() / 1000)
+    const eventTemplate: EventTemplate = {
+      kind: 3080,
+      created_at: now,
+      tags: [
+        ['p', servicePubkeyHex],
+        ['app', APP_NAME]
+      ],
+      content: encryptedContent
+    }
+
+    // Sign event (NIP-07 or local key)
+    let signedEvent: Event
+    if (identity.secretKey === 'NIP07_EXTENSION' && window.nostr?.signEvent) {
+      // Use NIP-07 extension for signing
+      signedEvent = await window.nostr.signEvent(eventTemplate) as Event
+    } else {
+      // Use local private key for signing
+      const privateKey = getPrivateKeyFromIdentity(identity)
+      if (!privateKey) {
+        throw new Error('No private key available for signing')
+      }
+      signedEvent = finalizeEvent(eventTemplate, privateKey)
+    }
+
+    await publishEvent(signedEvent)
+
+    console.log('[Push] Device deregistered successfully, event ID:', signedEvent.id)
+    return true
+  } catch (error) {
+    console.error('[Push] Failed to deregister device:', error)
+    return false
+  }
+}
+
+/**
+ * Query relay for actual registration status (kind 3079/3080 events)
+ * This is the source of truth - localStorage is just a cache
+ *
+ * @param userPubkey - User's public key (hex)
+ * @param queryRelay - Function to query relay for events
+ * @returns true if latest event is kind 3079 (registered), false otherwise
+ */
+export async function checkRegistrationFromRelay(
+  userPubkey: string,
+  queryRelay: (filter: { kinds: number[]; authors: string[]; limit: number }) => Promise<Event[]>
+): Promise<boolean> {
+  try {
+    // Query for both registration (3079) and deregistration (3080) events
+    const events = await queryRelay({
+      kinds: [3079, 3080],
+      authors: [userPubkey],
+      limit: 10
+    })
+
+    if (!events || events.length === 0) {
+      console.log('[Push] No registration events found on relay')
+      return false
+    }
+
+    // Sort by created_at to get the most recent event (source of truth)
+    const sortedEvents = [...events].sort((a, b) => b.created_at - a.created_at)
+    const latestEvent = sortedEvents[0]
+
+    // Check if the latest event is a registration or deregistration
+    if (latestEvent.kind === 3079) {
+      console.log('[Push] Latest event is kind 3079 (registered) from', new Date(latestEvent.created_at * 1000).toISOString())
+
+      // Update localStorage to match relay state
+      updateDeviceRegistration(true, latestEvent.created_at)
+      return true
+    } else if (latestEvent.kind === 3080) {
+      console.log('[Push] Latest event is kind 3080 (deregistered) from', new Date(latestEvent.created_at * 1000).toISOString())
+
+      // Update localStorage to match relay state
+      clearDeviceRegistration()
+      return false
+    }
+
+    return false
+  } catch (error) {
+    console.error('[Push] Failed to check registration from relay:', error)
+
+    // Fall back to localStorage on error
+    const localState = isDeviceRegistered()
+    console.log('[Push] Falling back to localStorage:', localState)
+    return localState
+  }
 }
 
 /**

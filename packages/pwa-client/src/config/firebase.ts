@@ -63,7 +63,7 @@ export function initializeFirebase(): FirebaseApp {
 }
 
 /**
- * Get Firebase Messaging instance (lazy init)
+ * Get Firebase Messaging instance (lazy init with retry logic)
  * Returns null if messaging not supported (e.g., unsupported browser)
  */
 export async function getFirebaseMessaging(): Promise<Messaging | null> {
@@ -83,8 +83,29 @@ export async function getFirebaseMessaging(): Promise<Messaging | null> {
     initializeFirebase()
   }
 
-  messaging = getMessaging(app!)
-  console.log('[Firebase] Messaging initialized')
+  // Retry logic for messaging initialization (service worker might not be ready)
+  const maxAttempts = 3
+  let initialized = false
+
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      messaging = getMessaging(app!)
+      console.log('[Firebase] Messaging initialized successfully')
+      initialized = true
+      break
+    } catch (e) {
+      console.warn(`[Firebase] Messaging init attempt ${i + 1} failed:`, e)
+      if (i < maxAttempts - 1) {
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)))
+      }
+    }
+  }
+
+  if (!initialized) {
+    console.error('[Firebase] Failed to initialize messaging after', maxAttempts, 'attempts')
+    return null
+  }
 
   return messaging
 }
@@ -106,4 +127,22 @@ export function getVapidKey(): string {
 export function isFirebaseConfigured(): boolean {
   const config = getFirebaseConfig()
   return !!(config.apiKey && config.projectId && import.meta.env.VITE_FIREBASE_VAPID_KEY)
+}
+
+/**
+ * Debug helper - check Firebase configuration status
+ * Call from browser console to verify env vars are loaded
+ */
+export function debugFirebaseConfig(): void {
+  const config = getFirebaseConfig()
+  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY
+
+  console.log('=== Firebase Configuration Debug ===')
+  console.log('API Key:', config.apiKey ? `${config.apiKey.substring(0, 10)}...` : 'MISSING')
+  console.log('Project ID:', config.projectId || 'MISSING')
+  console.log('App ID:', config.appId ? `${config.appId.substring(0, 20)}...` : 'MISSING')
+  console.log('VAPID Key:', vapidKey ? `${vapidKey.substring(0, 10)}...` : 'MISSING')
+  console.log('Is Configured:', isFirebaseConfigured())
+  console.log('Push Supported:', 'Notification' in window && 'serviceWorker' in navigator)
+  console.log('===================================')
 }

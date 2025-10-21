@@ -9,11 +9,10 @@
  * nostr_push_service public key (npub format)
  * This is the service that handles push notification delivery.
  *
- * For communities2.nos.social, this should be the relay's admin/service key.
- * TODO: Get the actual service npub from communities2.nos.social configuration
+ * For communities2.nos.social: npub1nel9egkn5rjvdl4rw9udq7ptzawryuxjd54k7t7c6glr2g3fhsrstf9rj8
  */
 export const PUSH_SERVICE_NPUB = import.meta.env.VITE_PUSH_SERVICE_NPUB ||
-  'npub1mutnyacc9uc4t5mmxvpprwsauj5p2qxq95v4a9j0jxl8wnkfvuyqpq9mhx' // TODO: Update with communities2 service key
+  'npub1nel9egkn5rjvdl4rw9udq7ptzawryuxjd54k7t7c6glr2g3fhsrstf9rj8' // communities2.nos.social service
 
 /**
  * Relay URL where push events are published

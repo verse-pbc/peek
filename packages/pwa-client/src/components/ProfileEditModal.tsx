@@ -21,6 +21,7 @@ import { EventTemplate, finalizeEvent, nip19 } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { SimplePool } from 'nostr-tools';
 import { useQueryClient } from '@tanstack/react-query';
+import { NotificationToggle } from './Notifications/NotificationToggle';
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -214,6 +215,11 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
+            </div>
+
+            {/* Push Notifications Toggle - in Profile tab */}
+            <div className="pt-4 border-t mt-4">
+              <NotificationToggle />
             </div>
           </TabsContent>
 

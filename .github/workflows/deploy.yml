@@ -85,6 +85,15 @@ jobs:
             VITE_RELAY_URL=wss://communities2.nos.social
             VITE_VALIDATION_SERVICE_PUBKEY=6e4ee3f07168d8728d79141cf94557055cc63e80e8e036b0cef518c095d1a09b
             VITE_DEV_MODE=false
+            VITE_FIREBASE_API_KEY=AIzaSyBh7apbudr8p4sAkaV22YqhofYLE3VrQo8
+            VITE_FIREBASE_AUTH_DOMAIN=peek-afe3d.firebaseapp.com
+            VITE_FIREBASE_PROJECT_ID=peek-afe3d
+            VITE_FIREBASE_STORAGE_BUCKET=peek-afe3d.firebasestorage.app
+            VITE_FIREBASE_MESSAGING_SENDER_ID=784762775027
+            VITE_FIREBASE_APP_ID=1:784762775027:web:3fcfca122fc107d2655e86
+            VITE_FIREBASE_VAPID_KEY=BJqaEQtkAj3PmdQ7iHleib_fA9Fpu4v5nPqGm-tw4AjS8HTOcGvsqjhhSHJo-S3Dp-zpQNyOj1uAxHLjuWsyJTw
+            VITE_PUSH_SERVICE_NPUB=npub1nel9egkn5rjvdl4rw9udq7ptzawryuxjd54k7t7c6glr2g3fhsrstf9rj8
+            VITE_APP_NAME=peek
 
   build-validation:
     name: Build Validation Service

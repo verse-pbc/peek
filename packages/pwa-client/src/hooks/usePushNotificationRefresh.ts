@@ -3,14 +3,14 @@
  *
  * Automatically refreshes expired device tokens and subscriptions on app startup.
  * Should be called once at the app root level.
+ * Supports both local keys and NIP-07 browser extensions.
  */
 
 import { useEffect } from 'react'
-import { useNostrLogin } from '@/lib/nostrify-shim'
+import { useNostrLogin, hasNip44Support } from '@/lib/nostrify-shim'
 import { useRelayManager } from '@/contexts/RelayContext'
 import { checkAndRefreshDeviceToken } from '@/services/push'
 import { checkAndRefreshSubscriptions } from '@/services/notifications'
-import { getPrivateKeyFromIdentity } from '@/lib/crypto'
 
 export function usePushNotificationRefresh() {
   const { identity } = useNostrLogin()
@@ -21,20 +21,31 @@ export function usePushNotificationRefresh() {
       return // Can't refresh without user identity and relay connection
     }
 
-    // Get private key (returns null for NIP-07 extension)
-    const privateKey = getPrivateKeyFromIdentity(identity)
-    if (!privateKey) {
-      console.log('[Push] Skipping refresh check - NIP-07 extension not supported yet')
-      return
-    }
-
     const refreshExpiredItems = async () => {
+      // If using NIP-07, wait for extension to load (they inject asynchronously)
+      if (identity.secretKey === 'NIP07_EXTENSION') {
+        // Wait up to 3 seconds for extension to become available
+        let attempts = 0
+        const maxAttempts = 30 // 30 * 100ms = 3 seconds
+
+        while (attempts < maxAttempts && !hasNip44Support()) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          attempts++
+        }
+
+        // Check if NIP-07 extension supports NIP-44 (required for push notifications)
+        if (!hasNip44Support()) {
+          console.log('[Push] Skipping refresh check - NIP-07 extension does not support NIP-44')
+          return
+        }
+      }
+
       console.log('[Push] Checking for expired tokens/subscriptions...')
 
       // Check device token expiration
       try {
         const deviceRefreshed = await checkAndRefreshDeviceToken(
-          privateKey,
+          identity,
           (event) => relayManager.publishEvent(event)
         )
 
@@ -48,7 +59,7 @@ export function usePushNotificationRefresh() {
       // Check community subscription expirations
       try {
         const refreshedCount = await checkAndRefreshSubscriptions(
-          privateKey,
+          identity,
           (event) => relayManager.publishEvent(event)
         )
 
