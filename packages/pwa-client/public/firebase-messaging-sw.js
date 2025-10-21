@@ -91,6 +91,16 @@ if (messaging) {
         ? notificationConfig.getClickUrl(payload.data)
         : (payload.data.groupId ? `/c/${payload.data.groupId}` : '/')
 
+      // Debug: Log click URL resolution
+      console.log('[SW] FCM payload data:', payload.data)
+      console.log('[SW] Click URL resolution:', {
+        hasCommunityId: !!payload.data.communityId,
+        communityId: payload.data.communityId,
+        hasGroupId: !!payload.data.groupId,
+        groupId: payload.data.groupId,
+        finalClickUrl: clickUrl
+      })
+
       console.log('[SW] Creating notification:', { title, body, icon })
       swLog('info', `Showing notification: ${title}`)
 
@@ -138,11 +148,13 @@ if (messaging) {
 
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked:', event.notification.data)
+  console.log('[SW] Notification clicked')
+  console.log('[SW] Full notification data:', JSON.stringify(event.notification.data, null, 2))
 
   event.notification.close()
 
   const targetUrl = event.notification.data?.url || '/'
+  console.log('[SW] Navigating to:', targetUrl)
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
