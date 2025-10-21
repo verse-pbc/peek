@@ -163,7 +163,15 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
               <AlertDescription className="text-sm">
-                💡 <strong>Works across all Nostr apps!</strong> Your profile is part of the Nostr protocol.
+                💡 <strong>Works across all Nostr apps!</strong> Your profile is part of the Nostr protocol.{' '}
+                <a
+                  href="https://nostr.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-coral hover:underline inline-flex items-center gap-0.5"
+                >
+                  Learn more →
+                </a>
               </AlertDescription>
             </Alert>
             <div className="space-y-4">
