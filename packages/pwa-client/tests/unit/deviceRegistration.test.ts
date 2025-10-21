@@ -47,7 +47,9 @@ describe('Device Registration', () => {
         version: 1,
         deviceRegistered: true,
         deviceTokenTimestamp: twentyDaysAgo,
+        currentFcmToken: 'test-token',
         servicePubkey: 'test',
+        userDisabledPush: false,
         communitySubscriptions: {}
       })
 
