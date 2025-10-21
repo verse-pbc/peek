@@ -16,7 +16,7 @@ import { hasUserDisabledPush, resetUserDisabledFlag, isDeviceRegistered } from '
 
 export function usePushNotificationRefresh() {
   const { identity } = useNostrLogin()
-  const { relayManager } = useRelayManager()
+  const { relayManager, groupManager } = useRelayManager()
 
   useEffect(() => {
     if (!identity || !relayManager) {
@@ -66,7 +66,6 @@ export function usePushNotificationRefresh() {
               console.log('[Push] Auto-registration successful')
 
               // Subscribe to all joined communities
-              const groupManager = relayManager.groupManager
               if (groupManager) {
                 const userGroups = await groupManager.getUserGroups()
                 const communityIds = userGroups.map((g) => g.nip29GroupId)

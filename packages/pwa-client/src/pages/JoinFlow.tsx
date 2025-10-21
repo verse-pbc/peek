@@ -385,7 +385,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
                       if (registered) {
                         // Subscribe to this community
                         await subscribeToCommunity(
-                          response.group_id,
+                          response.group_id!,
                           identity,
                           (event) => relayManager.publishEvent(event)
                         );

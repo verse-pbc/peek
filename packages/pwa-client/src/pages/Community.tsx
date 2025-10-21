@@ -413,7 +413,7 @@ const Community = () => {
         if (loading && !communityData && !showJoinFlow) {
           // Check localStorage before defaulting to JoinFlow (prevents premature join screen)
           // This is especially important on slower devices/networks (iOS Safari)
-          const isMember = isCommunityMember(communityId);
+          const isMember = communityId ? isCommunityMember(communityId) : false;
 
           if (isMember) {
             console.log("[Community] Loading timeout but user is member - continuing to wait");
