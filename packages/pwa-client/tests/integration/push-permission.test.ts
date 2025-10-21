@@ -22,10 +22,10 @@ const mockServiceWorker = {
 }
 
 // Setup global mocks
-global.Notification = mockNotification as any
+global.Notification = mockNotification as unknown as typeof Notification
 global.navigator = {
   ...global.navigator,
-  serviceWorker: mockServiceWorker as any
+  serviceWorker: mockServiceWorker as unknown as ServiceWorkerContainer
 }
 
 describe('Push Permission Flow', () => {

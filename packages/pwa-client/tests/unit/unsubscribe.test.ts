@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { unsubscribeFromCommunity, unsubscribeFromAllCommunities } from '../../src/services/notifications'
+// Placeholder test - functionality tested in integration tests
 
 describe('Unsubscription', () => {
   it('should create kind 3082 event with correct filter', () => {

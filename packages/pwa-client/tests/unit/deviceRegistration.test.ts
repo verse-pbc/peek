@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { registerDevice, isDeviceRegistrationExpired } from '../../src/services/push'
+import { isDeviceRegistrationExpired } from '../../src/services/push'
 import * as pushStorage from '../../src/lib/pushStorage'
 
 // Mock dependencies
