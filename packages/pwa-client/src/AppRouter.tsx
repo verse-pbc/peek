@@ -17,7 +17,7 @@ import NotFound from "./pages/NotFound";
 
 // Expose debug helpers to window object for console access
 if (typeof window !== 'undefined') {
-  (window as any).debugFirebaseConfig = debugFirebaseConfig;
+  (window as Window & { debugFirebaseConfig: typeof debugFirebaseConfig }).debugFirebaseConfig = debugFirebaseConfig;
 }
 
 export function AppRouter() {
