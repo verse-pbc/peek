@@ -37,39 +37,24 @@ const notificationConfig = {
 
   // Title formatter - receives FCM data payload
   formatTitle: function(data) {
-    // data: { senderPubkey, receiverPubkey, groupId, title (from server), body, ... }
-
-    // Extract community name from groupId if available
-    // groupId format: "peek-{id}" or full community name
-    let communityName = 'Peek';
-
-    if (data.groupId) {
-      // Try to make groupId more readable
-      const id = data.groupId.replace('peek-', '');
-      // For now, just show "Peek" - server could send community name in future
-      communityName = 'Peek';
-    }
-
-    return communityName;
+    // Server provides communityName (from kind 39000 metadata)
+    // Fallback to 'Peek' if not provided
+    return data.communityName || 'Peek';
   },
 
   // Body formatter - receives FCM data payload
   formatBody: function(data) {
-    // Include sender name as prefix for context
-    const senderName = data.senderPubkey
-      ? genUserName(data.senderPubkey)
-      : 'Someone';
-
-    const message = data.body || '';
-
-    // Format: "Sender: message"
-    return `${senderName}: ${message}`;
+    // Server provides formatted body: "SenderName: message"
+    // where SenderName comes from kind 0 profile (display_name || name || short npub)
+    // Just return as-is
+    return data.body || '';
   },
 
   // Click action URL builder
   getClickUrl: function(data) {
-    // Navigate to community if groupId present
-    return data.groupId ? `/c/${data.groupId}` : '/';
+    // Server provides communityId (UUID from i-tag in kind 39000)
+    // Use this for navigation instead of groupId (h-tag)
+    return data.communityId ? `/c/${data.communityId}` : '/';
   },
 
   // Notification options (passed to showNotification)
