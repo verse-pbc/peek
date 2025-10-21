@@ -41,6 +41,11 @@ describe('Device Registration', () => {
   })
 
   describe('isDeviceRegistrationExpired', () => {
+    beforeEach(() => {
+      // Mock isDeviceRegistered to return true by default
+      vi.mocked(pushStorage.isDeviceRegistered).mockReturnValue(true)
+    })
+
     it('should return false for device registered <25 days ago', () => {
       const twentyDaysAgo = Math.floor(Date.now() / 1000) - (20 * 24 * 60 * 60)
       vi.mocked(pushStorage.loadState).mockReturnValue({
