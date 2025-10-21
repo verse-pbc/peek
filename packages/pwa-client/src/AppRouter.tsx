@@ -4,7 +4,6 @@ import { Layout } from "./components/Layout";
 import { usePushNotificationRefresh } from "./hooks/usePushNotificationRefresh";
 import { debugFirebaseConfig } from "./config/firebase";
 import { initializeForegroundNotifications } from "./services/firebase";
-import { useToast } from "./hooks/useToast";
 import { useEffect } from "react";
 
 import Index from "./pages/Index";
