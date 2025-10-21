@@ -9,8 +9,7 @@ import { getToken, deleteToken, onMessage, Messaging } from 'firebase/messaging'
 import { getFirebaseMessaging, getVapidKey } from '../config/firebase'
 
 let messaging: Messaging | null = null
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let foregroundMessageHandler: ((payload: any) => void) | null = null
+let foregroundMessageHandler: ((payload: unknown) => void) | null = null
 
 /**
  * Initialize Firebase Messaging
@@ -111,8 +110,7 @@ export async function requestNotificationPermissionAndGetToken(): Promise<string
  *
  * @param handler - Callback for incoming messages
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function setForegroundMessageHandler(handler: (payload: any) => void): void {
+export function setForegroundMessageHandler(handler: (payload: unknown) => void): void {
   foregroundMessageHandler = handler
 
   if (messaging) {
