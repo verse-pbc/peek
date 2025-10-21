@@ -25,7 +25,7 @@ import {
   upsertJoinedGroup
 } from '../services/community-storage';
 import { subscribeToCommunity } from '../services/notifications';
-import { isDeviceRegistered, hasUserDisabledPush, resetUserDisabledFlag } from '../lib/pushStorage';
+import { isDeviceRegistered, hasUserDisabledPush } from '../lib/pushStorage';
 import { requestNotificationPermission, getFCMToken, registerDevice } from '../services/push';
 
 // Types that were previously from API

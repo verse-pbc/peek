@@ -5,10 +5,11 @@
  * for push notifications.
  */
 
-import { getMessaging, getToken, deleteToken, onMessage, Messaging } from 'firebase/messaging'
+import { getToken, deleteToken, onMessage, Messaging } from 'firebase/messaging'
 import { getFirebaseMessaging, getVapidKey } from '../config/firebase'
 
 let messaging: Messaging | null = null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let foregroundMessageHandler: ((payload: any) => void) | null = null
 
 /**
@@ -110,6 +111,7 @@ export async function requestNotificationPermissionAndGetToken(): Promise<string
  *
  * @param handler - Callback for incoming messages
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function setForegroundMessageHandler(handler: (payload: any) => void): void {
   foregroundMessageHandler = handler
 

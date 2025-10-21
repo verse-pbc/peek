@@ -12,7 +12,7 @@ import { useNostrLogin, hasNip44Support } from '@/lib/nostrify-shim'
 import { useRelayManager } from '@/contexts/RelayContext'
 import { checkAndRefreshDeviceToken, getFCMToken, registerDevice } from '@/services/push'
 import { checkAndRefreshSubscriptions, subscribeToAllCommunities } from '@/services/notifications'
-import { hasUserDisabledPush, resetUserDisabledFlag, isDeviceRegistered } from '@/lib/pushStorage'
+import { hasUserDisabledPush, isDeviceRegistered } from '@/lib/pushStorage'
 
 export function usePushNotificationRefresh() {
   const { identity } = useNostrLogin()
