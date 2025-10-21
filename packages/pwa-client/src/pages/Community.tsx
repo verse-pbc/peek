@@ -18,6 +18,7 @@ import {
   Loader2,
   Lock,
 } from "lucide-react";
+import { isCommunityMember } from "../services/community-storage";
 import { useToast } from "@/hooks/useToast";
 import { useNostrLogin } from "../lib/nostrify-shim";
 import { useRelayManager } from "../contexts/RelayContext";
@@ -25,6 +26,7 @@ import { useMigrationState } from "../hooks/useMigrationState";
 import { useMigrationPolling } from "../hooks/useMigrationPolling";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { MembersListModal } from "@/components/MembersListModal";
+import { IOSInstallBanner } from "@/components/IOSInstallBanner";
 
 interface CommunityData {
   groupId: string;
@@ -119,7 +121,8 @@ const Community = () => {
 
     // Create dedicated subscription for metadata (receives historical + live events)
     const unsubscribe = relayManager.subscribeToMetadata(groupId, (event) => {
-      console.log(`[Community] Received metadata event:`, event.kind);
+      // Reduced verbosity: only log in verbose debug mode
+      // console.log(`[Community] Received metadata event:`, event.kind);
 
       if (event.kind === 39000) {
         // GROUP_METADATA event
@@ -141,7 +144,8 @@ const Community = () => {
           // Also update communityData if it exists (idempotent)
           setCommunityData((prev) => {
             if (!prev) {
-              console.log("[Community] 📊 Name stored in ref:", nextName);
+              // Reduced verbosity
+              // console.log("[Community] 📊 Name stored in ref:", nextName);
               return prev;
             }
             if (prev.name !== nextName) {
@@ -167,7 +171,8 @@ const Community = () => {
       } else if (event.kind === 39002) {
         // GROUP_MEMBERS event
         const memberCount = event.tags.filter((t) => t[0] === "p").length;
-        console.log("[Community] 📝 Updating member count from 39002:", memberCount);
+        // Reduced verbosity
+        // console.log("[Community] 📝 Updating member count from 39002:", memberCount);
 
         // Store in ref for immediate use (before communityData exists)
         memberCountRef.current = memberCount;
@@ -175,7 +180,8 @@ const Community = () => {
         // Update communityData if it exists
         setCommunityData((prev) => {
           if (!prev) {
-            console.log("[Community] 📊 Member count stored in ref:", memberCount);
+            // Reduced verbosity
+            // console.log("[Community] 📊 Member count stored in ref:", memberCount);
             return prev;
           }
           return { ...prev, memberCount };
@@ -405,14 +411,23 @@ const Community = () => {
     if (connected && loading && !communityData && !showJoinFlow) {
       const timeout = setTimeout(() => {
         if (loading && !communityData && !showJoinFlow) {
-          console.log("[Community] Loading timeout - defaulting to JoinFlow");
-          setShowJoinFlow(true);
-          setLoading(false);
+          // Check localStorage before defaulting to JoinFlow (prevents premature join screen)
+          // This is especially important on slower devices/networks (iOS Safari)
+          const isMember = communityId ? isCommunityMember(communityId) : false;
+
+          if (isMember) {
+            console.log("[Community] Loading timeout but user is member - continuing to wait");
+            // Don't show JoinFlow, user is a member, just slow to load
+          } else {
+            console.log("[Community] Loading timeout - defaulting to JoinFlow");
+            setShowJoinFlow(true);
+            setLoading(false);
+          }
         }
       }, 5000);
       return () => clearTimeout(timeout);
     }
-  }, [connected, loading, communityData, showJoinFlow]);
+  }, [connected, loading, communityData, showJoinFlow, communityId]);
 
   const handleBack = () => {
     navigate("/");
@@ -534,6 +549,11 @@ const Community = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* iOS Install Banner - shows for iOS users not in PWA mode */}
+      <div className="px-4 pt-2">
+        <IOSInstallBanner />
       </div>
 
       {/* Main Content */}

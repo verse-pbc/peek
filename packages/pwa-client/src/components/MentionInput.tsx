@@ -88,7 +88,8 @@ export function MentionInput({
     }
   };
 
-  console.log('[MentionInput] Members:', members.length, 'Mention data:', mentionData.length);
+  // Reduced verbosity
+  // console.log('[MentionInput] Members:', members.length, 'Mention data:', mentionData.length);
 
   return (
     <div className="flex-1 relative">

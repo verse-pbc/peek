@@ -14,6 +14,8 @@ import { genUserName } from '@/lib/genUserName';
 import { getDiceBearDataUrl } from '@/lib/dicebear';
 import { nip19 } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
+import { NotificationToggle } from './Notifications/NotificationToggle';
+import { useNostrLogin } from '@/lib/nostrify-shim';
 
 interface UserProfileModalProps {
   pubkey: string | null;
@@ -24,6 +26,7 @@ interface UserProfileModalProps {
 
 export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserProfileModalProps) {
   const { toast } = useToast();
+  const { identity } = useNostrLogin();
   const { resolveIdentity } = useIdentityResolution(groupId);
 
   const resolvedPubkey = pubkey ? resolveIdentity(pubkey) : '';
@@ -34,6 +37,9 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
 
   const displayName = profile?.display_name || profile?.name || genUserName(resolvedPubkey);
   const npub = nip19.npubEncode(resolvedPubkey);
+
+  // Check if viewing own profile
+  const isOwnProfile = identity && resolvedPubkey === identity.publicKey;
 
   const handleCopyNpub = () => {
     navigator.clipboard.writeText(npub);
@@ -103,6 +109,13 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
               </Button>
             </div>
           </div>
+
+          {/* Push Notifications Toggle - only shown for own profile */}
+          {isOwnProfile && (
+            <div className="w-full pt-4 border-t">
+              <NotificationToggle />
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

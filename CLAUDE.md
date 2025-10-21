@@ -113,14 +113,19 @@ nak event -k 9002 -t h=peek-xyz -t name='My Group' --sec $COMMUNITIES2 -c "" com
 ## MVP Deferrals
 - Photo verification (GPS only for now)
 - Rate limiting
-- Push notifications
 - Native apps
 - Multi-relay support
 
 ## Recent Changes
+- 001-add-push-notification: Added push notification support (MVP complete, awaiting nostr_push_service deployment)
+  - Firebase Cloud Messaging integration
+  - NIP-44 encrypted device registration (kind 3079)
+  - Per-community subscriptions (kind 3081/3082)
+  - Auto-subscribe on community join
+  - 25-day expiration refresh for tokens and subscriptions
+  - Service worker for background notifications
 - Initial project setup with MKStack
 - NIP-29 relay integration
-- Location validation service
 
 ---
 *AI Assistant Context - Last Updated: 2025-09-16*

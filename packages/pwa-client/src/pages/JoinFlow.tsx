@@ -24,6 +24,9 @@ import {
   isCommunityMember,
   upsertJoinedGroup
 } from '../services/community-storage';
+import { subscribeToCommunity } from '../services/notifications';
+import { isDeviceRegistered, hasUserDisabledPush } from '../lib/pushStorage';
+import { requestNotificationPermission, getFCMToken, registerDevice } from '../services/push';
 
 // Types that were previously from API
 export interface CommunityPreviewData {
@@ -340,6 +343,65 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
         // Skip SUCCESS step - go directly to community feed
         if (response.group_id) {
           console.log(`[JoinFlow] Auto-navigating to community feed`);
+
+          // Auto-enable push notifications on first community join (if not disabled)
+          if (identity && relayManager) {
+            const alreadyRegistered = isDeviceRegistered()
+            const userDisabled = hasUserDisabledPush()
+            const permissionStatus = typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+
+            if (alreadyRegistered) {
+              // Already registered - just subscribe to this community
+              console.log('[JoinFlow] User has notifications enabled, subscribing to community...');
+              subscribeToCommunity(response.group_id, identity, (event) => relayManager.publishEvent(event))
+                .then((success) => {
+                  if (success) {
+                    console.log('[JoinFlow] Successfully subscribed to community notifications');
+                  }
+                })
+                .catch((error) => {
+                  console.error('[JoinFlow] Error subscribing to notifications:', error);
+                });
+            } else if (!userDisabled && permissionStatus === 'default') {
+              // Not registered, user hasn't disabled, permission not decided
+              // Auto-prompt for permission on first join
+              console.log('[JoinFlow] Auto-prompting for push notification permission on first join');
+
+              requestNotificationPermission()
+                .then(async (permission) => {
+                  if (permission === 'granted') {
+                    console.log('[JoinFlow] Permission granted, auto-registering...');
+
+                    // Get FCM token
+                    const fcmToken = await getFCMToken();
+                    if (fcmToken) {
+                      // Register device
+                      const registered = await registerDevice(
+                        fcmToken,
+                        identity,
+                        (event) => relayManager.publishEvent(event)
+                      );
+
+                      if (registered) {
+                        // Subscribe to this community
+                        await subscribeToCommunity(
+                          response.group_id!,
+                          identity,
+                          (event) => relayManager.publishEvent(event)
+                        );
+                        console.log('[JoinFlow] Auto-enabled push notifications for first community');
+                      }
+                    }
+                  } else {
+                    console.log('[JoinFlow] Permission denied, user can enable later in settings');
+                  }
+                })
+                .catch((error) => {
+                  console.error('[JoinFlow] Auto-prompt failed:', error);
+                });
+            }
+          }
+
           onJoinSuccess(response.group_id);
         }
       } else {

@@ -1035,7 +1035,8 @@ export class RelayManager {
     // Notify handlers
     this.notifyEventHandlers(`group-metadata-${dTag}`, event);
     const pattern = `kind:${event.kind}`;
-    console.log(`[RelayManager] Notifying handlers for pattern: ${pattern}`);
+    // Reduced verbosity: only log in verbose debug mode
+    // console.log(`[RelayManager] Notifying handlers for pattern: ${pattern}`);
     this.notifyEventHandlers(pattern, event);
   }
 
