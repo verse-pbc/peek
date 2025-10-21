@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { generateSecretKey } from 'nostr-tools/pure'
+import { generateSecretKey, getPublicKey } from 'nostr-tools/pure'
 import {
   encryptForService,
   decryptFromService,
@@ -60,7 +60,8 @@ describe('Crypto Utilities', () => {
 
   describe('NIP-44 Encryption', () => {
     const privateKey = generateSecretKey()
-    const recipientPubkey = '918090c81ebd56566df50a610dcb16e217a95fcee958cbbdf8520f9e1c0c74c1'
+    const recipientPrivateKey = generateSecretKey()
+    const recipientPubkey = getPublicKey(recipientPrivateKey)
 
     it('should encrypt and decrypt successfully', () => {
       const plaintext = 'Hello, Nostr!'
@@ -90,13 +91,13 @@ describe('Crypto Utilities', () => {
       expect(JSON.parse(decrypted)).toEqual(payload)
     })
 
-    it('should handle empty strings', () => {
-      const plaintext = ''
+    it('should handle minimal strings (NIP-44 requires 1+ bytes)', () => {
+      const plaintext = 'a'  // Minimum 1 byte
 
       const encrypted = encryptForService(plaintext, privateKey, recipientPubkey)
       const decrypted = decryptFromService(encrypted, privateKey, recipientPubkey)
 
-      expect(decrypted).toBe('')
+      expect(decrypted).toBe(plaintext)
     })
 
     it('should handle Unicode characters', () => {
