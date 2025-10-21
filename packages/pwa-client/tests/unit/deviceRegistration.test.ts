@@ -62,7 +62,9 @@ describe('Device Registration', () => {
         version: 1,
         deviceRegistered: true,
         deviceTokenTimestamp: twentySixDaysAgo,
+        currentFcmToken: 'test-token',
         servicePubkey: 'test',
+        userDisabledPush: false,
         communitySubscriptions: {}
       })
 
@@ -76,7 +78,9 @@ describe('Device Registration', () => {
         version: 1,
         deviceRegistered: false,
         deviceTokenTimestamp: 0,
+        currentFcmToken: null,
         servicePubkey: '',
+        userDisabledPush: false,
         communitySubscriptions: {}
       })
 
