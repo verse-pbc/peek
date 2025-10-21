@@ -16,8 +16,14 @@ import JoinCommunityMock from "./pages/JoinCommunityMock";
 import NotFound from "./pages/NotFound";
 
 // Expose debug helpers to window object for console access
+declare global {
+  interface Window {
+    debugFirebaseConfig: typeof debugFirebaseConfig
+  }
+}
+
 if (typeof window !== 'undefined') {
-  (window as Window & { debugFirebaseConfig: typeof debugFirebaseConfig }).debugFirebaseConfig = debugFirebaseConfig;
+  window.debugFirebaseConfig = debugFirebaseConfig;
 }
 
 export function AppRouter() {
