@@ -21,8 +21,6 @@ if (typeof window !== 'undefined') {
 }
 
 export function AppRouter() {
-  const { toast } = useToast();
-
   // Register service worker early (for identity cache, even when push not supported)
   useEffect(() => {
     if ('serviceWorker' in navigator) {
