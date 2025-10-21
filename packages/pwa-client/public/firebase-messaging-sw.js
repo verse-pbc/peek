@@ -1,6 +1,8 @@
 // Firebase Cloud Messaging Service Worker
 // Handles background push notifications for Peek
-// Version: 1.0.0
+// Version: 1.0.3
+
+console.log('[SW] firebase-messaging-sw.js loading, scope:', self.registration?.scope)
 
 // SW to Page log bridge - posts logs to main window console for easier debugging
 const swLog = async (level, text) => {
@@ -19,7 +21,7 @@ try {
   console.error('[SW] Failed to load Firebase libs:', e)
 }
 
-// Load config synchronously with error handling
+// Load Firebase config synchronously
 let firebaseConfigOk = false
 try {
   self.importScripts('/firebase-config.js')
@@ -31,6 +33,21 @@ try {
 } catch (e) {
   swLog('error', `Failed to load /firebase-config.js: ${e.message}`)
   console.error('[SW] Failed to load firebase-config.js:', e)
+}
+
+// Load notification config (app-specific formatters)
+// Don't pre-declare - let importScripts create the global variable
+try {
+  self.importScripts('/notification-config.js')
+  if (typeof notificationConfig !== 'undefined') {
+    swLog('info', 'notification-config.js loaded')
+    console.log('[SW] Notification config loaded with formatters')
+  } else {
+    swLog('warn', 'notification-config.js loaded but notificationConfig undefined')
+  }
+} catch (e) {
+  swLog('warn', 'No notification-config.js, using defaults')
+  console.warn('[SW] notification-config.js not found, using defaults')
 }
 
 // Initialize messaging if config loaded
@@ -58,35 +75,51 @@ if (messaging) {
     // Extract notification data from FCM payload
     // nostr_push_service sends data-only messages (no notification field)
     if (payload.data && payload.data.title && payload.data.body) {
-      const title = payload.data.title
-      const body = payload.data.body
-      const groupId = payload.data.groupId
-      const eventId = payload.data.nostrEventId
-      const senderPubkey = payload.data.senderPubkey
-      const receiverPubkey = payload.data.receiverPubkey
+      // Use config formatters if available, otherwise use server data as-is
+      const title = notificationConfig?.formatTitle
+        ? notificationConfig.formatTitle(payload.data)
+        : payload.data.title
 
-      console.log('[SW] Creating notification:', { title, body, groupId, eventId })
+      const body = notificationConfig?.formatBody
+        ? notificationConfig.formatBody(payload.data)
+        : payload.data.body
+
+      const icon = notificationConfig?.icon || '/pwa-192x192.png'
+      const badge = notificationConfig?.badge || icon
+
+      const clickUrl = notificationConfig?.getClickUrl
+        ? notificationConfig.getClickUrl(payload.data)
+        : (payload.data.groupId ? `/c/${payload.data.groupId}` : '/')
+
+      console.log('[SW] Creating notification:', { title, body, icon })
       swLog('info', `Showing notification: ${title}`)
 
-      const notificationOptions = {
+      // Merge config options with required fields
+      const baseOptions = {
         body: body,
-        icon: '/icon-192x192.png',
-        badge: '/icon-192x192.png',
-        tag: eventId || 'peek-notification',
+        icon: icon,
+        badge: badge,
+        tag: payload.data.nostrEventId || 'peek-notification',
         data: {
-          url: groupId ? `/c/${groupId}` : '/',
-          eventId: eventId,
-          groupId: groupId,
-          senderPubkey: senderPubkey,
-          receiverPubkey: receiverPubkey,
+          url: clickUrl,
+          eventId: payload.data.nostrEventId,
+          groupId: payload.data.groupId,
+          senderPubkey: payload.data.senderPubkey,
+          receiverPubkey: payload.data.receiverPubkey,
           timestamp: Date.now()
-        },
-        requireInteraction: false,
-        silent: false,
-        vibrate: [200, 100, 200],
-        renotify: true,
-        actions: []
+        }
       }
+
+      const notificationOptions = notificationConfig?.options
+        ? { ...baseOptions, ...notificationConfig.options }
+        : {
+            ...baseOptions,
+            requireInteraction: false,
+            silent: false,
+            vibrate: [200, 100, 200],
+            renotify: true,
+            actions: []
+          }
 
       console.log('[SW] Showing notification with options:', notificationOptions)
       return self.registration.showNotification(title, notificationOptions)

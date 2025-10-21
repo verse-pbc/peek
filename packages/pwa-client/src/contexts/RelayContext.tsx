@@ -133,6 +133,13 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       return;
     }
 
+    // Skip if identity is still loading (prevent race condition)
+    // Identity loading now waits for service worker, so we must wait too
+    if (!identity && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      console.log('[RelayContext] Waiting for identity to load...');
+      return;
+    }
+
     const initializeRelay = async () => {
       // Initialize relay manager
       const relayUrl = import.meta.env.VITE_RELAY_URL || "ws://localhost:8080";
@@ -370,7 +377,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     };
 
     initializeRelay();
-  }, []);
+  }, [identity]); // Re-run when identity loads
 
   const connect = async () => {
     if (managerRef.current) {

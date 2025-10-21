@@ -19,10 +19,11 @@ import {
   isPushSupported
 } from '@/services/push'
 import { subscribeToAllCommunities, unsubscribeFromAllCommunities } from '@/services/notifications'
-import { isDeviceRegistered, clearDeviceRegistration } from '@/lib/pushStorage'
+import { isDeviceRegistered, clearDeviceRegistration, resetUserDisabledFlag } from '@/lib/pushStorage'
 import { hasNip44Support } from '@/lib/nostrify-shim'
 import { useNostrLogin } from '@/lib/nostrify-shim'
 import { useRelayManager } from '@/contexts/RelayContext'
+import { isIOS, isPWA, canUsePushNotifications } from '@/lib/platform'
 
 export function NotificationToggle() {
   const { toast } = useToast()
@@ -101,6 +102,18 @@ export function NotificationToggle() {
       }
     }
 
+    // iOS-specific check: requires PWA installation
+    if (isIOS() && !isPWA()) {
+      toast({
+        title: 'iOS: Install Required',
+        description: 'Push notifications on iOS require adding Peek to your Home Screen. In Safari: tap Share → Add to Home Screen, then reopen Peek from your home screen.',
+        variant: 'destructive',
+        duration: 10000 // Show longer for iOS users to read
+      })
+      setLoading(false)
+      return
+    }
+
     if (!isPushSupported()) {
       toast({
         title: 'Not Supported',
@@ -149,6 +162,8 @@ export function NotificationToggle() {
         )
 
         if (success) {
+          // User manually enabled - clear the "disabled" flag
+          resetUserDisabledFlag()
           setEnabled(true)
 
           // Subscribe to all existing communities
@@ -231,8 +246,9 @@ export function NotificationToggle() {
     }
   }
 
-  if (!isPushSupported()) {
-    return null // Don't show toggle if not supported
+  // Don't show toggle if push notifications not available
+  if (!canUsePushNotifications()) {
+    return null
   }
 
   return (

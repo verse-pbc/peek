@@ -9,7 +9,7 @@
 import { finalizeEvent, type EventTemplate, type Event } from 'nostr-tools/pure'
 import { requestNotificationPermissionAndGetToken, deleteFCMToken } from './firebase'
 import { encryptForServiceAsync, getPrivateKeyFromIdentity } from '../lib/crypto'
-import { updateDeviceRegistration, needsDeviceRefresh, isDeviceRegistered, clearDeviceRegistration } from '../lib/pushStorage'
+import { updateDeviceRegistration, needsDeviceRefresh, isDeviceRegistered, clearDeviceRegistration, getStoredFcmToken } from '../lib/pushStorage'
 import { PUSH_SERVICE_NPUB, APP_NAME, TOKEN_EXPIRATION_SECONDS } from '../config/push'
 import { nip19 } from 'nostr-tools'
 
@@ -126,8 +126,8 @@ export async function registerDevice(
 
     await publishEvent(signedEvent)
 
-    // Update localStorage
-    updateDeviceRegistration(true, now)
+    // Update localStorage with registration status and current token
+    updateDeviceRegistration(true, now, fcmToken)
 
     console.log('[Push] Device registered successfully, event ID:', signedEvent.id)
     return true
@@ -149,7 +149,23 @@ export function isDeviceRegistrationExpired(): boolean {
 }
 
 /**
+ * Check if FCM token has changed (rotation or invalidation)
+ * Returns true if token changed and needs re-registration
+ */
+export async function hasTokenChanged(): Promise<boolean> {
+  const currentToken = await getFCMToken()
+  const storedToken = getStoredFcmToken()
+
+  if (!currentToken || !storedToken) {
+    return false
+  }
+
+  return currentToken !== storedToken
+}
+
+/**
  * Check and refresh device token if needed
+ * Handles both expiration AND token rotation/invalidation
  * Supports both local keys and NIP-07 browser extensions
  *
  * @param identity - User's identity (local key or NIP-07)
@@ -160,24 +176,38 @@ export async function checkAndRefreshDeviceToken(
   identity: { secretKey: string; publicKey: string } | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
-  // Check if refresh needed
-  if (!isDeviceRegistrationExpired()) {
+  // Get current FCM token from Firebase
+  const currentToken = await getFCMToken()
+  if (!currentToken) {
+    console.error('[Push] Failed to get current FCM token')
+    return false
+  }
+
+  const storedToken = getStoredFcmToken()
+  const isExpired = isDeviceRegistrationExpired()
+
+  // Check if token changed (rotation/invalidation by Firebase)
+  if (storedToken && currentToken !== storedToken) {
+    console.warn('[Push] ⚠️ FCM token changed! Old token invalidated by Firebase.')
+    console.log('[Push] Re-registering with new token...')
+
+    const success = await registerDevice(currentToken, identity, publishEvent)
+    if (success) {
+      console.log('[Push] ✅ Re-registered with new FCM token after rotation')
+    }
+    return success
+  }
+
+  // Check if registration expired (>25 days old)
+  if (!isExpired) {
     console.log('[Push] Device registration still valid, no refresh needed')
     return false
   }
 
   console.log('[Push] Device registration expired, refreshing...')
 
-  // Get current FCM token (should be same token, just updating expiration)
-  const fcmToken = await getFCMToken()
-
-  if (!fcmToken) {
-    console.error('[Push] Failed to get FCM token for refresh')
-    return false
-  }
-
-  // Re-register with new expiration
-  const success = await registerDevice(fcmToken, identity, publishEvent)
+  // Re-register with same token, new expiration
+  const success = await registerDevice(currentToken, identity, publishEvent)
 
   if (success) {
     console.log('[Push] Device registration refreshed successfully')

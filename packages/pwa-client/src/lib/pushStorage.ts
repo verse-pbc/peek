@@ -14,7 +14,9 @@ export interface PushNotificationState {
   version: number // Schema version
   deviceRegistered: boolean // Has kind 3079 been published?
   deviceTokenTimestamp: number // Unix timestamp of last device registration
+  currentFcmToken: string | null // Current FCM token (to detect changes/rotation)
   servicePubkey: string // Cached nostr_push_service public key
+  userDisabledPush: boolean // User explicitly disabled push notifications (via toggle)
   communitySubscriptions: {
     [communityId: string]: CommunitySubscriptionState
   }
@@ -63,24 +65,54 @@ export function saveState(state: PushNotificationState): void {
 /**
  * Update device registration state
  */
-export function updateDeviceRegistration(registered: boolean, timestamp?: number): void {
+export function updateDeviceRegistration(registered: boolean, timestamp?: number, fcmToken?: string): void {
   const state = loadState()
   state.deviceRegistered = registered
   if (timestamp) {
     state.deviceTokenTimestamp = timestamp
+  }
+  if (fcmToken !== undefined) {
+    state.currentFcmToken = fcmToken
   }
   saveState(state)
 }
 
 /**
  * Clear device registration (for deregistration - kind 3080)
- * Also clears all community subscriptions
+ * Also clears all community subscriptions and sets userDisabledPush flag
  */
 export function clearDeviceRegistration(): void {
   const state = loadState()
   state.deviceRegistered = false
   state.deviceTokenTimestamp = 0
+  state.currentFcmToken = null
+  state.userDisabledPush = true // User explicitly disabled
   state.communitySubscriptions = {}
+  saveState(state)
+}
+
+/**
+ * Get stored FCM token
+ */
+export function getStoredFcmToken(): string | null {
+  const state = loadState()
+  return state.currentFcmToken
+}
+
+/**
+ * Check if user explicitly disabled push notifications
+ */
+export function hasUserDisabledPush(): boolean {
+  const state = loadState()
+  return state.userDisabledPush || false
+}
+
+/**
+ * Reset user disabled flag (for auto-enable scenarios)
+ */
+export function resetUserDisabledFlag(): void {
+  const state = loadState()
+  state.userDisabledPush = false
   saveState(state)
 }
 
@@ -207,7 +239,9 @@ function createEmptyState(): PushNotificationState {
     version: CURRENT_VERSION,
     deviceRegistered: false,
     deviceTokenTimestamp: 0,
+    currentFcmToken: null,
     servicePubkey: '',
+    userDisabledPush: false,
     communitySubscriptions: {}
   }
 }

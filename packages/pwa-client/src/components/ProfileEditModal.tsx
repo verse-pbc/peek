@@ -95,7 +95,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
       const relays = [
         'wss://purplepag.es',
         'wss://relay.nos.social',
-        'wss:// relay.damus.io',
+        'wss://relay.damus.io',
         'wss://nos.lol',
         'wss://communities2.nos.social', // Also publish to Peek relay
       ];

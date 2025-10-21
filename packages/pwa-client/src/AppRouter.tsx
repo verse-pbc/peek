@@ -16,13 +16,30 @@ import { TestCommunityPreviewPage } from "./pages/TestCommunityPreview";
 import JoinCommunityMock from "./pages/JoinCommunityMock";
 import NotFound from "./pages/NotFound";
 
-// Expose debug helper to window object for console access
+// Expose debug helpers to window object for console access
 if (typeof window !== 'undefined') {
   (window as any).debugFirebaseConfig = debugFirebaseConfig;
 }
 
 export function AppRouter() {
   const { toast } = useToast();
+
+  // Register service worker early (for identity cache, even when push not supported)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then(registration => {
+          console.log('[SW] Service worker registered, scope:', registration.scope)
+          // Check for updates periodically
+          registration.update()
+        })
+        .catch(error => {
+          console.error('[SW] Service worker registration failed:', error)
+        })
+    } else {
+      console.warn('[SW] Service workers not supported')
+    }
+  }, [])
 
   // Check and refresh expired push notification tokens/subscriptions on app startup
   usePushNotificationRefresh();
@@ -48,6 +65,27 @@ export function AppRouter() {
 
     return () => {
       navigator.serviceWorker?.removeEventListener('message', handleSWMessage)
+    }
+  }, [])
+
+  // Auto-update service worker when user returns to tab
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && 'serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration()
+        if (registration) {
+          // Check for updates when user returns to app
+          registration.update().catch(err => {
+            console.warn('[SW] Update check failed:', err)
+          })
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 

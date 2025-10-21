@@ -2,6 +2,7 @@
  * Hook: Push Notification Refresh
  *
  * Automatically refreshes expired device tokens and subscriptions on app startup.
+ * Also handles auto-registration if permission already granted (opt-out model).
  * Should be called once at the app root level.
  * Supports both local keys and NIP-07 browser extensions.
  */
@@ -9,8 +10,9 @@
 import { useEffect } from 'react'
 import { useNostrLogin, hasNip44Support } from '@/lib/nostrify-shim'
 import { useRelayManager } from '@/contexts/RelayContext'
-import { checkAndRefreshDeviceToken } from '@/services/push'
-import { checkAndRefreshSubscriptions } from '@/services/notifications'
+import { checkAndRefreshDeviceToken, getFCMToken, registerDevice } from '@/services/push'
+import { checkAndRefreshSubscriptions, subscribeToAllCommunities } from '@/services/notifications'
+import { hasUserDisabledPush, resetUserDisabledFlag, isDeviceRegistered } from '@/lib/pushStorage'
 
 export function usePushNotificationRefresh() {
   const { identity } = useNostrLogin()
@@ -35,39 +37,86 @@ export function usePushNotificationRefresh() {
 
         // Check if NIP-07 extension supports NIP-44 (required for push notifications)
         if (!hasNip44Support()) {
-          console.log('[Push] Skipping refresh check - NIP-07 extension does not support NIP-44')
+          console.log('[Push] Skipping - NIP-07 extension does not support NIP-44')
           return
         }
       }
 
-      console.log('[Push] Checking for expired tokens/subscriptions...')
+      // Auto-enable push notifications if permission already granted
+      // and user hasn't explicitly disabled them
+      const alreadyRegistered = isDeviceRegistered()
+      const userDisabled = hasUserDisabledPush()
+      const permissionGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted'
 
-      // Check device token expiration
-      try {
-        const deviceRefreshed = await checkAndRefreshDeviceToken(
-          identity,
-          (event) => relayManager.publishEvent(event)
-        )
+      if (!alreadyRegistered && !userDisabled && permissionGranted) {
+        console.log('[Push] Auto-enabling push notifications (permission already granted)')
 
-        if (deviceRefreshed) {
-          console.log('[Push] Device token refreshed successfully')
+        try {
+          // Get FCM token
+          const fcmToken = await getFCMToken()
+          if (fcmToken) {
+            // Register device
+            const registered = await registerDevice(
+              fcmToken,
+              identity,
+              (event) => relayManager.publishEvent(event)
+            )
+
+            if (registered) {
+              console.log('[Push] Auto-registration successful')
+
+              // Subscribe to all joined communities
+              const groupManager = relayManager.groupManager
+              if (groupManager) {
+                const userGroups = await groupManager.getUserGroups()
+                const communityIds = userGroups.map((g) => g.nip29GroupId)
+
+                if (communityIds.length > 0) {
+                  const subscribedCount = await subscribeToAllCommunities(
+                    communityIds,
+                    identity,
+                    (event) => relayManager.publishEvent(event)
+                  )
+                  console.log(`[Push] Auto-subscribed to ${subscribedCount} communities`)
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[Push] Auto-registration failed:', error)
         }
-      } catch (error) {
-        console.error('[Push] Failed to refresh device token:', error)
       }
 
-      // Check community subscription expirations
-      try {
-        const refreshedCount = await checkAndRefreshSubscriptions(
-          identity,
-          (event) => relayManager.publishEvent(event)
-        )
+      // Check device token expiration (for already registered users)
+      if (alreadyRegistered) {
+        console.log('[Push] Checking for expired tokens/subscriptions...')
 
-        if (refreshedCount > 0) {
-          console.log(`[Push] Refreshed ${refreshedCount} community subscriptions`)
+        try {
+          const deviceRefreshed = await checkAndRefreshDeviceToken(
+            identity,
+            (event) => relayManager.publishEvent(event)
+          )
+
+          if (deviceRefreshed) {
+            console.log('[Push] Device token refreshed successfully')
+          }
+        } catch (error) {
+          console.error('[Push] Failed to refresh device token:', error)
         }
-      } catch (error) {
-        console.error('[Push] Failed to refresh subscriptions:', error)
+
+        // Check community subscription expirations
+        try {
+          const refreshedCount = await checkAndRefreshSubscriptions(
+            identity,
+            (event) => relayManager.publishEvent(event)
+          )
+
+          if (refreshedCount > 0) {
+            console.log(`[Push] Refreshed ${refreshedCount} community subscriptions`)
+          }
+        } catch (error) {
+          console.error('[Push] Failed to refresh subscriptions:', error)
+        }
       }
     }
 

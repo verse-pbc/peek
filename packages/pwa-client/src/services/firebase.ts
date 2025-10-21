@@ -182,8 +182,8 @@ export async function initializeForegroundNotifications(): Promise<void> {
         const registration = await navigator.serviceWorker.ready
         const options = {
           body: body,
-          icon: '/icon-192x192.png',
-          badge: '/icon-192x192.png',
+          icon: '/pwa-192x192.png',
+          badge: '/pwa-192x192.png',
           data: payload.data,
           tag: eventId || `peek-${Date.now()}`,
           requireInteraction: false,
@@ -196,7 +196,7 @@ export async function initializeForegroundNotifications(): Promise<void> {
         // Fallback to Notification API
         const notification = new Notification(title, {
           body: body,
-          icon: '/icon-192x192.png'
+          icon: '/pwa-192x192.png'
         })
 
         notification.onclick = () => {

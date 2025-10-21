@@ -18,6 +18,7 @@ import {
   Loader2,
   Lock,
 } from "lucide-react";
+import { isCommunityMember } from "../services/community-storage";
 import { useToast } from "@/hooks/useToast";
 import { useNostrLogin } from "../lib/nostrify-shim";
 import { useRelayManager } from "../contexts/RelayContext";
@@ -25,6 +26,7 @@ import { useMigrationState } from "../hooks/useMigrationState";
 import { useMigrationPolling } from "../hooks/useMigrationPolling";
 import { UserProfileModal } from "@/components/UserProfileModal";
 import { MembersListModal } from "@/components/MembersListModal";
+import { IOSInstallBanner } from "@/components/IOSInstallBanner";
 
 interface CommunityData {
   groupId: string;
@@ -409,14 +411,23 @@ const Community = () => {
     if (connected && loading && !communityData && !showJoinFlow) {
       const timeout = setTimeout(() => {
         if (loading && !communityData && !showJoinFlow) {
-          console.log("[Community] Loading timeout - defaulting to JoinFlow");
-          setShowJoinFlow(true);
-          setLoading(false);
+          // Check localStorage before defaulting to JoinFlow (prevents premature join screen)
+          // This is especially important on slower devices/networks (iOS Safari)
+          const isMember = isCommunityMember(communityId);
+
+          if (isMember) {
+            console.log("[Community] Loading timeout but user is member - continuing to wait");
+            // Don't show JoinFlow, user is a member, just slow to load
+          } else {
+            console.log("[Community] Loading timeout - defaulting to JoinFlow");
+            setShowJoinFlow(true);
+            setLoading(false);
+          }
         }
       }, 5000);
       return () => clearTimeout(timeout);
     }
-  }, [connected, loading, communityData, showJoinFlow]);
+  }, [connected, loading, communityData, showJoinFlow, communityId]);
 
   const handleBack = () => {
     navigate("/");
@@ -538,6 +549,11 @@ const Community = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* iOS Install Banner - shows for iOS users not in PWA mode */}
+      <div className="px-4 pt-2">
+        <IOSInstallBanner />
       </div>
 
       {/* Main Content */}
