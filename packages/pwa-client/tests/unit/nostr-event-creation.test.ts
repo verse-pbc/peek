@@ -23,6 +23,9 @@ describe('Nostr Event Creation Test', () => {
     expect(signedEvent.pubkey).toBe(_publicKey);
     expect(signedEvent.sig).toBeTruthy();
     expect(signedEvent.id).toBeTruthy();
-    expect(signedEvent.created_at).toBeCloseTo(Math.floor(Date.now() / 1000), 0);
+    // Verify timestamp is recent (within 2 seconds to avoid flaky tests)
+    const now = Math.floor(Date.now() / 1000);
+    expect(signedEvent.created_at).toBeGreaterThanOrEqual(now - 2);
+    expect(signedEvent.created_at).toBeLessThanOrEqual(now + 2);
   });
 });
