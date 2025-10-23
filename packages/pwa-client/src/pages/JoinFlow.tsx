@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { LocationPermission } from '../components/LocationPermission';
 import { CommunityPreview } from '../components/CommunityPreview';
 import { GeohashLocationPicker } from '../components/GeohashLocationPicker';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
@@ -12,7 +12,8 @@ import {
   AlertCircle,
   MapPin,
   Loader2,
-  XCircle
+  RefreshCw,
+  ChevronLeft
 } from 'lucide-react';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
@@ -619,62 +620,120 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
       {/* Error Step */}
       {currentStep === JoinStep.ERROR && error && (
-        <Card className="border-red-200">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <XCircle className="h-8 w-8 text-red-600" />
-              <div>
-                <CardTitle className="text-red-900">
-                  Unable to Join
-                </CardTitle>
-                <CardDescription>
-                  {error.code || 'ERROR'}
-                </CardDescription>
+        <Card className="border-0 shadow-lg bg-card">
+          <CardContent className="pt-6 space-y-6">
+            {/* Error Icon and Title */}
+            <div className="text-center">
+              <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="h-10 w-10 text-coral" />
               </div>
+              <h2 className="font-rubik font-bold text-2xl mb-2">
+                {error.code === 'PERMISSION_DENIED' ? "Location Access Needed" :
+                 error.code === 'LOCATION_TOO_FAR' ? "Too Far Away" :
+                 error.code === 'ACCURACY_TOO_LOW' ? "GPS Signal Too Weak" :
+                 "Unable to Join"}
+              </h2>
+              <p className="text-muted-foreground">
+                {error.code === 'PERMISSION_DENIED'
+                  ? "We need your location to verify you're at this community"
+                  : error.code === 'LOCATION_TOO_FAR'
+                  ? "You need to be at the physical location to join"
+                  : error.code === 'ACCURACY_TOO_LOW'
+                  ? "We need a clearer GPS signal to verify your location"
+                  : "Something went wrong"}
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error.message}</AlertDescription>
+
+            {/* Error Message */}
+            <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
+              <AlertCircle className="h-4 w-4 text-coral" />
+              <AlertDescription className="dark:text-foreground">
+                {error.message}
+              </AlertDescription>
             </Alert>
 
+            {/* Tips for LOCATION_TOO_FAR */}
             {error.code === 'LOCATION_TOO_FAR' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
-                <h3 className="font-medium text-yellow-900 mb-1 dark:text-yellow-100">Tips:</h3>
-                <ul className="text-sm text-yellow-800 space-y-1 dark:text-yellow-200">
-                  <li>• Make sure you're at the physical location</li>
-                  <li>• Stand closer to where the QR code is displayed</li>
-                  <li>• Enable high-accuracy mode in your GPS settings</li>
+              <div className="bg-mint/10 border border-mint/20 rounded-xl p-4 dark:bg-mint/20 dark:border-mint/30">
+                <h3 className="font-rubik font-semibold text-sm mb-2 dark:text-foreground">How to fix this:</h3>
+                <ul className="space-y-1.5 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Make sure you're at the physical location where the QR code is displayed</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Stand closer to the QR code (within 25 meters)</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Make sure you're not using a VPN that changes your location</span>
+                  </li>
                 </ul>
               </div>
             )}
 
+            {/* Tips for ACCURACY_TOO_LOW */}
             {error.code === 'ACCURACY_TOO_LOW' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
-                <h3 className="font-medium text-yellow-900 mb-1 dark:text-yellow-100">Improve GPS Accuracy:</h3>
-                <ul className="text-sm text-yellow-800 space-y-1 dark:text-yellow-200">
-                  <li>• Move to an open area with clear sky view</li>
-                  <li>• Enable Wi-Fi and Bluetooth for better positioning</li>
-                  <li>• Wait a moment for GPS to stabilize</li>
+              <div className="bg-mint/10 border border-mint/20 rounded-xl p-4 dark:bg-mint/20 dark:border-mint/30">
+                <h3 className="font-rubik font-semibold text-sm mb-2 dark:text-foreground">Improve your GPS signal:</h3>
+                <ul className="space-y-1.5 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Move to an open area or near a window</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Enable Wi-Fi and Bluetooth for better accuracy</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Wait a moment for GPS to get a clear signal</span>
+                  </li>
                 </ul>
               </div>
             )}
 
-            <div className="flex gap-3">
+            {/* Tips for PERMISSION_DENIED */}
+            {error.code === 'PERMISSION_DENIED' && (
+              <div className="bg-mint/10 border border-mint/20 rounded-xl p-4 dark:bg-mint/20 dark:border-mint/30">
+                <h3 className="font-rubik font-semibold text-sm mb-2 dark:text-foreground">How to enable location:</h3>
+                <ul className="space-y-1.5 text-sm text-muted-foreground">
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Check your browser's address bar for a location icon</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Enable location permissions in your browser settings</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-mint mt-0.5">•</span>
+                    <span>Make sure location services are enabled on your device</span>
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
               {error.canRetry && (
                 <Button
                   onClick={handleRetry}
-                  className="flex-1"
+                  className="w-full bg-coral hover:bg-coral/90 text-white font-semibold rounded-full"
+                  size="lg"
                 >
+                  <RefreshCw className="mr-2 h-5 w-5" />
                   Try Again
                 </Button>
               )}
               <Button
                 onClick={() => navigate('/')}
                 variant="outline"
-                className={error.canRetry ? 'flex-1' : 'w-full'}
+                className="w-full border-coral/30 hover:bg-coral/5 rounded-full"
+                size="lg"
               >
+                <ChevronLeft className="mr-2 h-5 w-5" />
                 Go to Home
               </Button>
             </div>
