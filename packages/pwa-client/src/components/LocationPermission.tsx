@@ -1,16 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Alert, AlertDescription } from './ui/alert';
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
-import { 
-  MapPin, 
-  AlertCircle, 
-  CheckCircle, 
-  Loader2, 
+import { Card, CardContent } from './ui/card';
+import {
+  MapPin,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
   Navigation,
-  XCircle,
   RefreshCw
 } from 'lucide-react';
 import { useLocationCapture } from '../lib/useLocationCapture';
@@ -34,7 +31,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
   autoStart = false
 }) => {
   const [hasStarted, setHasStarted] = useState(false);
-  
+
   const {
     location,
     error,
@@ -86,204 +83,156 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
     }
   }, [permissionStatus, onPermissionDenied]);
 
-  // Determine accuracy status
-  const getAccuracyStatus = (accuracy: number) => {
-    if (accuracy <= maxAccuracy) return 'excellent';
-    if (accuracy <= maxAccuracy * 1.5) return 'good';
-    if (accuracy <= maxAccuracy * 2) return 'fair';
-    return 'poor';
-  };
-
-  const getAccuracyColor = (status: string) => {
-    switch (status) {
-      case 'excellent': return 'text-green-600';
-      case 'good': return 'text-blue-600';
-      case 'fair': return 'text-yellow-600';
-      case 'poor': return 'text-red-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  const getAccuracyBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'excellent': return 'default';
-      case 'good': return 'secondary';
-      case 'fair': return 'outline';
-      case 'poor': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
-  const currentAccuracy = location?.accuracy || 0;
-  const accuracyStatus = location ? getAccuracyStatus(currentAccuracy) : '';
-  const accuracyPercentage = location 
-    ? Math.max(0, Math.min(100, (1 - (currentAccuracy - maxAccuracy) / (maxAccuracy * 2)) * 100))
-    : 0;
+  // Determine if accuracy is acceptable
+  const isAccuracyGood = location ? location.accuracy <= maxAccuracy : false;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Navigation className="h-5 w-5" />
-          Location Verification
-        </CardTitle>
-        <CardDescription>
-          We need to verify you're at the physical location to join this community
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Permission Status */}
+    <Card className="w-full max-w-2xl mx-auto border-0 shadow-lg bg-card">
+      <CardContent className="pt-6 space-y-6">
+        {/* Permission Denied State */}
         {permissionStatus === 'denied' && (
-          <Alert variant="destructive">
-            <XCircle className="h-4 w-4" />
-            <AlertTitle>Location Permission Denied</AlertTitle>
-            <AlertDescription>
-              You need to enable location permissions in your browser settings to join this community.
-              Please check your browser's address bar or settings.
+          <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
+            <AlertCircle className="h-4 w-4 text-coral" />
+            <AlertDescription className="dark:text-foreground">
+              <strong>Location access blocked</strong><br />
+              Please enable location permissions in your browser settings to continue.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Error Alert */}
+        {/* Error State */}
         {error && permissionStatus !== 'denied' && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Location Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Loading State */}
-        {isCapturing && !location && (
-          <div className="flex flex-col items-center justify-center py-8 space-y-4">
-            <div className="relative">
-              <MapPin className="h-12 w-12 text-gray-400" />
-              <Loader2 className="h-12 w-12 absolute inset-0 animate-spin text-primary" />
-            </div>
-            <p className="text-sm text-gray-600">Capturing your location...</p>
-            <p className="text-xs text-gray-500">This may take a few seconds</p>
-          </div>
-        )}
-
-        {/* Location Details */}
-        {location && (
           <div className="space-y-4">
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Location Captured</AlertTitle>
-              <AlertDescription className="text-green-700">
-                Your location has been successfully detected
+            <Alert className="border-peach/30 bg-peach/10 dark:bg-peach/20 dark:border-peach/40">
+              <AlertCircle className="h-4 w-4 text-coral" />
+              <AlertDescription className="dark:text-foreground">
+                <strong>Can't find your location</strong><br />
+                {error}
               </AlertDescription>
             </Alert>
 
-            {/* GPS Accuracy Indicator */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">GPS Accuracy</span>
-                <Badge variant={getAccuracyBadgeVariant(accuracyStatus)}>
-                  {accuracyStatus.charAt(0).toUpperCase() + accuracyStatus.slice(1)}
-                </Badge>
-              </div>
-              
-              <Progress value={accuracyPercentage} className="h-2" />
-              
-              <div className="flex items-center justify-between text-sm">
-                <span className={getAccuracyColor(accuracyStatus)}>
-                  {currentAccuracy.toFixed(1)}m accuracy
-                </span>
-                <span className="text-gray-500">
-                  Required: ≤{maxAccuracy}m
-                </span>
-              </div>
+            <div className="bg-mint/10 border border-mint/20 rounded-xl p-4 dark:bg-mint/20 dark:border-mint/30">
+              <h3 className="font-rubik font-semibold text-sm mb-2 dark:text-foreground">Tips to improve GPS signal:</h3>
+              <ul className="space-y-1.5 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="text-mint mt-0.5">•</span>
+                  <span>Move near a window or step outside</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-mint mt-0.5">•</span>
+                  <span>Wait a moment for GPS to initialize</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-mint mt-0.5">•</span>
+                  <span>Enable Wi-Fi for better location accuracy</span>
+                </li>
+              </ul>
             </div>
 
-            {/* Location Info */}
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">Latitude</p>
-                <p className="font-mono text-sm">{location.latitude?.toFixed(6)}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">Longitude</p>
-                <p className="font-mono text-sm">{location.longitude?.toFixed(6)}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">Altitude</p>
-                <p className="font-mono text-sm">
-                  {location.altitude ? `${location.altitude.toFixed(1)}m` : 'N/A'}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs text-gray-500">Timestamp</p>
-                <p className="font-mono text-sm">
-                  {location?.timestamp ? new Date(location.timestamp).toLocaleTimeString() : 'N/A'}
-                </p>
-              </div>
-            </div>
-
-            {/* Warning for poor accuracy */}
-            {accuracyStatus === 'poor' && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Your GPS accuracy is too low. Try moving to an open area with clear sky view,
-                  or wait a moment for better GPS signal.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-2">
-          {!hasStarted || permissionStatus === 'denied' ? (
-            <Button 
-              onClick={handleRequestLocation}
-              className="flex-1"
+            <Button
+              onClick={handleRetry}
+              className="w-full bg-coral hover:bg-coral/90 text-white font-semibold rounded-full"
+              size="lg"
               disabled={isCapturing}
             >
               {isCapturing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Requesting Location...
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Finding your location...
                 </>
               ) : (
                 <>
-                  <MapPin className="mr-2 h-4 w-4" />
-                  Allow Location Access
+                  <RefreshCw className="mr-2 h-5 w-5" />
+                  Try Again
                 </>
               )}
             </Button>
-          ) : (
-            <>
-              {location && (
-                <Button 
-                  onClick={handleRetry}
-                  variant="outline"
-                  className="flex-1"
-                  disabled={isCapturing}
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  {isCapturing ? 'Capturing...' : 'Recapture Location'}
-                </Button>
-              )}
-            </>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Instructions */}
-        {!location && !error && (
-          <Alert>
-            <AlertDescription>
-              <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>Make sure you're at the physical location of the QR code</li>
-                <li>Enable GPS/Location services on your device</li>
-                <li>For best accuracy, step outside or near a window</li>
-                <li>Grant location permission when prompted</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
+        {/* Loading State */}
+        {isCapturing && !location && !error && (
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div className="relative">
+              <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center">
+                <Navigation className="h-10 w-10 text-coral" />
+              </div>
+              <Loader2 className="h-20 w-20 absolute inset-0 animate-spin text-coral" />
+            </div>
+            <p className="text-lg font-rubik font-semibold">Finding your location...</p>
+            <p className="text-sm text-muted-foreground">This usually takes just a few seconds</p>
+          </div>
+        )}
+
+        {/* Success State */}
+        {location && !error && (
+          <div className="space-y-4">
+            <Alert className="border-mint/30 bg-mint/10 dark:bg-mint/20 dark:border-mint/40">
+              <CheckCircle className="h-4 w-4 text-mint" />
+              <AlertDescription className="dark:text-foreground">
+                <strong>Location captured!</strong><br />
+                GPS accuracy: {location.accuracy.toFixed(1)}m
+                {isAccuracyGood ? ' ✓ Great signal' : ' - Trying to improve...'}
+              </AlertDescription>
+            </Alert>
+
+            {/* Show retry button if accuracy isn't great */}
+            {!isAccuracyGood && (
+              <Button
+                onClick={handleRetry}
+                variant="outline"
+                className="w-full border-coral/30 hover:bg-coral/5 rounded-full"
+                disabled={isCapturing}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {isCapturing ? 'Capturing...' : 'Try for Better Accuracy'}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Initial Instructions */}
+        {!hasStarted && !error && (
+          <div className="space-y-4">
+            <div className="text-center py-8">
+              <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <MapPin className="h-10 w-10 text-coral" />
+              </div>
+              <h3 className="font-rubik font-bold text-xl mb-2">Verify Your Location</h3>
+              <p className="text-muted-foreground">
+                We need to confirm you're physically at this location to join the community.
+              </p>
+            </div>
+
+            <Alert className="bg-cream/50 border-0 dark:bg-muted">
+              <AlertDescription className="dark:text-foreground">
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+                    <span>Make sure you're at the QR code location</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+                    <span>Enable location services on your device</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
+                    <span>For best results, stand near a window or outside</span>
+                  </li>
+                </ul>
+              </AlertDescription>
+            </Alert>
+
+            <Button
+              onClick={handleRequestLocation}
+              className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
+              size="lg"
+              disabled={isCapturing}
+            >
+              <Navigation className="mr-2 h-5 w-5" />
+              Allow Location Access
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

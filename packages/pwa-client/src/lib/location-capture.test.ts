@@ -136,7 +136,7 @@ describe('LocationCapture', () => {
       const result = await capture.captureLocation();
 
       expect(result.success).toBe(false);
-      expect(result.error).toBe('Location request timed out');
+      expect(result.error).toBe('Location request timed out. GPS might need a moment to initialize. Please try again.');
     });
   });
 
