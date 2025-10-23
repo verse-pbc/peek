@@ -5,7 +5,6 @@ import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import {
   MapPin,
-  Users,
   Shield,
   Loader2,
   AlertCircle
@@ -158,7 +157,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
                 {/* Benefit 1 */}
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
-                    <Shield className="w-5 h-5 text-white" />
+                    <Shield className="w-5 h-5 text-black" />
                   </div>
                   <p className="text-base font-bold text-black pt-2">
                     Own this spot with permanent admin rights
@@ -168,7 +167,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
                 {/* Benefit 2 */}
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
                       <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
                     </svg>
@@ -236,7 +235,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
             <div className="space-y-2">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-5 h-5 text-white" />
+                  <MapPin className="w-5 h-5 text-black" />
                 </div>
                 <h3 className="text-lg font-bold text-black pt-2">Physical presence required</h3>
               </div>
@@ -249,7 +248,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
             <div className="space-y-2">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-black" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v.878A2.25 2.25 0 0110.75 16h-1.5A2.25 2.25 0 017 13.878V13a2 2 0 00-2-2v-.861z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -268,7 +267,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         disabled={isJoining}
         className="w-full text-black rounded-none"
         size="lg"
-        style={{ fontFamily: "'Integral CF', sans-serif", borderRadius: 0, fontSize: '1rem' }}
+        style={{ fontFamily: "'Integral CF', sans-serif", borderRadius: 0, fontSize: '1.2rem' }}
       >
         {isJoining ? (
           <>
@@ -276,15 +275,9 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
             Joining Community...
           </>
         ) : isFirstScanner ? (
-          <>
-            <Shield className="mr-2 h-4 w-4" />
-            Create & Join as Admin
-          </>
+          'Create & Join as Admin'
         ) : (
-          <>
-            <Users className="mr-2 h-4 w-4" />
-            Join Community
-          </>
+          'Join Community'
         )}
       </Button>
     </Card>
