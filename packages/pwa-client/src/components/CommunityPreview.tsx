@@ -2,17 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { MemberAvatarStack } from './MemberAvatarStack';
 import {
   MapPin,
   Users,
-  Calendar,
   Shield,
   Loader2,
-  AlertCircle,
-  CheckCircle
+  AlertCircle
 } from 'lucide-react';
 
 interface CommunityMetadata {
@@ -130,22 +126,8 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
     );
   }
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const formatMemberCount = (count: number) => {
-    if (count === 0) return 'Be the first member!';
-    if (count === 1) return '1 member';
-    return `${count} members`;
-  };
-
   return (
-    <Card className="w-full max-w-2xl mx-auto overflow-hidden">
+    <Card className="w-full max-w-2xl mx-auto overflow-hidden bg-transparent border-0 shadow-none rounded-none">
       {/* Hero Image */}
       {previewData.picture && (
         <div className="relative h-48 w-full overflow-hidden">
@@ -158,34 +140,50 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         </div>
       )}
 
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-2xl">
-              {previewData.name}
-            </CardTitle>
-            <CardDescription className="mt-2">
-              {previewData.description}
-            </CardDescription>
+      <CardHeader className="p-0">
+        {/* Description */}
+        <p className="text-black leading-tight mb-6" style={{ fontSize: '1.4rem', fontWeight: 500 }}>
+          Create a chat community that only those who scan this QR code can join!
+        </p>
+
+        {/* Admin benefits - only show for first scanner */}
+        {isFirstScanner && (
+          <div style={{ marginBottom: '2rem' }}>
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif" }}>
+                As the admin, you will:
+              </h3>
+
+              <div className="space-y-3">
+                {/* Benefit 1 */}
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <p className="text-base font-bold text-black pt-2">
+                    Own this spot with permanent admin rights
+                  </p>
+                </div>
+
+                {/* Benefit 2 */}
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
+                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                      <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
+                    </svg>
+                  </div>
+                  <p className="text-base font-bold text-black pt-2">
+                    Shape the culture and vibe of your community
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            {isFirstScanner && (
-              <Badge variant="default" className="ml-4">
-                <Shield className="h-3 w-3 mr-1" />
-                You'll be admin
-              </Badge>
-            )}
-            {previewData.members && previewData.members.length > 0 && (
-              <MemberAvatarStack
-                members={previewData.members}
-                totalCount={previewData.member_count}
-              />
-            )}
-          </div>
-        </div>
+        )}
       </CardHeader>
       
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 px-0">
         {/* Location info */}
         {previewData.location_name && (
           <div className="flex items-center gap-3 text-sm">
@@ -194,104 +192,101 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
           </div>
         )}
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-muted rounded-lg p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Users className="h-4 w-4" />
-              <span className="text-xs font-medium uppercase">Members</span>
-            </div>
-            <p className="text-2xl font-bold">
-              {previewData.member_count}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatMemberCount(previewData.member_count)}
-            </p>
-          </div>
+        {/* How will people join */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif" }}>
+            How will people join?
+          </h2>
 
-          <div className="border border-border rounded-xl p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Calendar className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium uppercase">Created</span>
+          <div className="flex items-center justify-center gap-2">
+            {/* Step 1: Scan QR */}
+            <div className="flex flex-col items-center text-center">
+              <img src="/icon_scan-qr.svg" alt="Scan QR" className="w-24 h-24 mb-4" />
+              <h3 className="font-bold text-black mb-1">Scan this QR</h3>
             </div>
-            <p className="text-base font-semibold">
-              {formatDate(previewData.created_at)}
-            </p>
-            {previewData.admin_count && (
-              <p className="text-xs text-muted-foreground mt-1">
-                {previewData.admin_count} admin{previewData.admin_count !== 1 ? 's' : ''}
-              </p>
-            )}
+
+            {/* Arrow 1 */}
+            <div className="text-4xl font-bold text-black mb-8">→</div>
+
+            {/* Step 2: Verify Location */}
+            <div className="flex flex-col items-center text-center">
+              <img src="/icon_share-location.svg" alt="Verify Location" className="w-24 h-24 mb-4" />
+              <h3 className="font-bold text-black mb-1">Verify location</h3>
+            </div>
+
+            {/* Arrow 2 */}
+            <div className="text-4xl font-bold text-black mb-8">→</div>
+
+            {/* Step 3: They're in */}
+            <div className="flex flex-col items-center text-center">
+              <img src="/icon_social-dance.svg" alt="They're in" className="w-24 h-24 mb-4" />
+              <h3 className="font-bold text-black mb-1">They're in!</h3>
+            </div>
           </div>
         </div>
 
-        {/* First scanner notice */}
-        {isFirstScanner && (
-          <Alert className="border-purple-200 bg-purple-50 dark:border-purple-800 dark:bg-purple-900/20">
-            <CheckCircle className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-            <AlertDescription className="text-purple-900 dark:text-purple-100">
-              <strong>You're the first person to scan this QR code!</strong><br />
-              You'll automatically become the community admin and can manage members,
-              settings, and moderation.
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* How Peek Communities Work */}
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif" }}>
+            How does this work?
+          </h2>
 
-        {/* Regular member notice */}
-        {!isFirstScanner && previewData.member_count > 0 && (
-          <Alert>
-            <AlertDescription>
-              By joining, you'll be able to participate in discussions with other
-              members who are physically at this location.
-            </AlertDescription>
-          </Alert>
-        )}
+          <div className="space-y-6">
+            {/* Physical presence required */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-black pt-2">Physical presence required</h3>
+              </div>
+              <p className="text-base text-black pl-13">
+                Only those who actually visit here can join
+              </p>
+            </div>
 
-        {/* Value Props */}
-        <div className="bg-muted rounded-xl p-4">
-          <h3 className="font-rubik font-semibold mb-3">What's special about Peek?</h3>
-          <ul className="space-y-2.5 text-sm text-muted-foreground">
-            <li className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-              <span><strong>Physical trust</strong> - Everyone here has visited this place</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-              <span><strong>Keep access forever</strong> - No need to return to stay connected</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-              <span><strong>Private & secure</strong> - Location verified once, never tracked</span>
-            </li>
-          </ul>
+            {/* Lasts forever */}
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-coral flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v.878A2.25 2.25 0 0110.75 16h-1.5A2.25 2.25 0 017 13.878V13a2 2 0 00-2-2v-.861z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-black pt-2">Lasts forever</h3>
+              </div>
+              <p className="text-base text-black pl-13">
+                Once they join, members stay in the community
+              </p>
+            </div>
+          </div>
         </div>
       </CardContent>
 
-      <CardFooter>
-        <Button 
-          onClick={onJoin}
-          disabled={isJoining}
-          className="w-full"
-          size="lg"
-        >
-          {isJoining ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Joining Community...
-            </>
-          ) : isFirstScanner ? (
-            <>
-              <Shield className="mr-2 h-4 w-4" />
-              Create & Join as Admin
-            </>
-          ) : (
-            <>
-              <Users className="mr-2 h-4 w-4" />
-              Join Community
-            </>
-          )}
-        </Button>
-      </CardFooter>
+      <Button
+        onClick={onJoin}
+        disabled={isJoining}
+        className="w-full text-black rounded-none"
+        size="lg"
+        style={{ fontFamily: "'Integral CF', sans-serif", borderRadius: 0, fontSize: '1rem' }}
+      >
+        {isJoining ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Joining Community...
+          </>
+        ) : isFirstScanner ? (
+          <>
+            <Shield className="mr-2 h-4 w-4" />
+            Create & Join as Admin
+          </>
+        ) : (
+          <>
+            <Users className="mr-2 h-4 w-4" />
+            Join Community
+          </>
+        )}
+      </Button>
     </Card>
   );
 };

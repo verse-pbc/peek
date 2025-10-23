@@ -6,7 +6,6 @@ import { GeohashLocationPicker } from '../components/GeohashLocationPicker';
 import { Card, CardContent } from '../components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
-import { Progress } from '../components/ui/progress';
 import {
   CheckCircle,
   AlertCircle,
@@ -479,33 +478,34 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
     }
   };
 
-
-  const getProgressValue = () => {
-    switch (currentStep) {
-      case JoinStep.LOADING: return 20;
-      case JoinStep.PREVIEW: return 40;
-      case JoinStep.LOCATION: return 60;
-      case JoinStep.VALIDATING: return 80;
-      case JoinStep.SUCCESS: return 100;
-      case JoinStep.ERROR: return 0;
-      default: return 0;
-    }
-  };
-
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">
-          {previewData?.member_count === 0
-            ? 'Create a Community'
-            : previewData?.name
-              ? `Join ${previewData.name}`
-              : 'Join Community'}
-        </h1>
-        <Progress value={getProgressValue()} className="h-2" />
+    <div id="app-wrapper" className="min-h-screen bg-cover bg-center p-4 pt-12 sm:p-8 sm:pt-24" style={{ backgroundImage: 'url(/sticker-wall.jpg)' }}>
+      {/* Logo overlapping the wrapper */}
+      <div className="container mx-auto max-w-4xl relative">
+        <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+          <img src="/qr-chat.svg" alt="Peek Logo" className="sm:w-64 sm:h-64" style={{ width: '9rem', height: '9rem' }} />
+        </div>
       </div>
+      <div id="content-wrapper" className="container mx-auto px-4 py-8 max-w-4xl border-[3px] border-solid border-black" style={{ borderRadius: 0, backgroundColor: '#FFF3E4', paddingTop: '3.5rem' }}>
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2 text-center text-black" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '2.2rem', lineHeight: '1.15', transform: 'rotate(-3deg)' }}>
+            {previewData?.member_count === 0
+              ? <>You've discovered<br /><span className="bg-coral" style={{ padding: '4px 8px' }}>an unclaimed spot!</span></>
+              : previewData?.name
+                ? `Join ${previewData.name}`
+                : 'Join Community'}
+          </h1>
+          <style>{`
+            @media (min-width: 640px) {
+              #content-wrapper h1 {
+                font-size: 3.3rem !important;
+              }
+            }
+          `}</style>
+        </div>
 
+      <div id="join-container">
       {/* Loading State */}
       {currentStep === JoinStep.LOADING && (
         <Card>
@@ -742,6 +742,8 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       )}
 
       {/* Identity modal removed - users can upgrade after joining */}
+      </div>
+      </div>
     </div>
   );
 };
