@@ -126,10 +126,10 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto overflow-hidden bg-transparent border-0 shadow-none rounded-none">
+    <Card className="w-full mx-auto overflow-hidden bg-transparent border-0 shadow-none rounded-none">
       {/* Hero Image */}
       {previewData.picture && (
-        <div className="relative h-48 w-full overflow-hidden">
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
           <img
             src={previewData.picture}
             alt={previewData.name}

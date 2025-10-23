@@ -487,16 +487,20 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       </div>
       <div id="content-wrapper" className="container mx-auto px-4 py-8 max-w-4xl border-[3px] border-solid border-black" style={{ borderRadius: 0, backgroundColor: '#FFF3E4', paddingTop: '3.5rem' }}>
         {/* Header */}
-        <div className="mb-6">
+        <div style={{ marginBottom: '3.5rem' }}>
           <h1 className="text-3xl font-bold mb-2 text-center text-black" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '2.2rem', lineHeight: '1.15', transform: 'rotate(-3deg)' }}>
             {previewData?.member_count === 0
               ? <>You've discovered<br /><span className="bg-coral" style={{ padding: '4px 8px' }}>an unclaimed spot!</span></>
               : previewData?.name
-                ? `Join ${previewData.name}`
+                ? <>Join <span className="bg-coral" style={{ padding: '4px 8px' }}>{previewData.name}</span></>
                 : 'Join Community'}
           </h1>
           <style>{`
             @media (min-width: 640px) {
+              #content-wrapper {
+                padding-left: 2rem;
+                padding-right: 2rem;
+              }
               #content-wrapper h1 {
                 font-size: 3.3rem !important;
               }
