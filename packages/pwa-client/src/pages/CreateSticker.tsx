@@ -71,7 +71,7 @@ export default function CreateSticker() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-cover bg-center" style={{ backgroundImage: 'url(/sticker-wall.jpg)' }}>
       {/* Header */}
       <header className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="container mx-auto px-3 sm:px-4 py-3">
@@ -93,7 +93,7 @@ export default function CreateSticker() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="container mx-auto px-4 py-8 max-w-4xl bg-white border-[3px] border-solid border-black" style={{ borderRadius: 0 }}>
         {/* Alpha Warning */}
         <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10">
           <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />

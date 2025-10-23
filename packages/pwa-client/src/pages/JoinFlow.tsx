@@ -6,7 +6,6 @@ import { GeohashLocationPicker } from '../components/GeohashLocationPicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
-import { Progress } from '../components/ui/progress';
 import {
   CheckCircle,
   AlertCircle,
@@ -413,19 +412,6 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       setCurrentStep(JoinStep.LOCATION);
     } else {
       setCurrentStep(JoinStep.PREVIEW);
-    }
-  };
-
-
-  const getProgressValue = () => {
-    switch (currentStep) {
-      case JoinStep.LOADING: return 20;
-      case JoinStep.PREVIEW: return 40;
-      case JoinStep.LOCATION: return 60;
-      case JoinStep.VALIDATING: return 80;
-      case JoinStep.SUCCESS: return 100;
-      case JoinStep.ERROR: return 0;
-      default: return 0;
     }
   };
 
