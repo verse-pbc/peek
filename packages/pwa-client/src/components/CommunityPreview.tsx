@@ -145,7 +145,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto overflow-hidden">
+    <Card className="w-full max-w-2xl mx-auto overflow-hidden bg-transparent border-0 shadow-none">
       {/* Hero Image */}
       {previewData.picture && (
         <div className="relative h-48 w-full overflow-hidden">
