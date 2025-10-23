@@ -282,9 +282,9 @@ export class LocationCapture {
         case 1: // PERMISSION_DENIED
           return 'Location permission denied';
         case 2: // POSITION_UNAVAILABLE
-          return 'Location information unavailable';
+          return 'Unable to determine your location. Try moving near a window or outside for better GPS signal.';
         case 3: // TIMEOUT
-          return 'Location request timed out';
+          return 'Location request timed out. GPS might need a moment to initialize. Please try again.';
         default:
           return geoError.message || 'Unknown location error';
       }
