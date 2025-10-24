@@ -71,7 +71,7 @@ export default function CreateSticker() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-cover bg-center" style={{ backgroundImage: 'url(/sticker-wall.jpg)' }}>
       {/* Header */}
       <header className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="container mx-auto px-3 sm:px-4 py-3">
@@ -93,11 +93,11 @@ export default function CreateSticker() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="container mx-auto px-4 py-8 max-w-4xl bg-white border-[3px] border-solid border-black" style={{ borderRadius: 0 }}>
         {/* Alpha Warning */}
-        <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10">
-          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-          <AlertDescription className="text-sm">
+        <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 dark:bg-yellow-500/20 dark:border-yellow-500/30">
+          <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+          <AlertDescription className="text-sm text-yellow-900 dark:text-yellow-100">
             <strong>Alpha Release:</strong> Peek is in early testing. Communities may be reset or deleted as we improve the platform. Use for testing purposes only.
           </AlertDescription>
         </Alert>
@@ -158,9 +158,9 @@ export default function CreateSticker() {
               </CardContent>
             </Card>
 
-            <Alert className="border-mint/30 bg-mint/10">
-              <Zap className="h-4 w-4 text-mint" />
-              <AlertDescription>
+            <Alert className="border-mint/30 bg-mint/10 dark:bg-mint/20 dark:border-mint/30">
+              <Zap className="h-4 w-4 text-mint dark:text-mint" />
+              <AlertDescription className="text-navy dark:text-foreground">
                 <strong>Pro tip:</strong> You can place more than one copy if needed to make the QR code easier to find at your location.
               </AlertDescription>
             </Alert>
