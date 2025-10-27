@@ -501,6 +501,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
               #content-wrapper {
                 padding-left: 2rem;
                 padding-right: 2rem;
+                max-width: 35rem;
               }
               #content-wrapper h1 {
                 font-size: 3.3rem !important;
