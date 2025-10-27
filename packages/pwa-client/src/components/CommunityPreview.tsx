@@ -9,8 +9,11 @@ import {
   Loader2,
   AlertCircle,
   ScanLine,
-  MessageSquare
+  MessageSquare,
+  Users,
+  Calendar
 } from 'lucide-react';
+import { getDiceBearDataUrl } from '@/lib/dicebear';
 
 interface CommunityMetadata {
   name: string;
@@ -142,6 +145,26 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
       )}
 
       <CardHeader className="p-0">
+        {/* Member avatars - only show for join flow */}
+        {!isFirstScanner && previewData.members && previewData.members.length > 0 && (
+          <div className="flex -space-x-2 mb-4">
+            {previewData.members.slice(0, 5).map((memberPubkey, index) => (
+              <img
+                key={memberPubkey}
+                src={getDiceBearDataUrl(memberPubkey, 40)}
+                alt="Member avatar"
+                className="w-10 h-10 rounded-full border-[3px] border-black bg-white"
+                style={{ zIndex: 5 - index }}
+              />
+            ))}
+            {previewData.members.length > 5 && (
+              <div className="w-10 h-10 rounded-full border-[3px] border-black bg-black flex items-center justify-center text-white text-xs font-bold" style={{ zIndex: 0 }}>
+                +{previewData.members.length - 5}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Community Description - only show for join flow (not first scanner) */}
         {!isFirstScanner && previewData.description && (
           <div style={{ marginBottom: '1rem' }}>
@@ -154,6 +177,40 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
           </div>
         )}
 
+        {/* Stats grid - only show for join flow */}
+        {!isFirstScanner && (
+          <div style={{ marginBottom: '1rem' }}>
+            <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif", marginBottom: '0.5rem' }}>
+              About {previewData.name}
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Members count */}
+              <div className="flex items-start gap-3 bg-transparent">
+                <Users className="h-5 w-5 text-black mt-1" />
+                <div>
+                  <div className="text-sm text-black uppercase tracking-wider font-bold">Members</div>
+                  <div className="text-lg font-bold text-black">{previewData.member_count}</div>
+                </div>
+              </div>
+
+              {/* Created date */}
+              <div className="flex items-start gap-3 bg-transparent">
+                <Calendar className="h-5 w-5 text-black mt-1" />
+                <div>
+                  <div className="text-sm text-black uppercase tracking-wider font-bold">Created</div>
+                  <div className="text-lg font-bold text-black">
+                    {new Date(previewData.created_at * 1000).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Create description - only show for first scanner */}
         {isFirstScanner && (
           <p className="text-black leading-tight" style={{ fontSize: '1.2rem', fontWeight: 500, marginBottom: '1rem' }}>
@@ -161,38 +218,40 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
           </p>
         )}
 
-        {/* How will people join */}
-        <div className="space-y-6" style={{ marginBottom: '1rem' }}>
-          <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif" }}>
-            How do people get in?
-          </h2>
+        {/* How will people join - only show for first scanner */}
+        {isFirstScanner && (
+          <div className="space-y-6" style={{ marginBottom: '1rem' }}>
+            <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif" }}>
+              How do people get in?
+            </h2>
 
-          <div className="flex items-center justify-between gap-2">
-            {/* Step 1: Scan QR */}
-            <div className="flex flex-col items-center text-center">
-              <ScanLine className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
-              <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Scan QR</h3>
-            </div>
+            <div className="flex items-center justify-between gap-2">
+              {/* Step 1: Scan QR */}
+              <div className="flex flex-col items-center text-center">
+                <ScanLine className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
+                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Scan QR</h3>
+              </div>
 
-            {/* Arrow 1 */}
-            <div className="text-4xl font-bold text-black mb-8">→</div>
+              {/* Arrow 1 */}
+              <div className="text-4xl font-bold text-black mb-8">→</div>
 
-            {/* Step 2: Verify Location */}
-            <div className="flex flex-col items-center text-center">
-              <MapPin className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
-              <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Verify location</h3>
-            </div>
+              {/* Step 2: Verify Location */}
+              <div className="flex flex-col items-center text-center">
+                <MapPin className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
+                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Verify location</h3>
+              </div>
 
-            {/* Arrow 2 */}
-            <div className="text-4xl font-bold text-black mb-8">→</div>
+              {/* Arrow 2 */}
+              <div className="text-4xl font-bold text-black mb-8">→</div>
 
-            {/* Step 3: Join chat */}
-            <div className="flex flex-col items-center text-center">
-              <MessageSquare className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
-              <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Join chat</h3>
+              {/* Step 3: Join chat */}
+              <div className="flex flex-col items-center text-center">
+                <MessageSquare className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
+                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Join chat</h3>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Admin benefits - only show for first scanner */}
         {isFirstScanner && (
@@ -228,7 +287,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
           </div>
         )}
       </CardHeader>
-      
+
       <CardContent className="space-y-6 px-0" style={{ paddingBottom: '2rem' }}>
         {/* Location info */}
         {previewData.location_name && (
