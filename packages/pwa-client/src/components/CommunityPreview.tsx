@@ -131,7 +131,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
     <Card className="w-full mx-auto bg-transparent border-0 shadow-none rounded-none">
       {/* Hero Image */}
       {previewData.picture && (
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16/9' }}>
+        <div className="relative w-full overflow-hidden border-[3px] border-solid border-black" style={{ aspectRatio: '16/9', borderRadius: 0, marginBottom: '1rem' }}>
           <img
             src={previewData.picture}
             alt={previewData.name}
@@ -142,10 +142,24 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
       )}
 
       <CardHeader className="p-0">
-        {/* Description */}
-        <p className="text-black leading-tight" style={{ fontSize: '1.2rem', fontWeight: 500, marginBottom: '1rem' }}>
-          Create a community only those who scan this QR code can join!
-        </p>
+        {/* Community Description - only show for join flow (not first scanner) */}
+        {!isFirstScanner && previewData.description && (
+          <div style={{ marginBottom: '1rem' }}>
+            <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif", marginBottom: '0.5rem' }}>
+              Community Description
+            </h2>
+            <p className="text-black leading-tight" style={{ fontSize: '1.2rem', fontWeight: 500 }}>
+              {previewData.description}
+            </p>
+          </div>
+        )}
+
+        {/* Create description - only show for first scanner */}
+        {isFirstScanner && (
+          <p className="text-black leading-tight" style={{ fontSize: '1.2rem', fontWeight: 500, marginBottom: '1rem' }}>
+            Create a community only those who scan this QR code can join!
+          </p>
+        )}
 
         {/* How will people join */}
         <div className="space-y-6" style={{ marginBottom: '1rem' }}>
