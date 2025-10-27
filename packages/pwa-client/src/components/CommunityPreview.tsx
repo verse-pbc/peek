@@ -153,7 +153,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
             How do people get in?
           </h2>
 
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-between gap-2">
             {/* Step 1: Scan QR */}
             <div className="flex flex-col items-center text-center">
               <ScanLine className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
@@ -225,24 +225,33 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         )}
       </CardContent>
 
-      <Button
-        onClick={onJoin}
-        disabled={isJoining}
-        className="w-full text-black rounded-none"
-        size="lg"
-        style={{ fontFamily: "'Integral CF', sans-serif", borderRadius: 0, fontSize: '1.35rem', boxShadow: '5px 5px 0 0 black', transform: 'rotate(-3deg) scale(1.2)' }}
-      >
-        {isJoining ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Joining Community...
-          </>
-        ) : isFirstScanner ? (
-          'Create & Join as Admin'
-        ) : (
-          'Join Community'
-        )}
-      </Button>
+      <>
+        <Button
+          onClick={onJoin}
+          disabled={isJoining}
+          className="w-full text-black rounded-none cta-button"
+          size="lg"
+          style={{ fontFamily: "'Integral CF', sans-serif", borderRadius: 0, fontSize: '1.35rem', boxShadow: '5px 5px 0 0 black', transform: 'rotate(-3deg) scale(1.15)' }}
+        >
+          {isJoining ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Joining Community...
+            </>
+          ) : isFirstScanner ? (
+            'Create & Join as Admin'
+          ) : (
+            'Join Community'
+          )}
+        </Button>
+        <style>{`
+          @media (min-width: 640px) {
+            .cta-button {
+              font-size: 1.7rem !important;
+            }
+          }
+        `}</style>
+      </>
     </Card>
   );
 };
