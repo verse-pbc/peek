@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LocationPermission } from '../components/LocationPermission';
 import { CommunityPreview } from '../components/CommunityPreview';
-import { GeohashLocationPicker } from '../components/GeohashLocationPicker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
@@ -26,6 +25,10 @@ import {
 import { subscribeToCommunity } from '../services/notifications';
 import { isDeviceRegistered, hasUserDisabledPush } from '../lib/pushStorage';
 import { requestNotificationPermission, getFCMToken, registerDevice } from '../services/push';
+
+// Lazy load GeohashLocationPicker and its heavy Leaflet dependencies (~185KB)
+// Only loads when dev mode is enabled (?dev=true)
+const GeohashLocationPicker = React.lazy(() => import('../components/GeohashLocationPicker').then(module => ({ default: module.GeohashLocationPicker })));
 
 // Types that were previously from API
 export interface CommunityPreviewData {
@@ -536,13 +539,21 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
         <div className="space-y-6">
           {/* Geohash location picker - only when developer mode is enabled */}
           {developerMode && (
-            <GeohashLocationPicker
-              onLocationSelected={(location) => {
-                setForcedLocation(location);
-                handleLocationCaptured(location);
-              }}
-              initialLocation={capturedLocation || undefined}
-            />
+            <Suspense fallback={
+              <Card>
+                <CardContent className="flex items-center justify-center py-12">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                </CardContent>
+              </Card>
+            }>
+              <GeohashLocationPicker
+                onLocationSelected={(location) => {
+                  setForcedLocation(location);
+                  handleLocationCaptured(location);
+                }}
+                initialLocation={capturedLocation || undefined}
+              />
+            </Suspense>
           )}
 
           {/* Normal location permission - show when not using forced location AND not in developer mode */}
