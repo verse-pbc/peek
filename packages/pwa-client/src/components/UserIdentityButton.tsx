@@ -243,10 +243,28 @@ export const UserIdentityButton: React.FC = () => {
       }
     } catch (err: unknown) {
       console.error('Extension login failed:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect to browser extension';
+
+      let title = "Extension connection failed";
+      let description = 'Failed to connect to browser extension';
+
+      if (err instanceof Error) {
+        if (err.message === 'EXTENSION_CONTEXT_INVALIDATED') {
+          title = "Extension connection lost";
+          description = "Your browser extension was reloaded or updated. Please reload the page to reconnect.";
+        } else if (err.message === 'USER_REJECTED') {
+          title = "Login cancelled";
+          description = "You cancelled the login request. Try again if you want to connect your extension.";
+          return; // Don't show error toast for user cancellation
+        } else if (err.message === 'EXTENSION_ERROR') {
+          description = "Make sure your extension is unlocked and try again.";
+        } else if (err.message) {
+          description = err.message;
+        }
+      }
+
       toast({
-        title: "Extension connection failed",
-        description: errorMessage,
+        title,
+        description,
         variant: "destructive"
       });
     }
