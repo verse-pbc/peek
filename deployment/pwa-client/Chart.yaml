@@ -2,5 +2,5 @@ apiVersion: v2
 name: peek-pwa-client
 description: Peek PWA Client - Frontend application
 type: application
-version: 0.1.20251027-1930-e102814
-appVersion: "0.1.20251027-1930-e102814"
+version: 0.1.20251027-2007-558ea52
+appVersion: "0.1.20251027-2007-558ea52"

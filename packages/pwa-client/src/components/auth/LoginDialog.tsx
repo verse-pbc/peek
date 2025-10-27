@@ -69,12 +69,24 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       onClose();
     } catch (e: unknown) {
       const error = e as Error;
-      console.error('Bunker login failed:', error);
-      console.error('Nsec login failed:', error);
       console.error('Extension login failed:', error);
+
+      // Provide specific error messages based on error type
+      let errorMessage = 'Extension login failed';
+
+      if (error.message === 'EXTENSION_CONTEXT_INVALIDATED') {
+        errorMessage = 'EXTENSION_CONTEXT_INVALIDATED'; // Special flag for UI
+      } else if (error.message === 'USER_REJECTED') {
+        errorMessage = 'Login was cancelled. Please try again if you want to connect your extension.';
+      } else if (error.message === 'EXTENSION_ERROR') {
+        errorMessage = 'Failed to connect to browser extension. Make sure your extension is unlocked and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       setErrors(prev => ({
         ...prev,
-        extension: error instanceof Error ? error.message : 'Extension login failed'
+        extension: errorMessage
       }));
     } finally {
       setIsLoading(false);
@@ -245,7 +257,22 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
               {errors.extension && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{errors.extension}</AlertDescription>
+                  <AlertDescription>
+                    {errors.extension === 'EXTENSION_CONTEXT_INVALIDATED' ? (
+                      <div className="space-y-3">
+                        <p>Browser extension connection lost. The extension was likely reloaded or updated.</p>
+                        <Button
+                          onClick={() => window.location.reload()}
+                          variant="outline"
+                          className="w-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          Reload Page
+                        </Button>
+                      </div>
+                    ) : (
+                      errors.extension
+                    )}
+                  </AlertDescription>
                 </Alert>
               )}
               <div className='text-center p-4 rounded-lg bg-gray-50 dark:bg-gray-800'>
@@ -257,7 +284,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   <Button
                     className='w-full rounded-full py-4'
                     onClick={handleExtensionLogin}
-                    disabled={isLoading}
+                    disabled={isLoading || errors.extension === 'EXTENSION_CONTEXT_INVALIDATED'}
                   >
                     {isLoading ? 'Logging in...' : 'Login with Extension'}
                   </Button>

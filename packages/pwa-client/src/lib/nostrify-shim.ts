@@ -217,7 +217,25 @@ export const useNostrLogin = () => {
       return newIdentity;
     } catch (err) {
       console.error('Failed to login with extension:', err);
-      throw new Error('Failed to connect to browser extension');
+
+      // Detect specific error types for better user guidance
+      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      // Extension context invalidated (extension reloaded/updated)
+      if (errorMessage.includes('Extension context invalidated') ||
+          errorMessage.includes('context invalidated')) {
+        throw new Error('EXTENSION_CONTEXT_INVALIDATED');
+      }
+
+      // User rejected the request
+      if (errorMessage.includes('reject') ||
+          errorMessage.includes('cancel') ||
+          errorMessage.includes('denied')) {
+        throw new Error('USER_REJECTED');
+      }
+
+      // Generic extension error
+      throw new Error('EXTENSION_ERROR');
     }
   }, []);
 
