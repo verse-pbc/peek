@@ -485,14 +485,14 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
           <img src="/qr-chat.svg" alt="Peek Logo" className="sm:w-64 sm:h-64" style={{ width: '9rem', height: '9rem' }} />
         </div>
       </div>
-      <div id="content-wrapper" className="container mx-auto px-4 py-8 max-w-4xl border-[3px] border-solid border-black" style={{ borderRadius: 0, backgroundColor: '#FFF3E4', paddingTop: '3.5rem' }}>
+      <div id="content-wrapper" className="container mx-auto px-4 py-8 max-w-4xl border-[3px] border-solid border-black" style={{ borderRadius: 0, backgroundColor: '#FFF3E4', paddingTop: '3rem', paddingBottom: '3rem' }}>
         {/* Header */}
-        <div style={{ marginBottom: '3.5rem' }}>
+        <div style={{ marginBottom: '2rem' }}>
           <h1 className="text-3xl font-bold mb-2 text-center text-black" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '2.2rem', lineHeight: '1.15', transform: 'rotate(-3deg)' }}>
             {previewData?.member_count === 0
-              ? <>You've discovered<br /><span className="bg-coral" style={{ padding: '4px 8px' }}>an unclaimed spot!</span></>
+              ? <>You've discovered<br /><span className="bg-coral" style={{ padding: '4px 8px', boxShadow: '5px 5px 0 0 black' }}>an unclaimed spot!</span></>
               : previewData?.name
-                ? <>Join <span className="bg-coral" style={{ padding: '4px 8px' }}>{previewData.name}</span></>
+                ? <>Join <span className="bg-coral" style={{ padding: '4px 8px', boxShadow: '5px 5px 0 0 black' }}>{previewData.name}</span></>
                 : 'Join Community'}
           </h1>
           <style>{`
