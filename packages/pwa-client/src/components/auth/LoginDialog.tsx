@@ -2,7 +2,7 @@
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Shield, Upload, AlertTriangle, UserPlus, KeyRound, Sparkles, Cloud } from 'lucide-react';
+import { Shield, Upload, AlertTriangle, UserPlus, KeyRound, Sparkles, Cloud, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogDescription } from "@/components/ui/dialog";
@@ -31,6 +31,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
   const [isFileLoading, setIsFileLoading] = useState(false);
   const [nsec, setNsec] = useState('');
   const [bunkerUri, setBunkerUri] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{
     nsec?: string;
     bunker?: string;
@@ -48,6 +49,7 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       setIsFileLoading(false);
       setNsec('');
       setBunkerUri('');
+      setShowPassword(false);
       setErrors({});
       // Reset file input
       if (fileInputRef.current) {
@@ -298,20 +300,31 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
                   <label htmlFor='nsec' className='text-sm font-medium'>
                     Secret Key (nsec)
                   </label>
-                  <Input
-                    id='nsec'
-                    type="password"
-                    value={nsec}
-                    onChange={(e) => {
-                      setNsec(e.target.value);
-                      if (errors.nsec) setErrors(prev => ({ ...prev, nsec: undefined }));
-                    }}
-                    className={`rounded-lg ${
-                      errors.nsec ? 'border-red-500 focus-visible:ring-red-500' : ''
-                    }`}
-                    placeholder='nsec1...'
-                    autoComplete="off"
-                  />
+                  <div className="relative">
+                    <Input
+                      id='nsec'
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      autoComplete="current-password"
+                      value={nsec}
+                      onChange={(e) => {
+                        setNsec(e.target.value);
+                        if (errors.nsec) setErrors(prev => ({ ...prev, nsec: undefined }));
+                      }}
+                      className={`rounded-lg pr-10 ${
+                        errors.nsec ? 'border-red-500 focus-visible:ring-red-500' : ''
+                      }`}
+                      placeholder='nsec1...'
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                   {errors.nsec && (
                     <p className="text-sm text-red-500">{errors.nsec}</p>
                   )}
