@@ -560,10 +560,10 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
           {/* Normal location permission - show when not using forced location AND not in developer mode */}
           {!forcedLocation && !developerMode && (
             <>
-              <Alert className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20">
-                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertTitle className="text-blue-900 dark:text-blue-100">Physical Presence Required</AlertTitle>
-                <AlertDescription className="text-blue-800 dark:text-blue-200">
+              <Alert variant="info">
+                <MapPin className="h-4 w-4" />
+                <AlertTitle>Physical Presence Required</AlertTitle>
+                <AlertDescription>
                   To join this community, you need to prove you're physically at the location.
                   Please ensure you're within 25 meters of the QR code location.
                 </AlertDescription>
