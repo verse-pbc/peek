@@ -69,6 +69,8 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       await login.extension();
       onLogin();
       onClose();
+      // Reload to refresh UI with new identity
+      window.location.href = '/';
     } catch (e: unknown) {
       const error = e as Error;
       console.error('Extension login failed:', error);
@@ -82,6 +84,10 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
         errorMessage = 'Login was cancelled. Please try again if you want to connect your extension.';
       } else if (error.message === 'EXTENSION_ERROR') {
         errorMessage = 'Failed to connect to browser extension. Make sure your extension is unlocked and try again.';
+      } else if (error.message.includes('no private key') || error.message.includes('no account')) {
+        errorMessage = 'Extension not configured. Please set up your Nostr extension (nos2x, Alby, etc.) with a key first.';
+      } else if (error.message.includes('not found') || error.message.includes('not available')) {
+        errorMessage = 'Nostr extension not found. Please install a NIP-07 extension like nos2x or Alby.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -105,6 +111,8 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
         login.nsec(key);
         onLogin();
         onClose();
+        // Reload to refresh UI with new identity
+        window.location.href = '/';
       } catch {
         setErrors({ nsec: "Failed to login with this key. Please check that it's correct." });
         setIsLoading(false);
@@ -145,6 +153,8 @@ const LoginDialog: React.FC<LoginDialogProps> = ({ isOpen, onClose, onLogin, onS
       onClose();
       // Clear the URI from memory
       setBunkerUri('');
+      // Reload to refresh UI with new identity
+      window.location.href = '/';
     } catch {
       setErrors(prev => ({
         ...prev,
