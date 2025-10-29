@@ -161,13 +161,14 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       // Check if stored identity is NIP-07 extension-based
       if (
         personalIdentity?.secretKey === "NIP07_EXTENSION" &&
+        personalIdentity?.publicKey &&
         typeof window !== "undefined" &&
         window.nostr
       ) {
         // User has previously logged in with extension and extension is still available
         usingExtension = true;
         publicKeyHex = personalIdentity.publicKey;
-        console.log("[RelayContext] Using stored NIP-07 extension identity:", publicKeyHex.slice(0, 8) + "...");
+        console.log("[RelayContext] Using stored NIP-07 extension identity:", personalIdentity.publicKey.slice(0, 8) + "...");
       }
 
       // If not using extension, check stored identity for key-based auth
