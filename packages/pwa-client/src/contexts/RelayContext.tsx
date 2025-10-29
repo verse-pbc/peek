@@ -154,58 +154,24 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
 
       const STORAGE_KEY = "peek_nostr_identity";
 
-      // Check if NIP-07 extension is actively available
-      if (typeof window !== "undefined" && window.nostr) {
-        try {
-          console.log("[RelayContext] Requesting pubkey from NIP-07 extension...");
-          // Get current pubkey from extension with timeout
-          const extensionPubkey = await Promise.race([
-            window.nostr.getPublicKey(),
-            new Promise<string>((_, reject) =>
-              setTimeout(() => reject(new Error("Extension getPublicKey timeout")), 5000)
-            )
-          ]);
+      // Check stored identity first (works for both extension and key-based auth)
+      const storedIdentity = localStorage.getItem(STORAGE_KEY);
+      const personalIdentity = storedIdentity ? JSON.parse(storedIdentity) : null;
 
-          // Check if cached identity matches extension
-          const storedIdentity = localStorage.getItem(STORAGE_KEY);
-          const cached = storedIdentity ? JSON.parse(storedIdentity) : null;
-
-          if (
-            !cached ||
-            cached.publicKey !== extensionPubkey ||
-            cached.secretKey !== "NIP07_EXTENSION"
-          ) {
-            // Sync localStorage with extension
-            const npub = nip19.npubEncode(extensionPubkey);
-            const syncedIdentity = {
-              secretKey: "NIP07_EXTENSION",
-              publicKey: extensionPubkey,
-              npub,
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedIdentity));
-            console.log(
-              `[RelayContext] Synced localStorage with NIP-07 extension: ${npub}`,
-            );
-          }
-
-          usingExtension = true;
-          publicKeyHex = extensionPubkey;
-          console.log("[RelayContext] Using NIP-07 browser extension for auth");
-        } catch (err) {
-          console.error(
-            "[RelayContext] Failed to get pubkey from extension:",
-            err,
-          );
-          // Fall through to localStorage check
-        }
+      // Check if stored identity is NIP-07 extension-based
+      if (
+        personalIdentity?.secretKey === "NIP07_EXTENSION" &&
+        typeof window !== "undefined" &&
+        window.nostr
+      ) {
+        // User has previously logged in with extension and extension is still available
+        usingExtension = true;
+        publicKeyHex = personalIdentity.publicKey;
+        console.log("[RelayContext] Using stored NIP-07 extension identity:", publicKeyHex.slice(0, 8) + "...");
       }
 
-      // If not using extension, check stored identity
-      if (!usingExtension) {
-        const storedIdentity = localStorage.getItem(STORAGE_KEY);
-        const personalIdentity = storedIdentity
-          ? JSON.parse(storedIdentity)
-          : null;
+      // If not using extension, check stored identity for key-based auth
+      if (!usingExtension && personalIdentity) {
 
         if (
           (identity?.secretKey && identity?.publicKey) ||
@@ -217,10 +183,10 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           // Check if this is actually a NIP-07 extension identity
           const secretKeyValue = authIdentity.secretKey?.trim();
 
-          // Log for debugging
+          // Log for debugging (NEVER log secret key value!)
           console.log('[RelayContext] Checking secretKey:', {
             type: typeof secretKeyValue,
-            value: secretKeyValue?.slice(0, 20),
+            length: secretKeyValue?.length,
             isNIP07: secretKeyValue === 'NIP07_EXTENSION',
             isHex: /^[0-9a-f]{64}$/i.test(secretKeyValue || '')
           });
@@ -238,7 +204,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
             publicKeyHex = authIdentity.publicKey;
           } else {
             // Invalid or missing secret key
-            console.error('[RelayContext] Invalid secret key format:', secretKeyValue?.slice(0, 20));
+            console.error('[RelayContext] Invalid secret key format - length:', secretKeyValue?.length);
             publicKeyHex = authIdentity.publicKey;
             // secretKeyBytes remains undefined
           }
@@ -254,9 +220,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       manager.setUserPubkey(publicKeyHex);
 
       // Check if we should use NIP-07 (either actively detected or stored identity is NIP-07)
-      const storedIdentity = localStorage.getItem("peek_nostr_identity");
-      const parsedIdentity = storedIdentity ? JSON.parse(storedIdentity) : null;
-      const isNIP07Identity = parsedIdentity?.secretKey === "NIP07_EXTENSION";
+      const isNIP07Identity = personalIdentity?.secretKey === "NIP07_EXTENSION";
       const shouldUseExtension = usingExtension || isNIP07Identity;
 
       if (shouldUseExtension) {
