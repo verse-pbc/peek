@@ -12,7 +12,6 @@ import {
   finalizeEvent,
   type EventTemplate,
   type VerifiedEvent,
-  nip19,
 } from "nostr-tools";
 import { hexToBytes } from "@/lib/hex";
 import { useNostrLogin } from "@/lib/nostrify-shim";
