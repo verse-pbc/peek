@@ -14,7 +14,6 @@ import { genUserName } from '@/lib/genUserName';
 import { getDiceBearDataUrl } from '@/lib/dicebear';
 import { nip19 } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
-import { NotificationToggle } from './Notifications/NotificationToggle';
 import { useNostrLogin } from '@/lib/nostrify-shim';
 
 interface UserProfileModalProps {
@@ -92,9 +91,6 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
           </div>
 
           <div className="w-full space-y-2">
-            <div className="text-xs text-muted-foreground text-center">
-              Public Key
-            </div>
             <div className="flex items-center justify-center gap-2">
               <div className="font-mono text-xs text-muted-foreground">
                 {npub.slice(0, 16)}...{npub.slice(-8)}
@@ -108,14 +104,36 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground text-center">
+              {isOwnProfile ? (
+                <>
+                  Share so people can find you in other{' '}
+                  <a
+                    href="https://nostr.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-coral hover:underline"
+                  >
+                    nostr
+                  </a>{' '}
+                  apps.
+                </>
+              ) : (
+                <>
+                  Copy the identity of this user to find it in other{' '}
+                  <a
+                    href="https://nostr.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-coral hover:underline"
+                  >
+                    nostr
+                  </a>{' '}
+                  apps.
+                </>
+              )}
+            </p>
           </div>
-
-          {/* Push Notifications Toggle - only shown for own profile */}
-          {isOwnProfile && (
-            <div className="w-full pt-4 border-t">
-              <NotificationToggle />
-            </div>
-          )}
         </div>
       </DialogContent>
     </Dialog>
