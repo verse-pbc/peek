@@ -159,28 +159,16 @@ export class RelayManager {
         limit: 10,
       };
 
-      console.log("[RelayManager] Querying membership events:", {
-        groupId,
-        pubkey,
-      });
-
       // Use pool.querySync to get events directly
       const events = await this.pool.querySync([this.relayUrl], filter);
 
       if (events.length === 0) {
-        console.log("[RelayManager] No membership events found");
         return null;
       }
 
       // Sort by created_at to find the most recent event
       events.sort((a, b) => b.created_at - a.created_at);
       const latestEvent = events[0];
-
-      console.log("[RelayManager] Latest membership event:", {
-        kind: latestEvent.kind,
-        created_at: latestEvent.created_at,
-        isAddUser: latestEvent.kind === 9000,
-      });
 
       return latestEvent;
     } catch (error) {
@@ -208,11 +196,6 @@ export class RelayManager {
     }
 
     try {
-      console.log(
-        "[RelayManager] Querying user groups for pubkey:",
-        targetPubkey,
-      );
-
       // Query for all GROUP_MEMBERS (kind 39002) events that contain this user's pubkey
       const filter: Filter = {
         kinds: [NIP29_KINDS.GROUP_MEMBERS],
@@ -221,22 +204,6 @@ export class RelayManager {
       };
 
       const events = await this.pool.querySync([this.relayUrl], filter);
-      console.log(
-        `[RelayManager] Found ${events.length} GROUP_MEMBERS events containing user`,
-      );
-
-      // Log group IDs for debugging
-      for (const event of events) {
-        const dTag = event.tags.find((tag) => tag[0] === "d" && tag[1]);
-        if (dTag && dTag[1]) {
-          console.log(`[RelayManager] User is member of group: ${dTag[1]}`);
-        }
-      }
-
-      console.log(
-        `[RelayManager] Returning ${events.length} GROUP_MEMBERS events`,
-      );
-
       return events; // Return full events with member lists
     } catch (error) {
       console.error("[RelayManager] Error querying user groups:", error);
@@ -260,10 +227,6 @@ export class RelayManager {
     }
 
     try {
-      console.log(
-        `[RelayManager] Checking membership for user ${pubkey} in group ${groupId}`,
-      );
-
       // Query for the latest GROUP_MEMBERS (kind 39002) event for this group
       const filter: Filter = {
         kinds: [NIP29_KINDS.GROUP_MEMBERS],
@@ -274,25 +237,16 @@ export class RelayManager {
       const events = await this.pool.querySync([this.relayUrl], filter);
 
       if (events.length === 0) {
-        console.log(
-          `[RelayManager] No GROUP_MEMBERS event found for group ${groupId}`,
-        );
         return false;
       }
 
       const membersEvent = events[0];
-      console.log(
-        `[RelayManager] Found GROUP_MEMBERS event for ${groupId}, checking for user ${pubkey}`,
-      );
 
       // Check if the user's pubkey is in the 'p' tags
       const isMember = membersEvent.tags.some(
         (tag) => tag[0] === "p" && tag[1] === pubkey,
       );
 
-      console.log(
-        `[RelayManager] User ${pubkey} ${isMember ? "is" : "is not"} a member of group ${groupId}`,
-      );
       return isMember;
     } catch (error) {
       console.error("[RelayManager] Error querying group membership:", error);
@@ -304,47 +258,16 @@ export class RelayManager {
    * Query events directly using the pool
    */
   async queryEventsDirectly(filter: Filter): Promise<Event[]> {
-    const startTime = Date.now();
-    const filterStr = JSON.stringify(filter);
-
-    console.log(
-      `[RelayManager] 🔍 Query START - Filter: ${filterStr.substring(0, 100)}...`,
-    );
-
     if (!this.relay || !this.relay.connected) {
-      console.error("[RelayManager] ❌ Query FAILED - Relay not connected", {
-        hasRelay: !!this.relay,
-        isConnected: this.relay?.connected,
-        filter: filterStr,
-      });
+      console.error("[RelayManager] Query failed - Relay not connected");
       return [];
     }
 
     try {
-      console.log(
-        `[RelayManager] 📡 Querying pool (connected: ${this.relay.connected})`,
-      );
       const events = await this.pool.querySync([this.relayUrl], filter);
-      const duration = Date.now() - startTime;
-
-      console.log(
-        `[RelayManager] ✅ Query SUCCESS - ${events.length} events in ${duration}ms`,
-        {
-          filter: filterStr.substring(0, 80),
-          eventCount: events.length,
-          duration,
-        },
-      );
-
       return events;
     } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error(`[RelayManager] ❌ Query ERROR after ${duration}ms:`, {
-        error,
-        filter: filterStr.substring(0, 80),
-        relayConnected: this.relay?.connected,
-        relayUrl: this.relayUrl,
-      });
+      console.error("[RelayManager] Query error:", error);
       return [];
     }
   }
@@ -412,17 +335,11 @@ export class RelayManager {
 
           // If all groups were in cache, return immediately
           if (groupsToFetch.length === 0) {
-            console.log(
-              `[RelayManager] All ${groupIds.length} groups found in cache`,
-            );
             return lastActivityMap;
           }
 
           // Update groupIds to only fetch missing ones
           groupIds = groupsToFetch;
-          console.log(
-            `[RelayManager] ${lastActivityMap.size} groups from cache, ${groupIds.length} to fetch`,
-          );
         }
       }
     } catch (error) {
@@ -430,19 +347,11 @@ export class RelayManager {
     }
 
     try {
-      console.log(
-        `[RelayManager] Fetching last activity for ${groupIds.length} groups in batch`,
-      );
-
       // Single query with multiple #h filters
       const events = await this.pool.querySync([this.relayUrl], {
         kinds: [NIP29_KINDS.CHAT_MESSAGE],
         "#h": groupIds,
       });
-
-      console.log(
-        `[RelayManager] Received ${events.length} chat messages for batched groups`,
-      );
 
       // Group events by #h tag and find the latest for each group
       for (const event of events) {
@@ -454,10 +363,6 @@ export class RelayManager {
           lastActivityMap.set(groupId, event.created_at);
         }
       }
-
-      console.log(
-        `[RelayManager] Found last activity for ${lastActivityMap.size} groups`,
-      );
 
       // Update cache with new data
       try {
@@ -501,9 +406,6 @@ export class RelayManager {
       const stored = localStorage.getItem(this.UUID_CACHE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        console.log(
-          `[RelayManager] Loaded ${Object.keys(parsed).length} UUID mappings from cache`,
-        );
         return new Map(Object.entries(parsed));
       }
     } catch (error) {
@@ -531,11 +433,7 @@ export class RelayManager {
   async findGroupByUuid(uuid: string): Promise<string | null> {
     // Check cache first
     if (this.uuidToGroupCache.has(uuid)) {
-      const cached = this.uuidToGroupCache.get(uuid)!;
-      console.log(
-        `[RelayManager] Found cached group ${cached} for UUID ${uuid}`,
-      );
-      return cached;
+      return this.uuidToGroupCache.get(uuid)!;
     }
 
     if (!this.relay || !this.relay.connected) {
@@ -544,8 +442,6 @@ export class RelayManager {
     }
 
     try {
-      console.log(`[RelayManager] Looking up group for UUID ${uuid}`);
-
       // Query for kind 39000 (GROUP_METADATA) with i-tag containing the UUID
       const filter: Filter = {
         kinds: [NIP29_KINDS.GROUP_METADATA],
@@ -556,14 +452,12 @@ export class RelayManager {
       const events = await this.pool.querySync([this.relayUrl], filter);
 
       if (events.length === 0) {
-        console.log(`[RelayManager] No group found for UUID ${uuid}`);
         return null;
       }
 
       // Extract d-tag which contains the group h-tag
       const dTag = events[0].tags.find((t) => t[0] === "d")?.[1];
       if (dTag) {
-        console.log(`[RelayManager] Found group ${dTag} for UUID ${uuid}`);
         // Cache the mapping and persist to localStorage
         this.uuidToGroupCache.set(uuid, dTag);
         this.saveUuidCache();
@@ -597,8 +491,6 @@ export class RelayManager {
     this.isConnecting = true;
 
     try {
-      console.log(`[RelayManager] Connecting to ${this.relayUrl}...`);
-
       // Get relay instance from pool
       this.relay = await this.pool.ensureRelay(this.relayUrl);
 
@@ -617,22 +509,16 @@ export class RelayManager {
         }, 100);
       });
 
-      console.log(`[RelayManager] Connected to ${this.relayUrl}`);
-
       // Handle NIP-42 authentication if the relay sent an AUTH challenge
       if (
         this.authHandler &&
         this.relay &&
         (this.relay as unknown as { challenge?: string }).challenge
       ) {
-        console.log(
-          "[RelayManager] AUTH challenge detected, authenticating...",
-        );
         try {
           await (
             this.relay as { auth?: (handler: unknown) => Promise<unknown> }
           ).auth?.(this.authHandler);
-          console.log("[RelayManager] Successfully authenticated");
         } catch (error) {
           console.error("[RelayManager] Authentication failed:", error);
         }
@@ -662,8 +548,6 @@ export class RelayManager {
    * Disconnect from the relay
    */
   disconnect(): void {
-    console.log(`[RelayManager] Disconnecting from ${this.relayUrl}`);
-
     // Clear reconnect timer
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -722,8 +606,6 @@ export class RelayManager {
 
     const sub = this.pool.subscribeMany([this.relayUrl], [filter], {
       onevent: (event) => this.handleMetadataEvent(event),
-      oneose: () =>
-        console.log("[RelayManager] Initial metadata sync complete"),
     });
 
     this.subscriptions.set("metadata", sub);
@@ -743,11 +625,9 @@ export class RelayManager {
     // Check if already subscribed to this group
     if (this.subscriptions.has(`group-${groupId}`)) {
       if (!force) {
-        console.log(`[RelayManager] Already subscribed to group ${groupId}`);
         return;
       }
       // Force re-subscription: unsubscribe first
-      console.log(`[RelayManager] Force re-subscribing to group ${groupId}`);
       this.unsubscribeFromGroup(groupId);
     }
 
@@ -758,11 +638,6 @@ export class RelayManager {
         admins: new Map(),
       });
     }
-
-    console.log(
-      `[RelayManager] Subscribing to group ${groupId} with auth handler:`,
-      !!this.authHandler,
-    );
 
     // Subscribe to h-tagged events (content + moderation)
     const hFilter: Filter = {
@@ -795,7 +670,6 @@ export class RelayManager {
 
     const sub = this.pool.subscribeMany([this.relayUrl], [hFilter, dFilter], {
       onevent: (event) => this.handleGroupEvent(groupId, event),
-      oneose: () => console.log(`[RelayManager] Synced with group ${groupId}`),
       onauth: this.authHandler,
     });
 
@@ -985,10 +859,6 @@ export class RelayManager {
     }
 
     await this.relay.publish(event);
-
-    console.log(
-      `[RelayManager] Published event ${event.id} (kind ${event.kind})`,
-    );
   }
 
   /**
@@ -1044,12 +914,6 @@ export class RelayManager {
    * Handle events for a specific group
    */
   private handleGroupEvent(groupId: string, event: Event): void {
-    console.log(
-      `[RelayManager] Received event for group ${groupId}:`,
-      event.kind,
-      event.id,
-    );
-
     const state = this.groupStates.get(groupId);
     if (!state) return;
 
@@ -1188,10 +1052,6 @@ export class RelayManager {
       60000, // Max 60 seconds
     );
 
-    console.log(
-      `[RelayManager] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`,
-    );
-
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++;
       this.connect();
@@ -1208,7 +1068,6 @@ export class RelayManager {
     }
 
     await this.relay.publish(giftWrap);
-    console.log(`[RelayManager] Published gift wrap ${giftWrap.id}`);
   }
 
   /**
@@ -1236,16 +1095,7 @@ export class RelayManager {
 
     // Use pool.subscribeMany for consistency (pool manages relay lifecycle)
     const sub = this.pool.subscribeMany([this.relayUrl], [filter], {
-      onevent: (event) => {
-        console.log(`[RelayManager] Received gift wrap: ${event.id}`);
-        handler(event);
-      },
-      oneose: () => {
-        // EOSE happens immediately with limit: 0
-        console.log(
-          `[RelayManager] Gift wrap subscription active for ${recipientPubkey.slice(0, 8)}...`,
-        );
-      },
+      onevent: handler,
     });
 
     this.subscriptions.set(subId, sub);
@@ -1296,7 +1146,6 @@ export class RelayManager {
     if (sub) {
       (sub as { close?: () => void })?.close?.();
       this.subscriptions.delete(subId);
-      console.log(`[RelayManager] Unsubscribed from ${subId}`);
     }
   }
 
@@ -1357,13 +1206,8 @@ export class RelayManager {
 
     // Check if already subscribed
     if (this.subscriptions.has(subId)) {
-      console.log(
-        `[RelayManager] Already subscribed to messages for ${groupId}`,
-      );
       return () => this.unsubscribe(subId);
     }
-
-    console.log(`[RelayManager] Subscribing to messages for group ${groupId}`);
 
     const filter: Filter = {
       kinds: [NIP29_KINDS.CHAT_MESSAGE],
@@ -1372,8 +1216,6 @@ export class RelayManager {
 
     const sub = this.pool.subscribeMany([this.relayUrl], [filter], {
       onevent: onMessage,
-      oneose: () =>
-        console.log(`[RelayManager] Message sync complete for ${groupId}`),
     });
 
     this.subscriptions.set(subId, sub);
@@ -1405,13 +1247,8 @@ export class RelayManager {
 
     // Check if already subscribed
     if (this.subscriptions.has(subId)) {
-      console.log(
-        `[RelayManager] Already subscribed to metadata for ${groupId}`,
-      );
       return () => this.unsubscribe(subId);
     }
-
-    console.log(`[RelayManager] Subscribing to metadata for group ${groupId}`);
 
     const filter: Filter = {
       "#d": [groupId],
@@ -1430,8 +1267,6 @@ export class RelayManager {
         // Notify the component's handler
         onMetadata(event);
       },
-      oneose: () =>
-        console.log(`[RelayManager] Metadata sync complete for ${groupId}`),
     });
 
     this.subscriptions.set(subId, sub);
@@ -1445,7 +1280,6 @@ export class RelayManager {
    * Clean up resources
    */
   dispose(): void {
-    console.log("[RelayManager] Disposing RelayManager and pool");
     this.disconnect();
 
     // Close pool's relay connections

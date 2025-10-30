@@ -1,0 +1,511 @@
+{
+  "app_name": "Peek",
+  "common": {
+    "buttons": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "back": "Back",
+      "edit": "Edit",
+      "retry": "Try Again",
+      "dismiss": "Dismiss",
+      "continue": "Continue",
+      "skip": "Skip for now",
+      "reload": "Reload Page",
+      "close": "Close"
+    },
+    "status": {
+      "loading": "Loading...",
+      "saving": "Saving...",
+      "success": "Success",
+      "error": "Error",
+      "verifying": "Verifying...",
+      "connecting": "Connecting...",
+      "creating": "Creating..."
+    },
+    "time": {
+      "just_now": "Just now",
+      "minutes_ago": "{{count}}m ago",
+      "hours_ago": "{{count}}h ago",
+      "days_ago": "{{count}}d ago",
+      "never": "Never",
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
+    "labels": {
+      "members": "Members",
+      "created": "Created",
+      "you": "You",
+      "founder": "Founder",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "altitude": "Altitude",
+      "timestamp": "Timestamp",
+      "na": "N/A"
+    }
+  },
+  "home": {
+    "title": "Peek - Location-Based Communities",
+    "description": "Connect with people at physical locations through QR codes",
+    "welcome": {
+      "title": "Welcome to Peek",
+      "subtitle": "Connect with people at physical locations",
+      "scan_prompt": "Scan a Peek QR code with your phone camera to join location-based communities. No app installation required!",
+      "login_button": "Login with Nostr",
+      "login_hint": "Use your existing Nostr account or create a new one"
+    },
+    "header": {
+      "create_sticker": "Create Sticker",
+      "dev_test": "Dev Test"
+    },
+    "my_communities": {
+      "title": "My Communities",
+      "count_joined": "{{count}} joined",
+      "empty_title": "No communities yet",
+      "empty_message": "Find QR codes in the wild and scan them to join your first community!",
+      "pro_tip": "Pro tip: Be the first to scan an unclaimed QR code to become the founder with admin powers!",
+      "location_verified": "Location verified",
+      "last_message": "Last message {{time}}",
+      "open_community": "Open Community",
+      "members_count": "{{count}} members"
+    },
+    "errors": {
+      "load_failed": "Failed to load your communities"
+    }
+  },
+  "join_flow": {
+    "title": {
+      "unclaimed": "You've discovered an unclaimed spot!",
+      "join": "Join {{name}}",
+      "join_generic": "Join Community"
+    },
+    "loading": {
+      "title": "Loading community...",
+      "description": "Fetching community information"
+    },
+    "preview": {
+      "create_prompt": "Create a community only those who scan this QR code can join!",
+      "how_to_join": "How do people get in?",
+      "step_scan": "Scan QR",
+      "step_verify": "Verify location",
+      "step_join": "Join chat",
+      "admin_benefits": "As the admin, you will:",
+      "admin_perm": "Own this spot with permanent admin rights",
+      "admin_culture": "Shape the culture and vibe of your community",
+      "button_create": "Create & Join as Admin",
+      "button_join": "Join Community",
+      "button_joining": "Joining Community..."
+    },
+    "location_step": {
+      "presence_required": "Physical Presence Required",
+      "presence_description": "To join this community, you need to prove you're physically at the location. Please ensure you're within 25 meters of the QR code location.",
+      "test_location": "Using Test Location",
+      "test_coords": "📍 {{lat}}, {{lng}}",
+      "test_accuracy": "🎯 Accuracy: {{accuracy}}m"
+    },
+    "validating": {
+      "title": "Validating your location...",
+      "description": "Sending encrypted location proof via Nostr",
+      "timeout_notice": "This may take up to 30 seconds",
+      "accuracy_info": "📍 Accuracy: {{accuracy}}m",
+      "accuracy_good": "✓ Good",
+      "accuracy_low": "⚠ Low",
+      "coords": "Lat: {{lat}}, Lng: {{lng}}"
+    },
+    "success": {
+      "welcome_back": "Welcome Back! 👋",
+      "already_member": "You're already a member of this community.",
+      "joined": "Successfully Joined! 🎉",
+      "admin_welcome": "You're the founding admin of this community!",
+      "member_welcome": "You're now a member of this community."
+    },
+    "error": {
+      "title": "Unable to Join",
+      "code_fallback": "ERROR",
+      "not_logged_in": "Please login with your Nostr account to join communities",
+      "invalid_community": "Invalid community ID",
+      "not_initialized": "Relay manager not initialized",
+      "connection_failed": "Connection failed. Please check your internet and try again.",
+      "tips_title": "Tips:",
+      "tips": {
+        "at_location": "Make sure you're at the physical location",
+        "stand_closer": "Stand closer to where the QR code is displayed",
+        "enable_accuracy": "Enable high-accuracy mode in your GPS settings"
+      },
+      "improve_gps_title": "Improve GPS Accuracy:",
+      "improve_gps": {
+        "open_area": "Move to an open area with clear sky view",
+        "enable_wifi": "Enable Wi-Fi and Bluetooth for better positioning",
+        "wait": "Wait a moment for GPS to stabilize"
+      }
+    },
+    "dev_mode": {
+      "enabled": "Developer mode enabled",
+      "enabled_desc": "Test location controls are now available",
+      "disabled": "Developer mode disabled",
+      "disabled_desc": "Test location controls hidden"
+    }
+  },
+  "location": {
+    "verification_title": "Location Verification",
+    "verification_desc": "We need to verify you're at the physical location to join this community",
+    "permission": {
+      "denied_title": "Location Permission Denied",
+      "denied_desc": "You need to enable location permissions in your browser settings to join this community. Please check your browser's address bar or settings.",
+      "required": "Location permission is required to join location-based communities"
+    },
+    "error_title": "Location Error",
+    "capturing": {
+      "title": "Capturing your location...",
+      "description": "This may take a few seconds"
+    },
+    "captured": {
+      "title": "Location Captured",
+      "description": "Your location has been successfully detected",
+      "toast": "Location captured",
+      "toast_accuracy": "GPS accuracy: {{accuracy}}m"
+    },
+    "accuracy": {
+      "title": "GPS Accuracy",
+      "excellent": "Excellent",
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Poor",
+      "required": "Required: ≤{{maxAccuracy}}m",
+      "current": "{{accuracy}}m accuracy",
+      "warning": "Your GPS accuracy is too low. Try moving to an open area with clear sky view, or wait a moment for better GPS signal."
+    },
+    "buttons": {
+      "allow": "Allow Location Access",
+      "requesting": "Requesting Location...",
+      "recapture": "Recapture Location",
+      "capturing": "Capturing..."
+    },
+    "instructions": {
+      "at_location": "Make sure you're at the physical location of the QR code",
+      "enable_gps": "Enable GPS/Location services on your device",
+      "best_accuracy": "For best accuracy, step outside or near a window",
+      "grant_permission": "Grant location permission when prompted"
+    }
+  },
+  "community_preview": {
+    "not_found_title": "Community Not Found",
+    "not_found_desc": "This QR code doesn't correspond to an active community.",
+    "invalid_qr": "The community may have been removed or the QR code may be invalid.",
+    "try_again": "Try Again",
+    "error_title": "Error Loading Community",
+    "community_description": "Community Description",
+    "about": "About {{name}}",
+    "loading": "Loading community preview..."
+  },
+  "community_feed": {
+    "loading": "Loading messages...",
+    "empty": "No messages yet. Be the first to say hello!",
+    "input_placeholder": "Type a message...",
+    "not_logged_in": "Connect your Nostr account to send messages",
+    "you": "(you)"
+  },
+  "admin": {
+    "back_to_chat": "Back to chat",
+    "community_info": "Community Info",
+    "edit_community": "Edit Community",
+    "status_closed": "Closed community • {{count}} member(s)",
+    "edit_dialog": {
+      "title": "Edit Community",
+      "name_label": "Community Name",
+      "name_placeholder": "Enter community name",
+      "about_label": "About",
+      "about_placeholder": "Describe your community...",
+      "picture_label": "Picture URL",
+      "picture_placeholder": "https://example.com/image.jpg",
+      "invalid_url": "Please enter a valid URL",
+      "name_required": "Community name is required",
+      "invalid_image_url": "Please enter a valid image URL"
+    },
+    "members": {
+      "title": "Members",
+      "description": "{{admins}} admins, {{muted}} muted",
+      "loading": "Loading members...",
+      "you": "(You)",
+      "make_admin": "Make Admin",
+      "remove_admin": "Remove Admin",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "remove": "Remove from Group"
+    },
+    "toast": {
+      "member_list_error": "Failed to fetch member list",
+      "promoted": "Member promoted to admin",
+      "promote_error": "Failed to promote member",
+      "demoted": "Admin permissions removed",
+      "demote_error": "Failed to remove admin permissions",
+      "muted": "Member muted",
+      "mute_error": "Failed to mute member",
+      "unmuted": "Member unmuted",
+      "unmute_error": "Failed to unmute member",
+      "removed": "Member removed from group",
+      "remove_error": "Failed to remove member",
+      "metadata_updated": "Community metadata updated",
+      "metadata_error": "Failed to update community metadata"
+    }
+  },
+  "auth": {
+    "login_dialog": {
+      "title": "Sign up or log in to continue",
+      "new_to_nostr": "New to Nostr?",
+      "new_desc": "Create a new account to get started. It's free and open.",
+      "sign_up": "Sign Up",
+      "or_login": "Or log in",
+      "tabs": {
+        "extension": "Extension",
+        "key": "Key",
+        "bunker": "Bunker"
+      },
+      "extension": {
+        "reload_needed": "Browser extension connection lost. The extension was likely reloaded or updated.",
+        "description": "Login with one click using the browser extension",
+        "button": "Login with Extension",
+        "button_loading": "Logging in...",
+        "cancelled": "Login was cancelled. Please try again if you want to connect your extension.",
+        "failed": "Failed to connect to browser extension. Make sure your extension is unlocked and try again.",
+        "not_found": "Nostr extension not found. Please install a NIP-07 extension."
+      },
+      "key": {
+        "label": "Secret Key (nsec)",
+        "placeholder": "nsec1...",
+        "show_password": "Show password",
+        "hide_password": "Hide password",
+        "required": "Please enter your secret key",
+        "invalid_format": "Invalid secret key format. Must be a valid nsec starting with nsec1.",
+        "login_failed": "Failed to login with this key. Please check that it's correct.",
+        "button": "Log In",
+        "button_loading": "Verifying...",
+        "or": "or",
+        "upload_button": "Upload Your Key File",
+        "upload_loading": "Reading File...",
+        "file_invalid": "File does not contain a valid secret key.",
+        "file_read_error": "Could not read file content.",
+        "file_failed": "Failed to read file."
+      },
+      "bunker": {
+        "label": "Bunker URI",
+        "placeholder": "bunker://",
+        "invalid_format": "Invalid bunker URI format. Must start with bunker://",
+        "required": "Please enter a bunker URI",
+        "failed": "Failed to connect to bunker. Please check the URI.",
+        "button": "Login with Bunker",
+        "button_loading": "Connecting..."
+      }
+    },
+    "signup_dialog": {
+      "title": "Create Your Account",
+      "step_welcome": {
+        "decentralized": "Decentralized and censorship-resistant",
+        "control": "You are in control of your data",
+        "global": "Join a global network",
+        "button": "Get Started"
+      },
+      "step_generate": {
+        "title": "Generating Your Key",
+        "generating": "Generating your secret key...",
+        "generating_desc": "Creating your secure key",
+        "ready": "Ready to generate your secret key?",
+        "explanation": "This key will be your password to access applications within the Nostr network.",
+        "button": "Generate My Secret Key"
+      },
+      "step_download": {
+        "title": "Secret Key",
+        "success": "Your secret key has been generated!",
+        "warning_title": "Important Warning",
+        "warning_desc": "This key is your primary and only means of accessing your account. Store it safely and securely.",
+        "download_file": "Download as File",
+        "download_desc": "Save as nostr-nsec-key.txt file",
+        "downloaded": "✓ Downloaded",
+        "download_first": "Please download your key first",
+        "button": "My Key is Safe - Continue",
+        "button_downloaded": "Key Secured - Continue"
+      },
+      "step_profile": {
+        "title": "Create Your Profile",
+        "subtitle": "Almost there! Let's set up your profile",
+        "description": "Your profile is your identity on Nostr.",
+        "publishing": "Publishing your profile...",
+        "name_label": "Display Name",
+        "name_placeholder": "Your name",
+        "bio_label": "Bio",
+        "bio_placeholder": "Tell others about yourself...",
+        "avatar_label": "Avatar",
+        "avatar_placeholder": "https://example.com/your-avatar.jpg",
+        "upload_avatar": "Upload avatar image",
+        "button": "Create Profile & Finish",
+        "button_creating": "Creating Profile...",
+        "button_setting_up": "Setting up account...",
+        "skip": "Skip for now"
+      },
+      "step_complete": {
+        "title": "Welcome!",
+        "ready": "Your account is ready."
+      },
+      "toast": {
+        "key_ready": "Your Secret Key is Ready!",
+        "key_generated": "A new secret key has been generated for you.",
+        "key_error": "Failed to generate key. Please try again.",
+        "key_saved": "Secret Key Saved!",
+        "key_saved_desc": "Your key has been safely stored.",
+        "download_failed": "Download failed",
+        "download_failed_desc": "Could not download the key file. Please copy it manually.",
+        "login_failed": "Login Failed",
+        "login_failed_desc": "Failed to login with the generated key. Please try again.",
+        "avatar_invalid": "Invalid file type",
+        "avatar_invalid_desc": "Please select an image file for your avatar.",
+        "avatar_too_large": "File too large",
+        "avatar_too_large_desc": "Avatar image must be smaller than 5MB.",
+        "avatar_uploaded": "Avatar uploaded!",
+        "avatar_uploaded_desc": "Your avatar has been uploaded successfully.",
+        "avatar_upload_failed": "Upload failed",
+        "avatar_upload_failed_desc": "Failed to upload avatar. Please try again.",
+        "profile_created": "Profile Created!",
+        "profile_created_desc": "Your profile has been set up.",
+        "welcome": "Welcome!",
+        "welcome_desc": "Your account is ready.",
+        "profile_setup_failed": "Profile Setup Failed",
+        "profile_setup_failed_desc": "Your account was created but profile setup failed. You can update it later."
+      }
+    },
+    "login_area": {
+      "login": "Log in",
+      "sign_up": "Sign Up"
+    },
+    "account_switcher": {
+      "switch_relay": "Switch Relay",
+      "switch_account": "Switch Account",
+      "wallet_settings": "Wallet Settings",
+      "add_account": "Add another account",
+      "logout": "Log out"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "public_key": "Public Key",
+    "npub_copied": "Npub copied to clipboard",
+    "edit_dialog": {
+      "title": "Profile & Keys",
+      "description": "Manage your Nostr profile and identity keys.",
+      "tabs": {
+        "profile": "Profile",
+        "keys": "Your Keys"
+      },
+      "profile_tab": {
+        "info": "💡 Works across all Nostr apps! Your profile is part of the Nostr protocol. Learn more →",
+        "name_label": "Name",
+        "name_placeholder": "Your name",
+        "display_name_label": "Display Name (optional)",
+        "display_name_placeholder": "Full name with special characters",
+        "about_label": "About",
+        "about_placeholder": "A short bio...",
+        "picture_label": "Profile Picture URL",
+        "picture_placeholder": "https://example.com/avatar.jpg",
+        "save_button": "Save Profile"
+      },
+      "keys_tab": {
+        "npub_label": "Public ID (npub)",
+        "npub_desc": "Safe to share - like your email address",
+        "nsec_label": "Secret Key (nsec)",
+        "nsec_saved": "Saved",
+        "nsec_not_saved": "Not saved",
+        "nsec_desc": "NEVER share - like your password",
+        "nsec_warning": "Store this in a password manager. If you lose it, you lose access to this identity forever.",
+        "copy_nsec": "Copy Secret Key",
+        "extension_managed": "🔒 Your secret key is managed by your browser extension and never exposed.",
+        "learn_more": "New to Nostr? Learn more →"
+      },
+      "toast": {
+        "profile_updated": "Profile updated!",
+        "profile_updated_desc": "Your profile has been published to Nostr relays.",
+        "npub_copied": "Public ID copied!",
+        "npub_copied_desc": "Safe to share anywhere.",
+        "nsec_copied": "Secret key copied!",
+        "nsec_copied_desc": "Store this safely. You can now switch accounts without losing access."
+      }
+    }
+  },
+  "notifications": {
+    "toggle": {
+      "label": "Push Notifications",
+      "description": "Get notified about community activity",
+      "toast": {
+        "login_required": "Login Required",
+        "login_required_desc": "Please login to enable push notifications",
+        "not_supported_extension": "Not Supported",
+        "not_supported_extension_desc": "Your browser extension does not support NIP-44 encryption. Please update your extension.",
+        "ios_install_required": "iOS: Install Required",
+        "ios_install_required_desc": "Push notifications on iOS require adding Peek to your Home Screen. In Safari: tap Share → Add to Home Screen, then reopen Peek from your home screen.",
+        "not_supported_browser": "Not Supported",
+        "not_supported_browser_desc": "Push notifications are not supported in this browser",
+        "permission_denied": "Permission Denied",
+        "permission_denied_desc": "Please allow notifications in your browser settings",
+        "registration_failed_token": "Registration Failed",
+        "registration_failed_token_desc": "Could not get push notification token. Please try again.",
+        "enabled_with_communities": "Notifications Enabled",
+        "enabled_with_communities_desc": "Subscribed to {{count}} communities. You'll receive push notifications for new messages.",
+        "enabled_no_communities": "Notifications Enabled",
+        "enabled_no_communities_desc": "You will receive push notifications when you join communities",
+        "registration_failed": "Registration Failed",
+        "registration_failed_desc": "Could not register device. Please try again.",
+        "disabled": "Notifications Disabled",
+        "disabled_desc": "Deregistered device and unsubscribed from {{count}} communities",
+        "deregistration_failed": "Deregistration Failed",
+        "deregistration_failed_desc": "Could not deregister device. Please try again.",
+        "error": "Error"
+      }
+    },
+    "ios_banner": {
+      "install_prompt": "Install Peek for push notifications: Tap Share → Add to Home Screen"
+    }
+  },
+  "errors": {
+    "validation": {
+      "too_far": "Too far from location",
+      "accuracy_poor": "GPS accuracy too poor",
+      "invalid_qr": "Invalid QR code format",
+      "community_error": "Failed to access community information",
+      "connection_issue": "Connection issue. Please wait a moment and try again.",
+      "timeout": "Validation timed out. The service may be unavailable.",
+      "network_error": "Failed to validate location. Please check your connection and try again."
+    },
+    "preview": {
+      "failed": "Unable to fetch community information. Please try again.",
+      "not_found": "Failed to load community data. Please try again."
+    },
+    "boundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. The error has been reported.",
+      "details": "Error details",
+      "message": "Message:",
+      "stack": "Stack trace:",
+      "retry": "Try again",
+      "reload": "Reload page"
+    },
+    "not_found": {
+      "title": "404 - Page Not Found",
+      "description": "The page you are looking for could not be found. Return to the home page to continue browsing.",
+      "heading": "404",
+      "message": "Oops! Page not found",
+      "home_link": "Return to Home"
+    }
+  },
+  "community_page": {
+    "loading_title": "Loading community...",
+    "loading_migration": "Completing identity migration...",
+    "loading_desc": "Verifying your access",
+    "loading_migration_desc": "Updating your membership",
+    "access_denied": "Access Denied",
+    "my_communities": "My Communities",
+    "join_button": "Join Community",
+    "header": {
+      "back": "My Communities",
+      "info_title": "View community info",
+      "member_count": "{{memberCount}}"
+    },
+    "navigation_message": "You need to scan the QR code at the location to rejoin this community"
+  }
+}

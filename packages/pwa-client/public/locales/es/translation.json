@@ -1,0 +1,511 @@
+{
+  "app_name": "Peek",
+  "common": {
+    "buttons": {
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "back": "Atrás",
+      "edit": "Editar",
+      "retry": "Intentar de Nuevo",
+      "dismiss": "Descartar",
+      "continue": "Continuar",
+      "skip": "Saltar por ahora",
+      "reload": "Recargar Página",
+      "close": "Cerrar"
+    },
+    "status": {
+      "loading": "Cargando...",
+      "saving": "Guardando...",
+      "success": "Éxito",
+      "error": "Error",
+      "verifying": "Verificando...",
+      "connecting": "Conectando...",
+      "creating": "Creando..."
+    },
+    "time": {
+      "just_now": "Justo ahora",
+      "minutes_ago": "hace {{count}}m",
+      "hours_ago": "hace {{count}}h",
+      "days_ago": "hace {{count}}d",
+      "never": "Nunca",
+      "today": "Hoy",
+      "yesterday": "Ayer"
+    },
+    "labels": {
+      "members": "Miembros",
+      "created": "Creado",
+      "you": "Tú",
+      "founder": "Fundador",
+      "latitude": "Latitud",
+      "longitude": "Longitud",
+      "altitude": "Altitud",
+      "timestamp": "Marca de Tiempo",
+      "na": "N/D"
+    }
+  },
+  "home": {
+    "title": "Peek - Comunidades Basadas en Ubicación",
+    "description": "Conéctate con personas en ubicaciones físicas a través de códigos QR",
+    "welcome": {
+      "title": "Bienvenido a Peek",
+      "subtitle": "Conéctate con personas en ubicaciones físicas",
+      "scan_prompt": "Escanea un código QR de Peek con la cámara de tu teléfono para unirte a comunidades basadas en ubicación. ¡No se requiere instalación de aplicación!",
+      "login_button": "Iniciar Sesión con Nostr",
+      "login_hint": "Usa tu cuenta existente de Nostr o crea una nueva"
+    },
+    "header": {
+      "create_sticker": "Crear Sticker",
+      "dev_test": "Prueba Dev"
+    },
+    "my_communities": {
+      "title": "Mis Comunidades",
+      "count_joined": "{{count}} unidas",
+      "empty_title": "Aún no hay comunidades",
+      "empty_message": "¡Encuentra códigos QR en el mundo real y escanéalos para unirte a tu primera comunidad!",
+      "pro_tip": "Consejo profesional: ¡Sé el primero en escanear un código QR sin reclamar para convertirte en el fundador con poderes de administrador!",
+      "location_verified": "Ubicación verificada",
+      "last_message": "Último mensaje {{time}}",
+      "open_community": "Abrir Comunidad",
+      "members_count": "{{count}} miembros"
+    },
+    "errors": {
+      "load_failed": "Error al cargar tus comunidades"
+    }
+  },
+  "join_flow": {
+    "title": {
+      "unclaimed": "¡Has descubierto un lugar sin reclamar!",
+      "join": "Unirse a {{name}}",
+      "join_generic": "Unirse a la Comunidad"
+    },
+    "loading": {
+      "title": "Cargando comunidad...",
+      "description": "Obteniendo información de la comunidad"
+    },
+    "preview": {
+      "create_prompt": "¡Crea una comunidad a la que solo pueden unirse quienes escaneen este código QR!",
+      "how_to_join": "¿Cómo entran las personas?",
+      "step_scan": "Escanear QR",
+      "step_verify": "Verificar ubicación",
+      "step_join": "Unirse al chat",
+      "admin_benefits": "Como administrador, podrás:",
+      "admin_perm": "Poseer este lugar con derechos de administrador permanentes",
+      "admin_culture": "Dar forma a la cultura y ambiente de tu comunidad",
+      "button_create": "Crear y Unirse como Administrador",
+      "button_join": "Unirse a la Comunidad",
+      "button_joining": "Uniéndose a la Comunidad..."
+    },
+    "location_step": {
+      "presence_required": "Presencia Física Requerida",
+      "presence_description": "Para unirte a esta comunidad, necesitas demostrar que estás físicamente en la ubicación. Asegúrate de estar dentro de 25 metros de la ubicación del código QR.",
+      "test_location": "Usando Ubicación de Prueba",
+      "test_coords": "📍 {{lat}}, {{lng}}",
+      "test_accuracy": "🎯 Precisión: {{accuracy}}m"
+    },
+    "validating": {
+      "title": "Validando tu ubicación...",
+      "description": "Enviando prueba de ubicación cifrada a través de Nostr",
+      "timeout_notice": "Esto puede tomar hasta 30 segundos",
+      "accuracy_info": "📍 Precisión: {{accuracy}}m",
+      "accuracy_good": "✓ Buena",
+      "accuracy_low": "⚠ Baja",
+      "coords": "Lat: {{lat}}, Lng: {{lng}}"
+    },
+    "success": {
+      "welcome_back": "¡Bienvenido de Nuevo! 👋",
+      "already_member": "Ya eres miembro de esta comunidad.",
+      "joined": "¡Te has Unido Exitosamente! 🎉",
+      "admin_welcome": "¡Eres el administrador fundador de esta comunidad!",
+      "member_welcome": "Ahora eres miembro de esta comunidad."
+    },
+    "error": {
+      "title": "No se Pudo Unirse",
+      "code_fallback": "ERROR",
+      "not_logged_in": "Por favor inicia sesión con tu cuenta de Nostr para unirte a comunidades",
+      "invalid_community": "ID de comunidad no válido",
+      "not_initialized": "Gestor de relay no inicializado",
+      "connection_failed": "Fallo en la conexión. Por favor verifica tu internet e intenta de nuevo.",
+      "tips_title": "Consejos:",
+      "tips": {
+        "at_location": "Asegúrate de estar en la ubicación física",
+        "stand_closer": "Acércate más a donde está el código QR",
+        "enable_accuracy": "Activa el modo de alta precisión en tu configuración de GPS"
+      },
+      "improve_gps_title": "Mejora la Precisión del GPS:",
+      "improve_gps": {
+        "open_area": "Muévete a un área abierta con vista clara del cielo",
+        "enable_wifi": "Activa Wi-Fi y Bluetooth para un mejor posicionamiento",
+        "wait": "Espera un momento para que el GPS se estabilice"
+      }
+    },
+    "dev_mode": {
+      "enabled": "Modo desarrollador activado",
+      "enabled_desc": "Los controles de ubicación de prueba ahora están disponibles",
+      "disabled": "Modo desarrollador desactivado",
+      "disabled_desc": "Los controles de ubicación de prueba están ocultos"
+    }
+  },
+  "location": {
+    "verification_title": "Verificación de Ubicación",
+    "verification_desc": "Necesitamos verificar que estás en la ubicación física para unirte a esta comunidad",
+    "permission": {
+      "denied_title": "Permiso de Ubicación Denegado",
+      "denied_desc": "Necesitas habilitar los permisos de ubicación en la configuración de tu navegador para unirte a esta comunidad. Por favor verifica la barra de direcciones o configuración de tu navegador.",
+      "required": "Se requiere permiso de ubicación para unirse a comunidades basadas en ubicación"
+    },
+    "error_title": "Error de Ubicación",
+    "capturing": {
+      "title": "Capturando tu ubicación...",
+      "description": "Esto puede tomar unos segundos"
+    },
+    "captured": {
+      "title": "Ubicación Capturada",
+      "description": "Tu ubicación se ha detectado exitosamente",
+      "toast": "Ubicación capturada",
+      "toast_accuracy": "Precisión GPS: {{accuracy}}m"
+    },
+    "accuracy": {
+      "title": "Precisión del GPS",
+      "excellent": "Excelente",
+      "good": "Buena",
+      "fair": "Regular",
+      "poor": "Deficiente",
+      "required": "Requerido: ≤{{maxAccuracy}}m",
+      "current": "{{accuracy}}m de precisión",
+      "warning": "Tu precisión GPS es demasiado baja. Intenta moverte a un área abierta con vista clara del cielo, o espera un momento para una mejor señal GPS."
+    },
+    "buttons": {
+      "allow": "Permitir Acceso a la Ubicación",
+      "requesting": "Solicitando Ubicación...",
+      "recapture": "Volver a Capturar Ubicación",
+      "capturing": "Capturando..."
+    },
+    "instructions": {
+      "at_location": "Asegúrate de estar en la ubicación física del código QR",
+      "enable_gps": "Activa los servicios de GPS/Ubicación en tu dispositivo",
+      "best_accuracy": "Para mejor precisión, sal afuera o acércate a una ventana",
+      "grant_permission": "Otorga permiso de ubicación cuando se te solicite"
+    }
+  },
+  "community_preview": {
+    "not_found_title": "Comunidad No Encontrada",
+    "not_found_desc": "Este código QR no corresponde a una comunidad activa.",
+    "invalid_qr": "La comunidad puede haber sido eliminada o el código QR puede ser inválido.",
+    "try_again": "Intentar de Nuevo",
+    "error_title": "Error al Cargar Comunidad",
+    "community_description": "Descripción de la Comunidad",
+    "about": "Acerca de {{name}}",
+    "loading": "Cargando vista previa de la comunidad..."
+  },
+  "community_feed": {
+    "loading": "Cargando mensajes...",
+    "empty": "Aún no hay mensajes. ¡Sé el primero en saludar!",
+    "input_placeholder": "Escribe un mensaje...",
+    "not_logged_in": "Conecta tu cuenta de Nostr para enviar mensajes",
+    "you": "(tú)"
+  },
+  "admin": {
+    "back_to_chat": "Volver al chat",
+    "community_info": "Información de la Comunidad",
+    "edit_community": "Editar Comunidad",
+    "status_closed": "Comunidad cerrada • {{count}} miembro(s)",
+    "edit_dialog": {
+      "title": "Editar Comunidad",
+      "name_label": "Nombre de la Comunidad",
+      "name_placeholder": "Ingresa el nombre de la comunidad",
+      "about_label": "Acerca de",
+      "about_placeholder": "Describe tu comunidad...",
+      "picture_label": "URL de la Imagen",
+      "picture_placeholder": "https://ejemplo.com/imagen.jpg",
+      "invalid_url": "Por favor ingresa una URL válida",
+      "name_required": "Se requiere el nombre de la comunidad",
+      "invalid_image_url": "Por favor ingresa una URL de imagen válida"
+    },
+    "members": {
+      "title": "Miembros",
+      "description": "{{admins}} administradores, {{muted}} silenciados",
+      "loading": "Cargando miembros...",
+      "you": "(Tú)",
+      "make_admin": "Hacer Administrador",
+      "remove_admin": "Quitar Administrador",
+      "mute": "Silenciar",
+      "unmute": "Desilenciar",
+      "remove": "Eliminar del Grupo"
+    },
+    "toast": {
+      "member_list_error": "Error al obtener la lista de miembros",
+      "promoted": "Miembro promovido a administrador",
+      "promote_error": "Error al promover miembro",
+      "demoted": "Permisos de administrador eliminados",
+      "demote_error": "Error al eliminar permisos de administrador",
+      "muted": "Miembro silenciado",
+      "mute_error": "Error al silenciar miembro",
+      "unmuted": "Miembro desilenciado",
+      "unmute_error": "Error al desilenciar miembro",
+      "removed": "Miembro eliminado del grupo",
+      "remove_error": "Error al eliminar miembro",
+      "metadata_updated": "Metadatos de la comunidad actualizados",
+      "metadata_error": "Error al actualizar metadatos de la comunidad"
+    }
+  },
+  "auth": {
+    "login_dialog": {
+      "title": "Regístrate o inicia sesión para continuar",
+      "new_to_nostr": "¿Nuevo en Nostr?",
+      "new_desc": "Crea una nueva cuenta para comenzar. Es gratis y abierto.",
+      "sign_up": "Registrarse",
+      "or_login": "O iniciar sesión",
+      "tabs": {
+        "extension": "Extensión",
+        "key": "Clave",
+        "bunker": "Bunker"
+      },
+      "extension": {
+        "reload_needed": "Se perdió la conexión con la extensión del navegador. La extensión probablemente fue recargada o actualizada.",
+        "description": "Inicia sesión con un clic usando la extensión del navegador",
+        "button": "Iniciar Sesión con Extensión",
+        "button_loading": "Iniciando sesión...",
+        "cancelled": "Inicio de sesión cancelado. Por favor intenta de nuevo si deseas conectar tu extensión.",
+        "failed": "Error al conectar con la extensión del navegador. Asegúrate de que tu extensión esté desbloqueada e intenta de nuevo.",
+        "not_found": "Extensión de Nostr no encontrada. Por favor instala una extensión NIP-07."
+      },
+      "key": {
+        "label": "Clave Secreta (nsec)",
+        "placeholder": "nsec1...",
+        "show_password": "Mostrar contraseña",
+        "hide_password": "Ocultar contraseña",
+        "required": "Por favor ingresa tu clave secreta",
+        "invalid_format": "Formato de clave secreta inválido. Debe ser un nsec válido que comience con nsec1.",
+        "login_failed": "Error al iniciar sesión con esta clave. Por favor verifica que sea correcta.",
+        "button": "Iniciar Sesión",
+        "button_loading": "Verificando...",
+        "or": "o",
+        "upload_button": "Subir tu Archivo de Clave",
+        "upload_loading": "Leyendo Archivo...",
+        "file_invalid": "El archivo no contiene una clave secreta válida.",
+        "file_read_error": "No se pudo leer el contenido del archivo.",
+        "file_failed": "Error al leer el archivo."
+      },
+      "bunker": {
+        "label": "URI de Bunker",
+        "placeholder": "bunker://",
+        "invalid_format": "Formato de URI de bunker inválido. Debe comenzar con bunker://",
+        "required": "Por favor ingresa un URI de bunker",
+        "failed": "Error al conectar con bunker. Por favor verifica el URI.",
+        "button": "Iniciar Sesión con Bunker",
+        "button_loading": "Conectando..."
+      }
+    },
+    "signup_dialog": {
+      "title": "Crea tu Cuenta",
+      "step_welcome": {
+        "decentralized": "Descentralizado y resistente a la censura",
+        "control": "Tienes el control de tus datos",
+        "global": "Únete a una red global",
+        "button": "Comenzar"
+      },
+      "step_generate": {
+        "title": "Generando tu Clave",
+        "generating": "Generando tu clave secreta...",
+        "generating_desc": "Creando tu clave segura",
+        "ready": "¿Listo para generar tu clave secreta?",
+        "explanation": "Esta clave será tu contraseña para acceder a aplicaciones dentro de la red Nostr.",
+        "button": "Generar Mi Clave Secreta"
+      },
+      "step_download": {
+        "title": "Clave Secreta",
+        "success": "¡Tu clave secreta ha sido generada!",
+        "warning_title": "Advertencia Importante",
+        "warning_desc": "Esta clave es tu medio principal y único para acceder a tu cuenta. Guárdala de forma segura.",
+        "download_file": "Descargar como Archivo",
+        "download_desc": "Guardar como nostr-nsec-key.txt",
+        "downloaded": "✓ Descargado",
+        "download_first": "Por favor descarga tu clave primero",
+        "button": "Mi Clave está Segura - Continuar",
+        "button_downloaded": "Clave Asegurada - Continuar"
+      },
+      "step_profile": {
+        "title": "Crea tu Perfil",
+        "subtitle": "¡Casi listo! Configuremos tu perfil",
+        "description": "Tu perfil es tu identidad en Nostr.",
+        "publishing": "Publicando tu perfil...",
+        "name_label": "Nombre para Mostrar",
+        "name_placeholder": "Tu nombre",
+        "bio_label": "Biografía",
+        "bio_placeholder": "Cuéntales a otros sobre ti...",
+        "avatar_label": "Avatar",
+        "avatar_placeholder": "https://ejemplo.com/tu-avatar.jpg",
+        "upload_avatar": "Subir imagen de avatar",
+        "button": "Crear Perfil y Finalizar",
+        "button_creating": "Creando Perfil...",
+        "button_setting_up": "Configurando cuenta...",
+        "skip": "Saltar por ahora"
+      },
+      "step_complete": {
+        "title": "¡Bienvenido!",
+        "ready": "Tu cuenta está lista."
+      },
+      "toast": {
+        "key_ready": "¡Tu Clave Secreta está Lista!",
+        "key_generated": "Se ha generado una nueva clave secreta para ti.",
+        "key_error": "Error al generar la clave. Por favor intenta de nuevo.",
+        "key_saved": "¡Clave Secreta Guardada!",
+        "key_saved_desc": "Tu clave se ha almacenado de forma segura.",
+        "download_failed": "Descarga fallida",
+        "download_failed_desc": "No se pudo descargar el archivo de clave. Por favor cópiala manualmente.",
+        "login_failed": "Error de Inicio de Sesión",
+        "login_failed_desc": "Error al iniciar sesión con la clave generada. Por favor intenta de nuevo.",
+        "avatar_invalid": "Tipo de archivo inválido",
+        "avatar_invalid_desc": "Por favor selecciona un archivo de imagen para tu avatar.",
+        "avatar_too_large": "Archivo demasiado grande",
+        "avatar_too_large_desc": "La imagen del avatar debe ser menor de 5MB.",
+        "avatar_uploaded": "¡Avatar subido!",
+        "avatar_uploaded_desc": "Tu avatar se ha subido exitosamente.",
+        "avatar_upload_failed": "Subida fallida",
+        "avatar_upload_failed_desc": "Error al subir el avatar. Por favor intenta de nuevo.",
+        "profile_created": "¡Perfil Creado!",
+        "profile_created_desc": "Tu perfil ha sido configurado.",
+        "welcome": "¡Bienvenido!",
+        "welcome_desc": "Tu cuenta está lista.",
+        "profile_setup_failed": "Error en la Configuración del Perfil",
+        "profile_setup_failed_desc": "Tu cuenta fue creada pero la configuración del perfil falló. Puedes actualizarlo más tarde."
+      }
+    },
+    "login_area": {
+      "login": "Iniciar sesión",
+      "sign_up": "Registrarse"
+    },
+    "account_switcher": {
+      "switch_relay": "Cambiar Relay",
+      "switch_account": "Cambiar Cuenta",
+      "wallet_settings": "Configuración de Cartera",
+      "add_account": "Agregar otra cuenta",
+      "logout": "Cerrar sesión"
+    }
+  },
+  "profile": {
+    "title": "Perfil",
+    "public_key": "Clave Pública",
+    "npub_copied": "Npub copiado al portapapeles",
+    "edit_dialog": {
+      "title": "Perfil y Claves",
+      "description": "Administra tu perfil Nostr y claves de identidad.",
+      "tabs": {
+        "profile": "Perfil",
+        "keys": "Tus Claves"
+      },
+      "profile_tab": {
+        "info": "💡 ¡Funciona en todas las aplicaciones de Nostr! Tu perfil es parte del protocolo Nostr. Aprende más →",
+        "name_label": "Nombre",
+        "name_placeholder": "Tu nombre",
+        "display_name_label": "Nombre para Mostrar (opcional)",
+        "display_name_placeholder": "Nombre completo con caracteres especiales",
+        "about_label": "Acerca de",
+        "about_placeholder": "Una breve biografía...",
+        "picture_label": "URL de Imagen de Perfil",
+        "picture_placeholder": "https://ejemplo.com/avatar.jpg",
+        "save_button": "Guardar Perfil"
+      },
+      "keys_tab": {
+        "npub_label": "ID Público (npub)",
+        "npub_desc": "Seguro para compartir - como tu dirección de correo electrónico",
+        "nsec_label": "Clave Secreta (nsec)",
+        "nsec_saved": "Guardado",
+        "nsec_not_saved": "No guardado",
+        "nsec_desc": "NUNCA compartir - como tu contraseña",
+        "nsec_warning": "Guarda esto en un administrador de contraseñas. Si lo pierdes, pierdes el acceso a esta identidad para siempre.",
+        "copy_nsec": "Copiar Clave Secreta",
+        "extension_managed": "🔒 Tu clave secreta es administrada por tu extensión del navegador y nunca se expone.",
+        "learn_more": "¿Nuevo en Nostr? Aprende más →"
+      },
+      "toast": {
+        "profile_updated": "¡Perfil actualizado!",
+        "profile_updated_desc": "Tu perfil ha sido publicado en los relays de Nostr.",
+        "npub_copied": "¡ID público copiado!",
+        "npub_copied_desc": "Seguro para compartir en cualquier lugar.",
+        "nsec_copied": "¡Clave secreta copiada!",
+        "nsec_copied_desc": "Guárdala de forma segura. Ahora puedes cambiar de cuenta sin perder el acceso."
+      }
+    }
+  },
+  "notifications": {
+    "toggle": {
+      "label": "Notificaciones Push",
+      "description": "Recibe notificaciones sobre la actividad de la comunidad",
+      "toast": {
+        "login_required": "Inicio de Sesión Requerido",
+        "login_required_desc": "Por favor inicia sesión para habilitar notificaciones push",
+        "not_supported_extension": "No Soportado",
+        "not_supported_extension_desc": "Tu extensión del navegador no soporta cifrado NIP-44. Por favor actualiza tu extensión.",
+        "ios_install_required": "iOS: Instalación Requerida",
+        "ios_install_required_desc": "Las notificaciones push en iOS requieren agregar Peek a tu Pantalla de Inicio. En Safari: toca Compartir → Agregar a Pantalla de Inicio, luego vuelve a abrir Peek desde tu pantalla de inicio.",
+        "not_supported_browser": "No Soportado",
+        "not_supported_browser_desc": "Las notificaciones push no son soportadas en este navegador",
+        "permission_denied": "Permiso Denegado",
+        "permission_denied_desc": "Por favor permite las notificaciones en la configuración de tu navegador",
+        "registration_failed_token": "Registro Fallido",
+        "registration_failed_token_desc": "No se pudo obtener el token de notificación push. Por favor intenta de nuevo.",
+        "enabled_with_communities": "Notificaciones Habilitadas",
+        "enabled_with_communities_desc": "Suscrito a {{count}} comunidades. Recibirás notificaciones push para nuevos mensajes.",
+        "enabled_no_communities": "Notificaciones Habilitadas",
+        "enabled_no_communities_desc": "Recibirás notificaciones push cuando te unas a comunidades",
+        "registration_failed": "Registro Fallido",
+        "registration_failed_desc": "No se pudo registrar el dispositivo. Por favor intenta de nuevo.",
+        "disabled": "Notificaciones Deshabilitadas",
+        "disabled_desc": "Dispositivo deregistrado y desuscrito de {{count}} comunidades",
+        "deregistration_failed": "Deregistro Fallido",
+        "deregistration_failed_desc": "No se pudo deregistrar el dispositivo. Por favor intenta de nuevo.",
+        "error": "Error"
+      }
+    },
+    "ios_banner": {
+      "install_prompt": "Instala Peek para notificaciones push: Toca Compartir → Agregar a Pantalla de Inicio"
+    }
+  },
+  "errors": {
+    "validation": {
+      "too_far": "Demasiado lejos de la ubicación",
+      "accuracy_poor": "Precisión del GPS demasiado baja",
+      "invalid_qr": "Formato de código QR inválido",
+      "community_error": "Error al acceder a la información de la comunidad",
+      "connection_issue": "Problema de conexión. Por favor espera un momento e intenta de nuevo.",
+      "timeout": "Validación agotada. El servicio puede no estar disponible.",
+      "network_error": "Error al validar la ubicación. Por favor verifica tu conexión e intenta de nuevo."
+    },
+    "preview": {
+      "failed": "No se pudo obtener la información de la comunidad. Por favor intenta de nuevo.",
+      "not_found": "Error al cargar los datos de la comunidad. Por favor intenta de nuevo."
+    },
+    "boundary": {
+      "title": "Algo salió mal",
+      "description": "Ocurrió un error inesperado. El error ha sido reportado.",
+      "details": "Detalles del error",
+      "message": "Mensaje:",
+      "stack": "Traza de pila:",
+      "retry": "Intentar de nuevo",
+      "reload": "Recargar página"
+    },
+    "not_found": {
+      "title": "404 - Página No Encontrada",
+      "description": "La página que buscas no pudo ser encontrada. Regresa a la página de inicio para continuar navegando.",
+      "heading": "404",
+      "message": "¡Ups! Página no encontrada",
+      "home_link": "Volver al Inicio"
+    }
+  },
+  "community_page": {
+    "loading_title": "Cargando comunidad...",
+    "loading_migration": "Completando migración de identidad...",
+    "loading_desc": "Verificando tu acceso",
+    "loading_migration_desc": "Actualizando tu membresía",
+    "access_denied": "Acceso Denegado",
+    "my_communities": "Mis Comunidades",
+    "join_button": "Unirse a la Comunidad",
+    "header": {
+      "back": "Mis Comunidades",
+      "info_title": "Ver información de la comunidad",
+      "member_count": "{{memberCount}}"
+    },
+    "navigation_message": "Necesitas escanear el código QR en la ubicación para volver a unirte a esta comunidad"
+  }
+}

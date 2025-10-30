@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { CommunityFeed } from "../components/CommunityFeed";
 import { AdminPanel } from "../components/AdminPanel";
 import { JoinFlow } from "./JoinFlow";
@@ -43,6 +44,7 @@ interface CommunityData {
 }
 
 const Community = () => {
+  const { t } = useTranslation();
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   const { pubkey } = useNostrLogin();
@@ -90,7 +92,6 @@ const Community = () => {
       );
 
       if (joinedGroup?.groupId) {
-        console.log(`[Community] Found groupId in localStorage: ${joinedGroup.groupId}`);
         setGroupId(joinedGroup.groupId);
         return;
       }
@@ -98,9 +99,6 @@ const Community = () => {
       // Fallback to relay lookup
       const resolved = await relayManager.findGroupByUuid(communityId);
       if (resolved) {
-        console.log(
-          `[Community] Resolved UUID ${communityId} to group ${resolved}`,
-        );
         setGroupId(resolved);
       } else {
         console.warn(
@@ -117,8 +115,6 @@ const Community = () => {
   useEffect(() => {
     if (!relayManager || !connected || !groupId) return;
 
-    console.log(`[Community] Creating dedicated metadata subscription for ${groupId}`);
-
     // Create dedicated subscription for metadata (receives historical + live events)
     const unsubscribe = relayManager.subscribeToMetadata(groupId, (event) => {
       // Reduced verbosity: only log in verbose debug mode
@@ -129,12 +125,6 @@ const Community = () => {
         const nameTag = event.tags.find((t) => t[0] === "name");
         if (nameTag && nameTag[1]) {
           const nextName = nameTag[1];
-          console.log(
-            "[Community] 📝 Received name from 39000:",
-            nextName,
-            "current:",
-            communityData?.name,
-          );
 
           // Store in ref for early access (before communityData exists)
           if (nameRef.current !== nextName) {
@@ -144,12 +134,9 @@ const Community = () => {
           // Also update communityData if it exists (idempotent)
           setCommunityData((prev) => {
             if (!prev) {
-              // Reduced verbosity
-              // console.log("[Community] 📊 Name stored in ref:", nextName);
               return prev;
             }
             if (prev.name !== nextName) {
-              console.log("[Community] ✅ Updated name to:", nextName);
               return { ...prev, name: nextName };
             }
             return prev; // No change, avoid re-render
@@ -190,11 +177,9 @@ const Community = () => {
         // GROUP_ADMINS event - refresh admin status
         if (pubkey && groupManager) {
           const isAdmin = groupManager.isGroupAdmin(groupId);
-          console.log("[Community] 📝 Admin status updated from 39001:", isAdmin);
           setCommunityData((prev) => {
             if (!prev) return prev;
             if (prev.isAdmin !== isAdmin) {
-              console.log("[Community] ✅ Updated isAdmin to:", isAdmin);
               return { ...prev, isAdmin };
             }
             return prev;
@@ -204,7 +189,6 @@ const Community = () => {
     });
 
     return () => {
-      console.log(`[Community] Cleaning up metadata subscription for ${groupId}`);
       unsubscribe();
     };
   }, [relayManager, connected, groupId]);
@@ -212,11 +196,6 @@ const Community = () => {
   // Verify membership and load community data
   const verifyCommunityAccess = useCallback(async () => {
     if (!pubkey || !groupId || !groupManager) return;
-
-    console.log(
-      "[Community] verifyCommunityAccess called, has communityData:",
-      !!communityData,
-    );
 
     // Only show loading spinner if we don't have data yet
     // This prevents flicker on reconnect - React diffs will handle updates
@@ -251,29 +230,13 @@ const Community = () => {
       }
     }
 
-    console.log("Initial cache check:", {
-      groupId,
-      isMember,
-      isAdmin,
-      userPubkey: pubkey,
-    });
-
     // If not in cache and NOT migrating, check relay
     if (!isMember && !isMigrating) {
-      console.log("Member not in cache, checking relay directly...");
       isMember = await groupManager.checkMembershipDirectly(groupId);
-      console.log("Direct relay check result:", {
-        groupId,
-        isMember,
-        userPubkey: pubkey,
-      });
-    } else if (!isMember && isMigrating) {
-      console.log("Identity migration in progress, skipping relay check");
     }
 
     // Handle non-members (not migrating)
     if (!isMember && !isMigrating) {
-      console.log("User is not a member, showing join flow");
       setShowJoinFlow(true);
       setLoading(false);
       return;
@@ -281,9 +244,6 @@ const Community = () => {
 
     // If migrating and not member yet, polling hook will handle it
     if (isMigrating && !isMember) {
-      console.log(
-        "Identity migration in progress, waiting for membership update...",
-      );
       return; // Keep loading state
     }
 
@@ -295,15 +255,6 @@ const Community = () => {
       // Use member count from ref (set by 39002 event listener)
       const memberCount = memberCountRef.current;
 
-      console.log("[Community] Loading community data from GroupManager:", {
-        groupId,
-        metadataName: metadata?.name,
-        hasMetadata: !!metadata,
-        memberCount,
-        isAdmin,
-        userPubkey: pubkey,
-      });
-
       const community: CommunityData = {
         groupId,
         // Priority: nameRef (from early 39000) > metadata cache > UUID fallback
@@ -313,11 +264,6 @@ const Community = () => {
         isAdmin,
         isMember: true,
       };
-
-      console.log(
-        "[Community] Setting communityData:",
-        { name: community.name, isAdmin: community.isAdmin },
-      );
 
       // Get stored location from localStorage if available
       const joinedGroups = JSON.parse(
@@ -381,7 +327,6 @@ const Community = () => {
       return await groupManager.checkMembershipDirectly(groupId);
     },
     () => {
-      console.log("Migration complete - membership confirmed!");
       clearMigration();
       setCommunityData(null); // Clear to allow re-fetch with updated membership
       verifyCommunityAccess();
@@ -415,14 +360,11 @@ const Community = () => {
           // This is especially important on slower devices/networks (iOS Safari)
           const isMember = communityId ? isCommunityMember(communityId) : false;
 
-          if (isMember) {
-            console.log("[Community] Loading timeout but user is member - continuing to wait");
-            // Don't show JoinFlow, user is a member, just slow to load
-          } else {
-            console.log("[Community] Loading timeout - defaulting to JoinFlow");
+          if (!isMember) {
             setShowJoinFlow(true);
             setLoading(false);
           }
+          // Don't show JoinFlow if user is a member, just slow to load
         }
       }, 5000);
       return () => clearTimeout(timeout);
@@ -446,13 +388,13 @@ const Community = () => {
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
             <p className="text-lg font-medium">
               {isMigrating
-                ? "Completing identity migration..."
-                : "Loading community..."}
+                ? t('community_page.loading_migration')
+                : t('community_page.loading_title')}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
               {isMigrating
-                ? "Updating your membership"
-                : "Verifying your access"}
+                ? t('community_page.loading_migration_desc')
+                : t('community_page.loading_desc')}
             </p>
           </CardContent>
         </Card>
@@ -467,7 +409,7 @@ const Community = () => {
           <CardHeader>
             <div className="flex items-center gap-2 text-destructive">
               <Lock className="h-5 w-5" />
-              <CardTitle>Access Denied</CardTitle>
+              <CardTitle>{t('community_page.access_denied')}</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -497,7 +439,6 @@ const Community = () => {
     return (
       <JoinFlow
         onJoinSuccess={(groupId: string) => {
-          console.log(`[Community] onJoinSuccess called with groupId: ${groupId}`);
           setGroupId(groupId);  // Set directly from validation response
           setShowJoinFlow(false);
           setCommunityData(null);
@@ -523,7 +464,7 @@ const Community = () => {
                 variant="ghost"
                 size="icon"
                 className="bg-muted/80 hover:bg-muted flex-shrink-0 [&_svg]:!size-[24px]"
-                title="My Communities"
+                title={t('community_page.my_communities')}
               >
                 <ChevronLeft />
               </Button>

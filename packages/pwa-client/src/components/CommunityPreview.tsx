@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
 import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
@@ -44,6 +45,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
   error,
   isFirstScanner = false
 }) => {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(!previewData);
 
   useEffect(() => {
@@ -88,7 +90,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         <CardHeader>
           <CardTitle className="text-red-600 flex items-center gap-2">
             <AlertCircle className="h-5 w-5" />
-            Error Loading Community
+            {t('community_preview.error_title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -97,12 +99,12 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
           </Alert>
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={onJoin} 
+          <Button
+            onClick={onJoin}
             variant="outline"
             className="w-full"
           >
-            Try Again
+            {t('community_preview.try_again')}
           </Button>
         </CardFooter>
       </Card>
@@ -114,15 +116,15 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
     return (
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle>Community Not Found</CardTitle>
+          <CardTitle>{t('community_preview.not_found_title')}</CardTitle>
           <CardDescription>
-            This QR code doesn't correspond to an active community.
+            {t('community_preview.not_found_desc')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert>
             <AlertDescription>
-              The community may have been removed or the QR code may be invalid.
+              {t('community_preview.invalid_qr')}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -169,7 +171,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         {!isFirstScanner && previewData.description && (
           <div style={{ marginBottom: '1rem' }}>
             <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif", marginBottom: '0.5rem' }}>
-              Community Description
+              {t('community_preview.community_description')}
             </h2>
             <p className="text-black leading-tight" style={{ fontSize: '1.2rem', fontWeight: 500 }}>
               {previewData.description}
@@ -181,14 +183,14 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         {!isFirstScanner && (
           <div style={{ marginBottom: '1rem' }}>
             <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif", marginBottom: '0.5rem' }}>
-              About {previewData.name}
+              {t('community_preview.about', { name: previewData.name })}
             </h2>
             <div className="grid grid-cols-2 gap-4">
               {/* Members count */}
               <div className="flex items-start gap-3 bg-transparent">
                 <Users className="h-5 w-5 text-black mt-1" />
                 <div>
-                  <div className="text-sm text-black uppercase tracking-wider font-bold">Members</div>
+                  <div className="text-sm text-black uppercase tracking-wider font-bold">{t('common.labels.members')}</div>
                   <div className="text-lg font-bold text-black">{previewData.member_count}</div>
                 </div>
               </div>
@@ -197,7 +199,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
               <div className="flex items-start gap-3 bg-transparent">
                 <Calendar className="h-5 w-5 text-black mt-1" />
                 <div>
-                  <div className="text-sm text-black uppercase tracking-wider font-bold">Created</div>
+                  <div className="text-sm text-black uppercase tracking-wider font-bold">{t('common.labels.created')}</div>
                   <div className="text-lg font-bold text-black">
                     {new Date(previewData.created_at * 1000).toLocaleDateString('en-US', {
                       month: 'short',
@@ -214,7 +216,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         {/* Create description - only show for first scanner */}
         {isFirstScanner && (
           <p className="text-black leading-tight" style={{ fontSize: '1.2rem', fontWeight: 500, marginBottom: '1rem' }}>
-            Create a community only those who scan this QR code can join!
+            {t('join_flow.preview.create_prompt')}
           </p>
         )}
 
@@ -222,14 +224,14 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         {isFirstScanner && (
           <div className="space-y-6" style={{ marginBottom: '1rem' }}>
             <h2 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif" }}>
-              How do people get in?
+              {t('join_flow.preview.how_to_join')}
             </h2>
 
             <div className="flex items-center justify-between gap-2">
               {/* Step 1: Scan QR */}
               <div className="flex flex-col items-center text-center">
                 <ScanLine className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
-                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Scan QR</h3>
+                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>{t('join_flow.preview.step_scan')}</h3>
               </div>
 
               {/* Arrow 1 */}
@@ -238,7 +240,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
               {/* Step 2: Verify Location */}
               <div className="flex flex-col items-center text-center">
                 <MapPin className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
-                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Verify location</h3>
+                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>{t('join_flow.preview.step_verify')}</h3>
               </div>
 
               {/* Arrow 2 */}
@@ -247,7 +249,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
               {/* Step 3: Join chat */}
               <div className="flex flex-col items-center text-center">
                 <MessageSquare className="mb-4 text-black" strokeWidth={2.5} style={{ width: '2.5rem', height: '2.5rem', transform: 'rotate(-3deg)' }} />
-                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>Join chat</h3>
+                <h3 className="font-bold text-black mb-1" style={{ fontFamily: "'Integral CF', sans-serif", fontSize: '0.9rem', lineHeight: '1.2' }}>{t('join_flow.preview.step_join')}</h3>
               </div>
             </div>
           </div>
@@ -257,7 +259,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
         {isFirstScanner && (
           <div className="space-y-4">
             <h3 className="text-xl font-bold text-black uppercase" style={{ fontFamily: "'Integral CF', sans-serif" }}>
-              As the admin, you will:
+              {t('join_flow.preview.admin_benefits')}
             </h3>
 
             <div className="space-y-3">
@@ -267,7 +269,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
                   <Shield className="text-black" strokeWidth={2.5} style={{ width: '2rem', height: '2rem' }} />
                 </div>
                 <p className="text-base text-black" style={{ fontWeight: 500 }}>
-                  Own this spot with permanent admin rights
+                  {t('join_flow.preview.admin_perm')}
                 </p>
               </div>
 
@@ -280,7 +282,7 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
                   </svg>
                 </div>
                 <p className="text-base text-black" style={{ fontWeight: 500 }}>
-                  Shape the culture and vibe of your community
+                  {t('join_flow.preview.admin_culture')}
                 </p>
               </div>
             </div>
@@ -309,12 +311,12 @@ export const CommunityPreview: React.FC<CommunityPreviewProps> = ({
           {isJoining ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Joining Community...
+              {t('join_flow.preview.button_joining')}
             </>
           ) : isFirstScanner ? (
-            'Create & Join as Admin'
+            t('join_flow.preview.button_create')
           ) : (
-            'Join Community'
+            t('join_flow.preview.button_join')
           )}
         </Button>
         <style>{`

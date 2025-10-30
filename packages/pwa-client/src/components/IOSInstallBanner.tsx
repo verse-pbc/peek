@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { X, Info } from 'lucide-react'
 import { Alert, AlertDescription } from './ui/alert'
 import { Button } from './ui/button'
@@ -14,6 +15,7 @@ import { isIOS, isPWA } from '@/lib/platform'
 const STORAGE_KEY = 'peek_ios_install_banner_dismissed'
 
 export function IOSInstallBanner() {
+  const { t } = useTranslation()
   const [dismissed, setDismissed] = useState(true)
 
   useEffect(() => {
@@ -39,9 +41,7 @@ export function IOSInstallBanner() {
       <div className="flex items-start gap-2 w-full">
         <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
         <AlertDescription className="text-sm flex-1">
-          <span className="text-blue-800 dark:text-blue-200">
-            Install Peek for push notifications: Tap <strong>Share → Add to Home Screen</strong>
-          </span>
+          <span className="text-blue-800 dark:text-blue-200" dangerouslySetInnerHTML={{ __html: t('notifications.ios_banner.install_prompt') }} />
         </AlertDescription>
         <Button
           variant="ghost"

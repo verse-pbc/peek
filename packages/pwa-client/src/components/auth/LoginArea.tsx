@@ -2,6 +2,7 @@
 // It is important that all functionality in this file is preserved, and should only be modified if explicitly requested.
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button.tsx';
 import LoginDialog from './LoginDialog';
@@ -15,6 +16,7 @@ export interface LoginAreaProps {
 }
 
 export function LoginArea({ className }: LoginAreaProps) {
+  const { t } = useTranslation();
   const { currentUser } = useLoggedInAccounts();
   const [loginDialogOpen, setLoginDialogOpen] = useState(false);
   const [signupDialogOpen, setSignupDialogOpen] = useState(false);
@@ -35,14 +37,14 @@ export function LoginArea({ className }: LoginAreaProps) {
             className='flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground w-full font-medium transition-all hover:bg-primary/90 animate-scale-in'
           >
             <User className='w-4 h-4' />
-            <span className='truncate'>Log in</span>
+            <span className='truncate'>{t('auth.login_area.login')}</span>
           </Button><Button
             onClick={() => setSignupDialogOpen(true)}
             variant="outline"
             className="flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all"
           >
             <UserPlus className="w-4 h-4" />
-            <span>Sign Up</span>
+            <span>{t('auth.login_area.sign_up')}</span>
           </Button>
         </div>
       )}

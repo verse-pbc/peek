@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
-import { 
-  MapPin, 
-  AlertCircle, 
-  CheckCircle, 
-  Loader2, 
+import {
+  MapPin,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
   Navigation,
   XCircle,
   RefreshCw
@@ -33,6 +34,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
   maxAccuracy = 20,
   autoStart = false
 }) => {
+  const { t } = useTranslation();
   const [hasStarted, setHasStarted] = useState(false);
   
   const {
@@ -125,10 +127,10 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Navigation className="h-5 w-5" />
-          Location Verification
+          {t('location.verification_title')}
         </CardTitle>
         <CardDescription>
-          We need to verify you're at the physical location to join this community
+          {t('location.verification_desc')}
         </CardDescription>
       </CardHeader>
       
@@ -137,10 +139,9 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
         {permissionStatus === 'denied' && (
           <Alert variant="destructive">
             <XCircle className="h-4 w-4" />
-            <AlertTitle>Location Permission Denied</AlertTitle>
+            <AlertTitle>{t('location.permission.denied_title')}</AlertTitle>
             <AlertDescription>
-              You need to enable location permissions in your browser settings to join this community.
-              Please check your browser's address bar or settings.
+              {t('location.permission.denied_desc')}
             </AlertDescription>
           </Alert>
         )}
@@ -149,7 +150,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
         {error && permissionStatus !== 'denied' && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Location Error</AlertTitle>
+            <AlertTitle>{t('location.error_title')}</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -161,8 +162,8 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
               <MapPin className="h-12 w-12 text-gray-400" />
               <Loader2 className="h-12 w-12 absolute inset-0 animate-spin text-primary" />
             </div>
-            <p className="text-sm text-gray-600">Capturing your location...</p>
-            <p className="text-xs text-gray-500">This may take a few seconds</p>
+            <p className="text-sm text-gray-600">{t('location.capturing.title')}</p>
+            <p className="text-xs text-gray-500">{t('location.capturing.description')}</p>
           </div>
         )}
 
@@ -171,29 +172,32 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
           <div className="space-y-4">
             <Alert className="border-green-200 bg-green-50">
               <CheckCircle className="h-4 w-4 text-green-600" />
-              <AlertTitle className="text-green-800">Location Captured</AlertTitle>
+              <AlertTitle className="text-green-800">{t('location.captured.title')}</AlertTitle>
               <AlertDescription className="text-green-700">
-                Your location has been successfully detected
+                {t('location.captured.description')}
               </AlertDescription>
             </Alert>
 
             {/* GPS Accuracy Indicator */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">GPS Accuracy</span>
+                <span className="text-sm font-medium">{t('location.accuracy.title')}</span>
                 <Badge variant={getAccuracyBadgeVariant(accuracyStatus)}>
-                  {accuracyStatus.charAt(0).toUpperCase() + accuracyStatus.slice(1)}
+                  {accuracyStatus === 'excellent' && t('location.accuracy.excellent')}
+                  {accuracyStatus === 'good' && t('location.accuracy.good')}
+                  {accuracyStatus === 'fair' && t('location.accuracy.fair')}
+                  {accuracyStatus === 'poor' && t('location.accuracy.poor')}
                 </Badge>
               </div>
-              
+
               <Progress value={accuracyPercentage} className="h-2" />
-              
+
               <div className="flex items-center justify-between text-sm">
                 <span className={getAccuracyColor(accuracyStatus)}>
-                  {currentAccuracy.toFixed(1)}m accuracy
+                  {t('location.accuracy.current', { accuracy: currentAccuracy.toFixed(1) })}
                 </span>
                 <span className="text-gray-500">
-                  Required: ≤{maxAccuracy}m
+                  {t('location.accuracy.required', { maxAccuracy })}
                 </span>
               </div>
             </div>
@@ -201,23 +205,23 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
             {/* Location Info */}
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="space-y-1">
-                <p className="text-xs text-gray-500">Latitude</p>
+                <p className="text-xs text-gray-500">{t('common.labels.latitude')}</p>
                 <p className="font-mono text-sm">{location.latitude?.toFixed(6)}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-gray-500">Longitude</p>
+                <p className="text-xs text-gray-500">{t('common.labels.longitude')}</p>
                 <p className="font-mono text-sm">{location.longitude?.toFixed(6)}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-gray-500">Altitude</p>
+                <p className="text-xs text-gray-500">{t('common.labels.altitude')}</p>
                 <p className="font-mono text-sm">
-                  {location.altitude ? `${location.altitude.toFixed(1)}m` : 'N/A'}
+                  {location.altitude ? `${location.altitude.toFixed(1)}m` : t('common.labels.na')}
                 </p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-gray-500">Timestamp</p>
+                <p className="text-xs text-gray-500">{t('common.labels.timestamp')}</p>
                 <p className="font-mono text-sm">
-                  {location?.timestamp ? new Date(location.timestamp).toLocaleTimeString() : 'N/A'}
+                  {location?.timestamp ? new Date(location.timestamp).toLocaleTimeString() : t('common.labels.na')}
                 </p>
               </div>
             </div>
@@ -227,8 +231,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Your GPS accuracy is too low. Try moving to an open area with clear sky view,
-                  or wait a moment for better GPS signal.
+                  {t('location.accuracy.warning')}
                 </AlertDescription>
               </Alert>
             )}
@@ -246,12 +249,12 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
               {isCapturing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Requesting Location...
+                  {t('location.buttons.requesting')}
                 </>
               ) : (
                 <>
                   <MapPin className="mr-2 h-4 w-4" />
-                  Allow Location Access
+                  {t('location.buttons.allow')}
                 </>
               )}
             </Button>
@@ -265,7 +268,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
                   disabled={isCapturing}
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  {isCapturing ? 'Capturing...' : 'Recapture Location'}
+                  {isCapturing ? t('location.buttons.capturing') : t('location.buttons.recapture')}
                 </Button>
               )}
             </>
@@ -277,10 +280,10 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
           <Alert>
             <AlertDescription>
               <ul className="list-disc list-inside space-y-1 text-sm">
-                <li>Make sure you're at the physical location of the QR code</li>
-                <li>Enable GPS/Location services on your device</li>
-                <li>For best accuracy, step outside or near a window</li>
-                <li>Grant location permission when prompted</li>
+                <li>{t('location.instructions.at_location')}</li>
+                <li>{t('location.instructions.enable_gps')}</li>
+                <li>{t('location.instructions.best_accuracy')}</li>
+                <li>{t('location.instructions.grant_permission')}</li>
               </ul>
             </AlertDescription>
           </Alert>
