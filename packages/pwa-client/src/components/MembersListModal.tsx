@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,7 @@ interface MembersListModalProps {
 }
 
 export function MembersListModal({ groupId, open, onOpenChange, onMemberClick }: MembersListModalProps) {
+  const { t } = useTranslation();
   const { groupManager } = useRelayManager();
 
   if (!groupManager) return null;
@@ -26,7 +28,7 @@ export function MembersListModal({ groupId, open, onOpenChange, onMemberClick }:
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Members ({members.length})</DialogTitle>
+          <DialogTitle>{t('common.labels.members')} ({members.length})</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 py-4 max-h-[60vh] overflow-y-auto">

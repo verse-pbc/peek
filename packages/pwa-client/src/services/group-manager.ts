@@ -216,10 +216,6 @@ export class GroupManager {
           state.groups.includes(groupId) &&
           cache.members.has(userPubkey)
         ) {
-          console.log(
-            `[GroupManager] Migration complete - new identity ${userPubkey} confirmed in group ${groupId}`,
-          );
-
           // Clear migrating state - UserIdentityButton's timer will handle page reload
           localStorage.removeItem("identity_migrating");
         }
@@ -301,8 +297,6 @@ export class GroupManager {
     const newPubkey = event.tags.find((t) => t[0] === "p")?.[1];
 
     if (!newPubkey) return;
-
-    console.log(`Processing migration event: ${oldPubkey} -> ${newPubkey}`);
 
     // Store migration for message resolution
     const migrations = JSON.parse(
@@ -664,10 +658,6 @@ export class GroupManager {
     const targetPubkey = pubkey || this.relayManager.getUserPubkey();
     if (!targetPubkey) return false;
 
-    console.log(
-      `[GroupManager] Checking membership directly for ${targetPubkey} in ${groupId}`,
-    );
-
     try {
       // PRIORITY 1: Check current membership via kind 39002 (GROUP_MEMBERS) events
       // This is the most reliable source as it reflects the current state
@@ -675,15 +665,8 @@ export class GroupManager {
         await this.relayManager.queryGroupMembership(groupId, targetPubkey);
 
       if (isMemberViaGroupEvents) {
-        console.log(
-          `[GroupManager] User confirmed as member via kind 39002 events`,
-        );
         return true;
       }
-
-      console.log(
-        `[GroupManager] User not found in kind 39002 events, checking moderation timeline...`,
-      );
 
       // PRIORITY 2: Fallback to moderation events (kind 9000/9001) for membership timeline
       const latestEvent = await this.relayManager.queryMembershipEvents(
@@ -692,28 +675,18 @@ export class GroupManager {
       );
 
       if (!latestEvent) {
-        console.log(
-          `[GroupManager] No membership events found - user was never added`,
-        );
         return false;
       }
 
       // Check if the latest event is an add (9000) or remove (9001)
       if (latestEvent.kind === 9000) {
-        console.log(
-          `[GroupManager] Latest moderation event shows user was added`,
-        );
         return true;
       } else if (latestEvent.kind === 9001) {
-        console.log(
-          `[GroupManager] Latest moderation event shows user was removed`,
-        );
         return false;
       }
 
       // PRIORITY 3: Final fallback for development testing - check localStorage
       // Need to extract UUID from group metadata first
-      console.log(`[GroupManager] Checking localStorage as final fallback...`);
 
       try {
         const filter: Filter = {
@@ -735,9 +708,6 @@ export class GroupManager {
             );
 
             if (isInLocalStorage) {
-              console.log(
-                `[GroupManager] Found community ${communityId} in localStorage, allowing access for testing`,
-              );
               return true;
             }
           }
@@ -749,9 +719,6 @@ export class GroupManager {
         );
       }
 
-      console.log(
-        `[GroupManager] User is not a member according to all checks`,
-      );
       return false;
     } catch (error) {
       console.error(
@@ -800,8 +767,6 @@ export class GroupManager {
       // 1. Query kind 39002 events (user's group memberships with full member lists)
       const memberEvents = await this.relayManager.queryUserGroups(userPubkey);
 
-      console.log(`[GroupManager] Found ${memberEvents.length} groups for user`);
-
       // 2. Build member count map: groupId → count of p-tags
       const memberCountMap = new Map<string, number>();
       for (const event of memberEvents) {
@@ -824,7 +789,6 @@ export class GroupManager {
       };
 
       const metadataEvents = await this.relayManager.queryEventsDirectly(filter);
-      console.log(`[GroupManager] K-tag query: ${metadataEvents.length} peek groups found`);
 
       const userGroups: Array<{
         communityId: string;
@@ -867,7 +831,6 @@ export class GroupManager {
         });
       }
 
-      console.log(`[GroupManager] Returning ${userGroups.length} user groups`);
       return userGroups;
     } catch (error) {
       console.error('[GroupManager] Error getting user groups:', error);
@@ -916,12 +879,10 @@ export class GroupManager {
       const events = await this.relayManager.queryEventsDirectly(filter);
 
       if (events.length === 0) {
-        console.log(`[GroupManager] No metadata event found for ${groupId}`);
         return null;
       }
 
       const event = events[0];
-      console.log(`[GroupManager] Found metadata event for ${groupId}:`, event);
 
       // Parse the metadata from tags
       const metadata: GroupMetadata = {
@@ -950,7 +911,6 @@ export class GroupManager {
         }
       }
 
-      console.log(`[GroupManager] Parsed metadata for ${groupId}:`, metadata);
       return metadata;
     } catch (error) {
       console.error(

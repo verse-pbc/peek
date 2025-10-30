@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { LocationPermission } from '../components/LocationPermission';
 import { CommunityPreview } from '../components/CommunityPreview';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -71,6 +72,7 @@ interface JoinFlowProps {
 }
 
 export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
+  const { t } = useTranslation();
   const { communityId } = useParams<{ communityId: string }>();
   const navigate = useNavigate();
   const { pubkey, login, identity } = useNostrLogin();
@@ -123,8 +125,8 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
         e.preventDefault();
         setDevModeEnabled(prev => !prev);
         toast({
-          title: devModeEnabled ? "Developer mode disabled" : "Developer mode enabled",
-          description: devModeEnabled ? "Test location controls hidden" : "Test location controls are now available"
+          title: devModeEnabled ? t('join_flow.dev_mode.disabled') : t('join_flow.dev_mode.enabled'),
+          description: devModeEnabled ? t('join_flow.dev_mode.disabled_desc') : t('join_flow.dev_mode.enabled_desc')
         });
       }
     };
@@ -139,7 +141,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
     if (!pubkey && currentStep === JoinStep.LOCATION) {
       // Prompt user to login first
       setError({
-        message: 'Please login with your Nostr account to join communities',
+        message: t('join_flow.error.not_logged_in'),
         code: 'NOT_LOGGED_IN',
         canRetry: false
       });
@@ -155,7 +157,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       const identitySetup = setupNostrIdentity(identity, pubkey);
 
       if (!relayManager) {
-        throw new Error('Relay manager not initialized');
+        throw new Error(t('join_flow.error.not_initialized'));
       }
 
       const nostrService = new NostrLocationService(
@@ -177,8 +179,8 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
       if (response.success) {
         const previewData: CommunityPreviewData = {
-          name: response.name || 'Community',
-          description: response.about || 'Location-based community',
+          name: response.name || t('join_flow.title.join_generic'),
+          description: response.about || t('home.description'),
           member_count: response.member_count || 0,
           members: response.members,
           picture: response.picture,
@@ -192,8 +194,8 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
                  response.error?.toLowerCase().includes('group not found')) {
         // Group doesn't exist - this is a first scanner who will create it
         const previewData: CommunityPreviewData = {
-          name: `New Community`,
-          description: 'Be the first to create this location-based community. You will become the admin.',
+          name: t('join_flow.title.join_generic'),
+          description: t('join_flow.preview.create_prompt'),
           member_count: 0,
           members: [],
           picture: undefined,
@@ -211,7 +213,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
       // Show error - preview request failed (likely timeout)
       setError({
-        message: err instanceof Error ? err.message : 'Unable to fetch community information. Please try again.',
+        message: err instanceof Error ? err.message : t('errors.preview.failed'),
         code: 'PREVIEW_FAILED',
         canRetry: true
       });
@@ -254,7 +256,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
   }) => {
     if (!communityId) {
       setError({
-        message: 'Invalid community ID',
+        message: t('join_flow.error.invalid_community'),
         code: 'INVALID_COMMUNITY',
         canRetry: false
       });
@@ -267,7 +269,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
     try {
       if (!relayManager) {
-        throw new Error('Relay manager not initialized');
+        throw new Error(t('join_flow.error.not_initialized'));
       }
 
       console.log('Validating location via gift wrap:', {
@@ -302,16 +304,16 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
         if (wasAlreadyMember && !response.is_admin) {
           // Re-validation of existing member
           toast({
-            title: "Welcome Back! 👋",
-            description: "You're already a member of this community.",
+            title: t('join_flow.success.welcome_back'),
+            description: t('join_flow.success.already_member'),
           });
         } else {
           // New member or admin
           toast({
-            title: "Successfully Joined! 🎉",
+            title: t('join_flow.success.joined'),
             description: response.is_admin
-              ? "You're the founding admin of this community!"
-              : "You're now a member of this community.",
+              ? t('join_flow.success.admin_welcome')
+              : t('join_flow.success.member_welcome'),
           });
         }
 
@@ -436,8 +438,8 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
     // Show location capture success
     toast({
-      title: "Location captured",
-      description: `GPS accuracy: ${location.accuracy.toFixed(1)}m`,
+      title: t('location.captured.toast'),
+      description: t('location.captured.toast_accuracy', { accuracy: location.accuracy.toFixed(1) }),
     });
 
     setCurrentStep(JoinStep.VALIDATING);
@@ -452,7 +454,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
     } catch (err) {
       console.error('Failed to establish relay connection:', err);
       setError({
-        message: 'Connection failed. Please check your internet and try again.',
+        message: t('join_flow.error.connection_failed'),
         code: 'CONNECTION_FAILED',
         canRetry: true
       });
@@ -462,12 +464,12 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
   const handleLocationDenied = useCallback(() => {
     setError({
-      message: 'Location permission is required to join location-based communities',
+      message: t('location.permission.required'),
       code: 'PERMISSION_DENIED',
       canRetry: true
     });
     setCurrentStep(JoinStep.ERROR);
-  }, []);
+  }, [t]);
 
   const handleRetry = () => {
     setError(null);
@@ -519,8 +521,8 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-lg font-medium">Loading community...</p>
-            <p className="text-sm text-muted-foreground mt-2">Fetching community information</p>
+            <p className="text-lg font-medium">{t('join_flow.loading.title')}</p>
+            <p className="text-sm text-muted-foreground mt-2">{t('join_flow.loading.description')}</p>
           </CardContent>
         </Card>
       )}
@@ -562,10 +564,9 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
             <>
               <Alert variant="info">
                 <MapPin className="h-4 w-4" />
-                <AlertTitle>Physical Presence Required</AlertTitle>
+                <AlertTitle>{t('join_flow.location_step.presence_required')}</AlertTitle>
                 <AlertDescription>
-                  To join this community, you need to prove you're physically at the location.
-                  Please ensure you're within 25 meters of the QR code location.
+                  {t('join_flow.location_step.presence_description')}
                 </AlertDescription>
               </Alert>
 
@@ -583,11 +584,11 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
           {forcedLocation && (
             <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
               <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <AlertTitle className="text-green-900 dark:text-green-100">Using Test Location</AlertTitle>
+              <AlertTitle className="text-green-900 dark:text-green-100">{t('join_flow.location_step.test_location')}</AlertTitle>
               <AlertDescription className="text-green-800 dark:text-green-200">
-                📍 {forcedLocation.latitude.toFixed(6)}, {forcedLocation.longitude.toFixed(6)}
+                {t('join_flow.location_step.test_coords', { lat: forcedLocation.latitude.toFixed(6), lng: forcedLocation.longitude.toFixed(6) })}
                 <br />
-                🎯 Accuracy: {forcedLocation.accuracy}m
+                {t('join_flow.location_step.test_accuracy', { accuracy: forcedLocation.accuracy })}
               </AlertDescription>
             </Alert>
           )}
@@ -602,29 +603,28 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
               <MapPin className="h-16 w-16 text-muted-foreground" />
               <Loader2 className="h-16 w-16 absolute inset-0 animate-spin text-primary" />
             </div>
-            <p className="text-lg font-medium">Validating your location...</p>
+            <p className="text-lg font-medium">{t('join_flow.validating.title')}</p>
             <div className="mt-4 space-y-2 text-center">
               <p className="text-sm text-muted-foreground">
-                Sending encrypted location proof via Nostr
+                {t('join_flow.validating.description')}
               </p>
               <p className="text-xs text-muted-foreground">
-                This may take up to 30 seconds
+                {t('join_flow.validating.timeout_notice')}
               </p>
             </div>
             {capturedLocation && (
               <div className="mt-6 space-y-1">
                 <div className="text-xs text-muted-foreground font-mono">
-                  📍 Accuracy: {capturedLocation.accuracy.toFixed(1)}m
+                  {t('join_flow.validating.accuracy_info', { accuracy: capturedLocation.accuracy.toFixed(1) })}
                   {capturedLocation.accuracy <= 20 && (
-                    <span className="ml-2 text-green-600 dark:text-green-400">✓ Good</span>
+                    <span className="ml-2 text-green-600 dark:text-green-400">{t('join_flow.validating.accuracy_good')}</span>
                   )}
                   {capturedLocation.accuracy > 20 && (
-                    <span className="ml-2 text-yellow-600 dark:text-yellow-400">⚠ Low</span>
+                    <span className="ml-2 text-yellow-600 dark:text-yellow-400">{t('join_flow.validating.accuracy_low')}</span>
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  Lat: {capturedLocation.latitude.toFixed(6)},
-                  Lng: {capturedLocation.longitude.toFixed(6)}
+                  {t('join_flow.validating.coords', { lat: capturedLocation.latitude.toFixed(6), lng: capturedLocation.longitude.toFixed(6) })}
                 </div>
               </div>
             )}
@@ -636,12 +636,17 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
       {/* Error Step */}
       {currentStep === JoinStep.ERROR && error && (
-        <Card className="border-0 shadow-lg bg-card">
-          <CardContent className="pt-6 space-y-6">
-            {/* Error Icon and Title */}
-            <div className="text-center">
-              <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="h-10 w-10 text-coral" />
+        <Card className="border-red-200">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <XCircle className="h-8 w-8 text-red-600" />
+              <div>
+                <CardTitle className="text-red-900">
+                  {t('join_flow.error.title')}
+                </CardTitle>
+                <CardDescription>
+                  {error.code || t('join_flow.error.code_fallback')}
+                </CardDescription>
               </div>
               <h2 className="font-rubik font-bold text-2xl mb-2">
                 {error.code === 'PERMISSION_DENIED' ? "Location Access Needed" :
@@ -670,42 +675,24 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
             {/* Tips for LOCATION_TOO_FAR */}
             {error.code === 'LOCATION_TOO_FAR' && (
-              <div className="bg-mint/10 border border-mint/20 rounded-xl p-4 dark:bg-mint/20 dark:border-mint/30">
-                <h3 className="font-rubik font-semibold text-sm mb-2 dark:text-foreground">How to fix this:</h3>
-                <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="text-mint mt-0.5">•</span>
-                    <span>Make sure you're at the physical location where the QR code is displayed</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-mint mt-0.5">•</span>
-                    <span>Stand closer to the QR code (within 25 meters)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-mint mt-0.5">•</span>
-                    <span>Make sure you're not using a VPN that changes your location</span>
-                  </li>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
+                <h3 className="font-medium text-yellow-900 mb-1 dark:text-yellow-100">{t('join_flow.error.tips_title')}</h3>
+                <ul className="text-sm text-yellow-800 space-y-1 dark:text-yellow-200">
+                  <li>• {t('join_flow.error.tips.at_location')}</li>
+                  <li>• {t('join_flow.error.tips.stand_closer')}</li>
+                  <li>• {t('join_flow.error.tips.enable_accuracy')}</li>
                 </ul>
               </div>
             )}
 
             {/* Tips for ACCURACY_TOO_LOW */}
             {error.code === 'ACCURACY_TOO_LOW' && (
-              <div className="bg-mint/10 border border-mint/20 rounded-xl p-4 dark:bg-mint/20 dark:border-mint/30">
-                <h3 className="font-rubik font-semibold text-sm mb-2 dark:text-foreground">Improve your GPS signal:</h3>
-                <ul className="space-y-1.5 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <span className="text-mint mt-0.5">•</span>
-                    <span>Move to an open area or near a window</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-mint mt-0.5">•</span>
-                    <span>Enable Wi-Fi and Bluetooth for better accuracy</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-mint mt-0.5">•</span>
-                    <span>Wait a moment for GPS to get a clear signal</span>
-                  </li>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 dark:bg-yellow-900/20 dark:border-yellow-800">
+                <h3 className="font-medium text-yellow-900 mb-1 dark:text-yellow-100">{t('join_flow.error.improve_gps_title')}</h3>
+                <ul className="text-sm text-yellow-800 space-y-1 dark:text-yellow-200">
+                  <li>• {t('join_flow.error.improve_gps.open_area')}</li>
+                  <li>• {t('join_flow.error.improve_gps.enable_wifi')}</li>
+                  <li>• {t('join_flow.error.improve_gps.wait')}</li>
                 </ul>
               </div>
             )}
@@ -739,8 +726,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
                   className="w-full bg-coral hover:bg-coral/90 text-white font-semibold rounded-full"
                   size="lg"
                 >
-                  <RefreshCw className="mr-2 h-5 w-5" />
-                  Try Again
+                  {t('common.buttons.retry')}
                 </Button>
               )}
               <Button
@@ -749,8 +735,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
                 className="w-full border-coral/30 hover:bg-coral/5 rounded-full"
                 size="lg"
               >
-                <ChevronLeft className="mr-2 h-5 w-5" />
-                Go to Home
+                {t('common.buttons.back')}
               </Button>
             </div>
           </CardContent>

@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, AlertDescription } from './ui/alert';
+import { useTranslation } from 'react-i18next';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Badge } from './ui/badge';
+import { Progress } from './ui/progress';
 import {
   MapPin,
   AlertCircle,
@@ -30,6 +33,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
   maxAccuracy = 20,
   autoStart = false
 }) => {
+  const { t } = useTranslation();
   const [hasStarted, setHasStarted] = useState(false);
 
   const {
@@ -87,152 +91,170 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
   const isAccuracyGood = location ? location.accuracy <= maxAccuracy : false;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto border-0 shadow-lg bg-card">
-      <CardContent className="pt-6 space-y-6">
-        {/* Permission Denied State */}
+    <Card className="w-full max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Navigation className="h-5 w-5" />
+          {t('location.verification_title')}
+        </CardTitle>
+        <CardDescription>
+          {t('location.verification_desc')}
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="space-y-4">
+        {/* Permission Status */}
         {permissionStatus === 'denied' && (
-          <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
-            <AlertCircle className="h-4 w-4 text-coral" />
-            <AlertDescription className="dark:text-foreground">
-              <strong>Location access blocked</strong><br />
-              Please enable location permissions in your browser settings to continue.
+          <Alert variant="destructive">
+            <XCircle className="h-4 w-4" />
+            <AlertTitle>{t('location.permission.denied_title')}</AlertTitle>
+            <AlertDescription>
+              {t('location.permission.denied_desc')}
             </AlertDescription>
           </Alert>
         )}
 
         {/* Error State */}
         {error && permissionStatus !== 'denied' && (
-          <div className="space-y-4">
-            <Alert className="border-peach/30 bg-peach/10 dark:bg-peach/20 dark:border-peach/40">
-              <AlertCircle className="h-4 w-4 text-coral" />
-              <AlertDescription className="dark:text-foreground">
-                <strong>Can't find your location</strong><br />
-                {error}
-              </AlertDescription>
-            </Alert>
-
-            <div className="bg-mint/10 border border-mint/20 rounded-xl p-4 dark:bg-mint/20 dark:border-mint/30">
-              <h3 className="font-rubik font-semibold text-sm mb-2 dark:text-foreground">Tips to improve GPS signal:</h3>
-              <ul className="space-y-1.5 text-sm text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <span className="text-mint mt-0.5">•</span>
-                  <span>Move near a window or step outside</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-mint mt-0.5">•</span>
-                  <span>Wait a moment for GPS to initialize</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-mint mt-0.5">•</span>
-                  <span>Enable Wi-Fi for better location accuracy</span>
-                </li>
-              </ul>
-            </div>
-
-            <Button
-              onClick={handleRetry}
-              className="w-full bg-coral hover:bg-coral/90 text-white font-semibold rounded-full"
-              size="lg"
-              disabled={isCapturing}
-            >
-              {isCapturing ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Finding your location...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="mr-2 h-5 w-5" />
-                  Try Again
-                </>
-              )}
-            </Button>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>{t('location.error_title')}</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {/* Loading State */}
-        {isCapturing && !location && !error && (
-          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+        {isCapturing && !location && (
+          <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <div className="relative">
-              <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center">
-                <Navigation className="h-10 w-10 text-coral" />
-              </div>
-              <Loader2 className="h-20 w-20 absolute inset-0 animate-spin text-coral" />
+              <MapPin className="h-12 w-12 text-gray-400" />
+              <Loader2 className="h-12 w-12 absolute inset-0 animate-spin text-primary" />
             </div>
-            <p className="text-lg font-rubik font-semibold">Finding your location...</p>
-            <p className="text-sm text-muted-foreground">This usually takes just a few seconds</p>
+            <p className="text-sm text-gray-600">{t('location.capturing.title')}</p>
+            <p className="text-xs text-gray-500">{t('location.capturing.description')}</p>
           </div>
         )}
 
-        {/* Success State */}
-        {location && !error && (
+        {/* Location Details */}
+        {location && (
           <div className="space-y-4">
-            <Alert className="border-mint/30 bg-mint/10 dark:bg-mint/20 dark:border-mint/40">
-              <CheckCircle className="h-4 w-4 text-mint" />
-              <AlertDescription className="dark:text-foreground">
-                <strong>Location captured!</strong><br />
-                GPS accuracy: {location.accuracy.toFixed(1)}m
-                {isAccuracyGood ? ' ✓ Great signal' : ' - Trying to improve...'}
+            <Alert className="border-green-200 bg-green-50">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertTitle className="text-green-800">{t('location.captured.title')}</AlertTitle>
+              <AlertDescription className="text-green-700">
+                {t('location.captured.description')}
               </AlertDescription>
             </Alert>
 
-            {/* Show retry button if accuracy isn't great */}
-            {!isAccuracyGood && (
-              <Button
-                onClick={handleRetry}
-                variant="outline"
-                className="w-full border-coral/30 hover:bg-coral/5 rounded-full"
-                disabled={isCapturing}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                {isCapturing ? 'Capturing...' : 'Try for Better Accuracy'}
-              </Button>
+            {/* GPS Accuracy Indicator */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">{t('location.accuracy.title')}</span>
+                <Badge variant={getAccuracyBadgeVariant(accuracyStatus)}>
+                  {accuracyStatus === 'excellent' && t('location.accuracy.excellent')}
+                  {accuracyStatus === 'good' && t('location.accuracy.good')}
+                  {accuracyStatus === 'fair' && t('location.accuracy.fair')}
+                  {accuracyStatus === 'poor' && t('location.accuracy.poor')}
+                </Badge>
+              </div>
+
+              <Progress value={accuracyPercentage} className="h-2" />
+
+              <div className="flex items-center justify-between text-sm">
+                <span className={getAccuracyColor(accuracyStatus)}>
+                  {t('location.accuracy.current', { accuracy: currentAccuracy.toFixed(1) })}
+                </span>
+                <span className="text-gray-500">
+                  {t('location.accuracy.required', { maxAccuracy })}
+                </span>
+              </div>
+            </div>
+
+            {/* Location Info */}
+            <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">{t('common.labels.latitude')}</p>
+                <p className="font-mono text-sm">{location.latitude?.toFixed(6)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">{t('common.labels.longitude')}</p>
+                <p className="font-mono text-sm">{location.longitude?.toFixed(6)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">{t('common.labels.altitude')}</p>
+                <p className="font-mono text-sm">
+                  {location.altitude ? `${location.altitude.toFixed(1)}m` : t('common.labels.na')}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-500">{t('common.labels.timestamp')}</p>
+                <p className="font-mono text-sm">
+                  {location?.timestamp ? new Date(location.timestamp).toLocaleTimeString() : t('common.labels.na')}
+                </p>
+              </div>
+            </div>
+
+            {/* Warning for poor accuracy */}
+            {accuracyStatus === 'poor' && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {t('location.accuracy.warning')}
+                </AlertDescription>
+              </Alert>
             )}
           </div>
         )}
 
-        {/* Initial Instructions */}
-        {!hasStarted && !error && (
-          <div className="space-y-4">
-            <div className="text-center py-8">
-              <div className="w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MapPin className="h-10 w-10 text-coral" />
-              </div>
-              <h3 className="font-rubik font-bold text-xl mb-2">Verify Your Location</h3>
-              <p className="text-muted-foreground">
-                We need to confirm you're physically at this location to join the community.
-              </p>
-            </div>
-
-            <Alert className="bg-cream/50 border-0 dark:bg-muted">
-              <AlertDescription className="dark:text-foreground">
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-                    <span>Make sure you're at the QR code location</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-                    <span>Enable location services on your device</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 mt-0.5 text-mint flex-shrink-0" />
-                    <span>For best results, stand near a window or outside</span>
-                  </li>
-                </ul>
-              </AlertDescription>
-            </Alert>
-
-            <Button
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-2">
+          {!hasStarted || permissionStatus === 'denied' ? (
+            <Button 
               onClick={handleRequestLocation}
-              className="w-full bg-coral hover:bg-coral/90 text-white font-semibold py-6 text-lg rounded-full"
-              size="lg"
+              className="flex-1"
               disabled={isCapturing}
             >
-              <Navigation className="mr-2 h-5 w-5" />
-              Allow Location Access
+              {isCapturing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('location.buttons.requesting')}
+                </>
+              ) : (
+                <>
+                  <MapPin className="mr-2 h-4 w-4" />
+                  {t('location.buttons.allow')}
+                </>
+              )}
             </Button>
-          </div>
+          ) : (
+            <>
+              {location && (
+                <Button 
+                  onClick={handleRetry}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={isCapturing}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  {isCapturing ? t('location.buttons.capturing') : t('location.buttons.recapture')}
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Instructions */}
+        {!location && !error && (
+          <Alert>
+            <AlertDescription>
+              <ul className="list-disc list-inside space-y-1 text-sm">
+                <li>{t('location.instructions.at_location')}</li>
+                <li>{t('location.instructions.enable_gps')}</li>
+                <li>{t('location.instructions.best_accuracy')}</li>
+                <li>{t('location.instructions.grant_permission')}</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
         )}
       </CardContent>
     </Card>

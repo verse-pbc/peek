@@ -21,8 +21,10 @@ import {
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '../lib/nostrify-shim';
 import { useRelayManager } from '../contexts/RelayContext';
+import { useTranslation } from 'react-i18next';
 import { UserIdentityButton } from '@/components/UserIdentityButton';
 import { IOSPWAImportPrompt } from '@/components/IOSPWAImportPrompt';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import { isIOS, isPWA } from '@/lib/platform';
 
 interface Community {
@@ -48,6 +50,7 @@ const Home = () => {
   const { pubkey, login, identity } = useNostrLogin();
   const { toast } = useToast();
   const { groupManager, relayManager, connected } = useRelayManager();
+  const { t } = useTranslation();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -222,15 +225,15 @@ const Home = () => {
   }, [connected, groupManager, relayManager, toast, location.pathname]); // communities.length intentionally omitted - only check on connection change
 
   const formatTimeAgo = (timestamp?: number) => {
-    if (!timestamp) return 'Never';
+    if (!timestamp) return t('common.time.never');
 
     const now = Date.now() / 1000;
     const diff = now - timestamp;
 
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+    if (diff < 60) return t('common.time.just_now');
+    if (diff < 3600) return t('common.time.minutes_ago', { count: Math.floor(diff / 60) });
+    if (diff < 86400) return t('common.time.hours_ago', { count: Math.floor(diff / 3600) });
+    if (diff < 604800) return t('common.time.days_ago', { count: Math.floor(diff / 86400) });
     return new Date(timestamp * 1000).toLocaleDateString();
   };
 
@@ -251,17 +254,16 @@ const Home = () => {
             <div className="mx-auto w-20 h-20 bg-coral/10 rounded-full flex items-center justify-center mb-4">
               <MapPin className="h-10 w-10 text-coral" />
             </div>
-            <CardTitle className="text-3xl font-rubik">Welcome to Peek</CardTitle>
+            <CardTitle className="text-3xl font-rubik">{t('home.welcome.title')}</CardTitle>
             <CardDescription className="text-base">
-              Connect with people at physical locations
+              {t('home.welcome.subtitle')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Alert className="border-coral/20 bg-coral/5 dark:bg-coral/10 dark:border-coral/30">
               <Sparkles className="h-4 w-4 text-coral" />
               <AlertDescription className="dark:text-foreground">
-                Scan a Peek QR code with your phone camera to join location-based communities.
-                No app installation required!
+                {t('home.welcome.scan_prompt')}
               </AlertDescription>
             </Alert>
 
@@ -271,11 +273,11 @@ const Home = () => {
               size="lg"
             >
               <UserCircle className="mr-2 h-5 w-5" />
-              Login with Nostr
+              {t('home.welcome.login_button')}
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">
-              Use your existing Nostr account or create a new one
+              {t('home.welcome.login_hint')}
             </p>
           </CardContent>
         </Card>
@@ -302,6 +304,7 @@ const Home = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              <LanguageSelector />
               <Button
                 onClick={() => navigate('/create')}
                 variant="outline"
@@ -309,7 +312,7 @@ const Home = () => {
                 className="gap-2 border-coral hover:bg-coral/10"
               >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Create Sticker</span>
+                <span className="hidden sm:inline">{t('home.header.create_sticker')}</span>
               </Button>
               {isDevMode && (
                 <Button
@@ -354,10 +357,10 @@ const Home = () => {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-rubik font-bold" style={{ fontSize: '1.25rem' }}>
-              My Communities
+              {t('home.my_communities.title')}
             </h2>
             <Badge className="bg-coral/10 text-coral border-0 px-3 py-1">
-              {communities.length} joined
+              {t('home.my_communities.count_joined', { count: communities.length })}
             </Badge>
           </div>
 
@@ -376,18 +379,17 @@ const Home = () => {
                   </div>
                   <div>
                     <h3 className="text-xl font-rubik font-bold mb-2">
-                      No communities yet
+                      {t('home.my_communities.empty_title')}
                     </h3>
                     <p className="text-muted-foreground mb-6">
-                      Find QR codes in the wild and scan them to join your first community!
+                      {t('home.my_communities.empty_message')}
                     </p>
                   </div>
 
                   <Alert className="text-left bg-mint/10 border-mint/20 dark:bg-mint/20 dark:border-mint/30">
                     <Crown className="h-4 w-4 text-mint" />
                     <AlertDescription className="dark:text-foreground">
-                      <strong>Pro tip:</strong> Be the first to scan an unclaimed QR code
-                      to become the founder with admin powers!
+                      {t('home.my_communities.pro_tip')}
                     </AlertDescription>
                   </Alert>
                 </div>
@@ -419,7 +421,7 @@ const Home = () => {
                         {community.isAdmin && (
                           <Badge className="bg-white text-coral border-0">
                             <Crown className="h-3 w-3 mr-1" />
-                            Founder
+                            {t('common.labels.founder')}
                           </Badge>
                         )}
                       </div>
@@ -435,7 +437,7 @@ const Home = () => {
                         </CardTitle>
                         <CardDescription className="flex items-center gap-2 mt-1 text-white/90">
                           <Users className="h-3 w-3" />
-                          <span>{community.memberCount} members</span>
+                          <span>{t('home.my_communities.members_count', { count: community.memberCount })}</span>
                         </CardDescription>
                       </div>
                     </div>
@@ -446,7 +448,7 @@ const Home = () => {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MapPin className="h-3 w-3" />
                           <span className="text-xs">
-                            Location verified
+                            {t('home.my_communities.location_verified')}
                           </span>
                         </div>
                       )}
@@ -454,7 +456,7 @@ const Home = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="h-3 w-3" />
-                          <span>Last message {formatTimeAgo(community.lastActivity || community.createdAt || community.joinedAt)}</span>
+                          <span>{t('home.my_communities.last_message', { time: formatTimeAgo(community.lastActivity || community.createdAt || community.joinedAt) })}</span>
                         </div>
 
                         {community.unreadCount && community.unreadCount > 0 && (
@@ -469,7 +471,7 @@ const Home = () => {
                         size="sm"
                       >
                         <MessageSquare className="h-4 w-4 mr-2" />
-                        Open Community
+                        {t('home.my_communities.open_community')}
                         <ChevronRight className="h-4 w-4 ml-auto" />
                       </Button>
                     </div>

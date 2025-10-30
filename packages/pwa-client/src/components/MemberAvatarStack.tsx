@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Users } from 'lucide-react';
 import {
   Dialog,
@@ -20,6 +21,7 @@ export const MemberAvatarStack: React.FC<MemberAvatarStackProps> = ({
   totalCount,
   maxVisible = 5
 }) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const visibleMembers = members.slice(0, maxVisible);
   const remainingCount = totalCount - maxVisible;
@@ -56,7 +58,7 @@ export const MemberAvatarStack: React.FC<MemberAvatarStackProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Members ({totalCount})
+            {t('common.labels.members')} ({totalCount})
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 max-h-96 overflow-y-auto">
