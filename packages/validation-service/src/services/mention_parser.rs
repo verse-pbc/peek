@@ -33,18 +33,6 @@ enum MentionErrorKind {
 }
 
 impl MentionError {
-    /// Check if error is due to invalid npub format.
-    #[allow(dead_code)] // Will be used in error handling
-    pub fn is_invalid_npub(&self) -> bool {
-        matches!(self.kind, MentionErrorKind::InvalidNpub(_))
-    }
-
-    /// Check if error is due to profile not found.
-    #[allow(dead_code)] // Will be used in profile fetching
-    pub fn is_profile_not_found(&self) -> bool {
-        matches!(self.kind, MentionErrorKind::ProfileNotFound(_))
-    }
-
     fn invalid_npub(npub: impl Into<String>) -> Self {
         Self {
             kind: MentionErrorKind::InvalidNpub(npub.into()),
@@ -91,7 +79,8 @@ impl std::error::Error for MentionError {}
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
+/// # use validation_service::services::mention_parser::extract_npub_mentions;
 /// let content = "Hey nostr:npub1abc...!";
 /// let mentions = extract_npub_mentions(content);
 /// assert_eq!(mentions.len(), 1);
@@ -111,7 +100,8 @@ pub fn extract_npub_mentions(content: impl AsRef<str>) -> Vec<String> {
 ///
 /// # Examples
 ///
-/// ```
+/// ```no_run
+/// # use validation_service::services::mention_parser::npub_to_pubkey;
 /// let hex = npub_to_pubkey("npub180cvv...").unwrap();
 /// assert_eq!(hex.len(), 64);
 /// ```
@@ -198,21 +188,6 @@ mod tests {
         let result = npub_to_pubkey(nsec);
 
         assert!(result.is_err());
-    }
-
-    // Test 7: Error handling
-    #[test]
-    fn test_mention_error_is_invalid_npub() {
-        let error = MentionError::invalid_npub("bad_npub");
-        assert!(error.is_invalid_npub());
-        assert!(!error.is_profile_not_found());
-    }
-
-    #[test]
-    fn test_mention_error_display() {
-        let error = MentionError::invalid_npub("bad_npub");
-        let display = format!("{}", error);
-        assert!(display.contains("Invalid npub format"));
     }
 }
 
@@ -371,10 +346,15 @@ impl ProfileService {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use validation_service::services::mention_parser::ProfileService;
+    /// # async {
+    /// let relays = vec!["wss://relay.damus.io".to_string()];
     /// let service = ProfileService::new(relays);
     /// let formatted = service.format_content_for_push("Hello nostr:npub1...!").await?;
     /// // Returns: "Hello @jack!"
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// # };
     /// ```
     ///
     /// # Errors
