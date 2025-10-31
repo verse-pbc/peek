@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { MentionsInput, Mention } from 'react-mentions';
 import { nip19 } from 'nostr-tools';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -27,6 +27,7 @@ export function MentionInput({
   const { groupManager, relayManager } = useRelayManager();
   const { resolveIdentity } = useIdentityResolution(groupId);
   const [membersVersion, setMembersVersion] = useState(0);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!relayManager || !groupId) return;
@@ -41,6 +42,36 @@ export function MentionInput({
 
     return unsubscribe;
   }, [relayManager, groupId]);
+
+  // Handle input changes and position cursor after mentions
+  const handleChange = (newValue: string) => {
+    onChange(newValue);
+    
+    // Check if a mention was added by comparing count
+    const oldCount = (value.match(/nostr:npub[a-z0-9]{58}/g) || []).length;
+    const newCount = (newValue.match(/nostr:npub[a-z0-9]{58}/g) || []).length;
+    
+    if (newCount > oldCount) {
+      positionCursorAfterMention(newValue);
+    }
+  };
+
+  // Position cursor after mention is inserted
+  const positionCursorAfterMention = (newValue: string) => {
+    setTimeout(() => {
+      if (inputRef.current) {
+        // Find the last mention in the text
+        const mentionRegex = /nostr:npub[a-z0-9]{58}/g;
+        const matches = [...newValue.matchAll(mentionRegex)];
+        
+        if (matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const cursorPosition = lastMatch.index! + lastMatch[0].length;
+          inputRef.current.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      }
+    }, 0);
+  };
 
   const members = useMemo(() => {
     if (!groupManager) {
@@ -98,13 +129,6 @@ export function MentionInput({
           background-color: transparent !important;
           border-radius: 8px !important;
         }
-        .mention-suggestions-wrapper::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: transparent;
-          border-radius: 8px;
-        }
         div[style*="z-index: 1"] {
           background-color: transparent !important;
           border-radius: 8px !important;
@@ -112,18 +136,14 @@ export function MentionInput({
       `}</style>
       <MentionsInput
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
         singleLine
         forceSuggestionsAboveCursor
         a11ySuggestionsListLabel="Suggested mentions"
-        customSuggestionsContainer={(children) => (
-          <div className="mention-suggestions-wrapper" style={{ borderRadius: '8px', overflow: 'hidden', backgroundColor: 'transparent' }}>
-            {children}
-          </div>
-        )}
+        inputRef={inputRef}
         style={{
           control: {
             fontSize: 16,
@@ -175,14 +195,14 @@ export function MentionInput({
           trigger="@"
           data={mentionData}
           markup="nostr:__id__"
-          displayTransform={(id, _display) => `@${id}`}
+          displayTransform={(id, display) => `@${display}`}
           appendSpaceOnAdd
           renderSuggestion={(suggestion, _search, highlightedDisplay) => {
             const pubkey = (suggestion as { pubkey?: string }).pubkey;
 
             return (
               <div className="flex items-center gap-2">
-                <div className="font-medium flex-1">{highlightedDisplay}</div>
+                <span className="font-medium flex-1">{highlightedDisplay}</span>
                 {pubkey && (
                   <img
                     src={getDiceBearDataUrl(pubkey, 32)}
