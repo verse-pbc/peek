@@ -260,13 +260,14 @@ export function ContentEditableMentionInput({
   );
 
   return (
-    <div className="relative flex-1">
+    <div className="relative w-full min-w-0">
       <div
         ref={editorRef}
         contentEditable={!disabled}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         dangerouslySetInnerHTML={{ __html: parseContent(value) }}
+        dir="ltr"
         className={`
           min-h-[40px] max-h-[120px] overflow-y-auto styled-scrollbar
           px-3 py-2 text-sm rounded-md border border-input bg-background
@@ -316,6 +317,12 @@ export function ContentEditableMentionInput({
           pointer-events: none;
         }
         
+        [contenteditable] {
+          direction: ltr !important;
+          text-align: left !important;
+          unicode-bidi: plaintext !important;
+        }
+        
         .mention {
           display: inline-block;
           padding: 0 4px;
@@ -326,6 +333,8 @@ export function ContentEditableMentionInput({
           font-weight: 500;
           cursor: default;
           user-select: none;
+          direction: ltr !important;
+          unicode-bidi: plaintext !important;
         }
         
         .mention:hover {
