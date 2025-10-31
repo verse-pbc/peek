@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, KeyboardEvent } from 'react';
+import { useRef, useEffect, useState, KeyboardEvent, useCallback } from 'react';
 import { nip19 } from 'nostr-tools';
 import { getDiceBearDataUrl } from '@/lib/dicebear';
 
@@ -44,7 +44,7 @@ export function ContentEditableMentionInput({
   const [_cursorPosition, _setCursorPosition] = useState(0);
 
   // Parse nostr:npub mentions and convert to display format with spans
-  const parseContent = (text: string): string => {
+  const parseContent = useCallback((text: string): string => {
     // Replace nostr:npub... with span elements containing data attributes
     return text.replace(
       /nostr:(npub[a-z0-9]{58})/g,
