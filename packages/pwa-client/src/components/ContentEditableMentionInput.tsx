@@ -41,7 +41,7 @@ export function ContentEditableMentionInput({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionFilter, setSuggestionFilter] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [cursorPosition, setCursorPosition] = useState(0);
+  const [_cursorPosition, _setCursorPosition] = useState(0);
 
   // Parse nostr:npub mentions and convert to display format with spans
   const parseContent = (text: string): string => {
@@ -66,7 +66,7 @@ export function ContentEditableMentionInput({
         }
       }
     );
-  };
+  }, [mentionData]);
 
   // Serialize HTML back to nostr:npub format
   const serializeContent = (): string => {
@@ -103,7 +103,7 @@ export function ContentEditableMentionInput({
       const parsed = parseContent(value);
       editorRef.current.innerHTML = parsed || '<br>';
     }
-  }, [value, mentionData]);
+  }, [value, mentionData, parseContent]);
 
   // Handle input changes
   const handleInput = () => {
