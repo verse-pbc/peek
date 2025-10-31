@@ -209,7 +209,7 @@ export function CommunityFeed({
       {/* Messages ScrollArea */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-4 pb-[88px] min-h-0"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 min-h-0 styled-scrollbar"
       >
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -290,8 +290,8 @@ export function CommunityFeed({
         )}
       </div>
 
-      {/* Fixed Input Container at Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t p-4 z-50 shadow-lg">
+      {/* Input Container at Bottom */}
+      <div className="border-t p-4 bg-background flex-shrink-0">
         <div className="max-w-4xl mx-auto">
           <form
             onSubmit={(e) => {
