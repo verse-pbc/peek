@@ -91,6 +91,35 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
           </div>
 
           <div className="w-full space-y-2">
+            <p className="text-xs text-muted-foreground text-center">
+              {isOwnProfile ? (
+                <>
+                  Share this user ID so people can find you in other{' '}
+                  <a
+                    href="https://nostr.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-coral hover:underline"
+                  >
+                    Nostr
+                  </a>{' '}
+                  apps.
+                </>
+              ) : (
+                <>
+                  Copy this user ID to find them in other{' '}
+                  <a
+                    href="https://nostr.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-coral hover:underline"
+                  >
+                    Nostr
+                  </a>{' '}
+                  apps.
+                </>
+              )}
+            </p>
             <div className="flex items-center justify-center gap-2">
               <div className="font-mono text-xs text-muted-foreground">
                 {npub.slice(0, 16)}...{npub.slice(-8)}
@@ -104,35 +133,6 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground text-center">
-              {isOwnProfile ? (
-                <>
-                  Share so people can find you in other{' '}
-                  <a
-                    href="https://nostr.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-coral hover:underline"
-                  >
-                    nostr
-                  </a>{' '}
-                  apps.
-                </>
-              ) : (
-                <>
-                  Copy the identity of this user to find it in other{' '}
-                  <a
-                    href="https://nostr.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-coral hover:underline"
-                  >
-                    nostr
-                  </a>{' '}
-                  apps.
-                </>
-              )}
-            </p>
           </div>
         </div>
       </DialogContent>

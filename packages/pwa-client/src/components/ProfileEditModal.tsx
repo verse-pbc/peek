@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,12 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
 
   const hasBackedUpNsec = identity?.hasBackedUpNsec ?? false;
   const nsecStatus = hasBackedUpNsec || hasMarkedNsecSaved ? 'saved' : 'not-saved';
+
+  // Truncated npub for display
+  const truncatedNpub = useMemo(() => {
+    const npub = nip19.npubEncode(pubkey);
+    return `${npub.slice(0, 16)}...${npub.slice(-8)}`;
+  }, [pubkey]);
 
   // Load existing profile data
   useEffect(() => {
@@ -234,51 +240,46 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
           <TabsContent value="keys" className="space-y-4 py-4">
             <div className="space-y-4">
               <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <Label className="text-sm font-medium">Public ID (npub)</Label>
-                    <p className="text-xs text-muted-foreground">Safe to share - like your email address</p>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Your User ID</Label>
+                  <p className="text-xs text-muted-foreground">Safe to share so people can find you in other Nostr apps - like your email address</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-background p-2 rounded border font-mono">
+                      {truncatedNpub}
+                    </code>
+                    <Button variant="outline" size="sm" onClick={handleCopyNpub} className="flex-shrink-0">
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <code className="flex-1 text-[10px] bg-background p-2 rounded border break-all overflow-hidden leading-tight">
-                    {nip19.npubEncode(pubkey)}
-                  </code>
-                  <Button variant="outline" size="sm" onClick={handleCopyNpub} className="flex-shrink-0">
-                    <Copy className="h-3 w-3" />
-                  </Button>
                 </div>
               </div>
 
               {identity?.secretKey && identity.secretKey !== 'NIP07_EXTENSION' && (
                 <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm font-medium">Secret Key (nsec)</Label>
-                        {nsecStatus === 'saved' ? (
-                          <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-500">
-                            <CheckCircle className="h-3 w-3" /> Saved
-                          </span>
-                        ) : (
-                          <span className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-500">
-                            <AlertCircle className="h-3 w-3" /> Not saved
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">NEVER share - like your password</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Your Secret Password</Label>
+                      {nsecStatus === 'saved' ? (
+                        <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-500">
+                          <CheckCircle className="h-3 w-3" /> Saved
+                        </span>
+                      ) : (
+                        <span className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-500">
+                          <AlertCircle className="h-3 w-3" /> Not saved
+                        </span>
+                      )}
                     </div>
+                    <Alert variant="destructive" className="py-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        <strong>NEVER share this!</strong> Store it in a password manager. If you lose it, you lose access to this identity forever.
+                      </AlertDescription>
+                    </Alert>
+                    <Button variant="outline" className="w-full" onClick={handleCopyNsec}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy to Password Manager
+                    </Button>
                   </div>
-                  <Alert variant="destructive" className="py-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      Store this in a password manager. If you lose it, you lose access to this identity forever.
-                    </AlertDescription>
-                  </Alert>
-                  <Button variant="outline" className="w-full" onClick={handleCopyNsec}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Secret Key
-                  </Button>
                 </div>
               )}
 
