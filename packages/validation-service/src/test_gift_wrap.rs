@@ -1,3 +1,8 @@
+#[allow(dead_code)]
+fn main() {
+    println!("This is a test binary. Run with `cargo test --bin test_gift_wrap`");
+}
+
 #[cfg(test)]
 mod tests {
     use nostr_sdk::prelude::*;
@@ -201,8 +206,4 @@ mod tests {
         assert_eq!(rumor_from_seal.content, content);
         println!("✅ Manual gift wrap roundtrip successful!");
     }
-}
-
-fn main() {
-    println!("This is a test binary. Run with `cargo test --bin test_gift_wrap`");
 }
