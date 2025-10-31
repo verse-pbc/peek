@@ -16,6 +16,28 @@ import './index.css';
 import '@fontsource-variable/rubik';
 import '@fontsource-variable/inter';
 
+// Prevent pinch-to-zoom gestures on mobile
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+document.addEventListener('gestureend', (e) => e.preventDefault());
+
+// Prevent double-tap zoom with touchend
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 300) {
+    e.preventDefault();
+  }
+  lastTouchEnd = now;
+}, false);
+
+// Prevent pinch zoom with wheel event (trackpad/mouse)
+document.addEventListener('wheel', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 createRoot(document.getElementById("root")!).render(
   <ErrorBoundary>
     <Suspense fallback={
