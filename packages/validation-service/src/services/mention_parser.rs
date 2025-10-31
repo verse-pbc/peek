@@ -34,6 +34,7 @@ enum MentionErrorKind {
 
 impl MentionError {
     /// Check if error is due to invalid npub format.
+    #[allow(dead_code)] // Will be used in error handling
     pub fn is_invalid_npub(&self) -> bool {
         matches!(self.kind, MentionErrorKind::InvalidNpub(_))
     }
