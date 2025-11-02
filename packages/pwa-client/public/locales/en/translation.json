@@ -426,7 +426,10 @@
         "nsec_copied": "Secret key copied!",
         "nsec_copied_desc": "Store this safely. You can now switch accounts without losing access."
       }
-    }
+    },
+    "share_user_id": "Share this user ID so people can find you in other",
+    "share_user_id_own": "Share this user ID so people can find you in other",
+    "share_user_id_other": "Copy this user ID to find them in other"
   },
   "notifications": {
     "toggle": {

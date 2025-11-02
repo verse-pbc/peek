@@ -426,7 +426,10 @@
         "nsec_copied": "¡Clave secreta copiada!",
         "nsec_copied_desc": "Guárdala de forma segura. Ahora puedes cambiar de cuenta sin perder el acceso."
       }
-    }
+    },
+    "share_user_id": "Comparte este ID de usuario para que otros puedan encontrarte en otras",
+    "share_user_id_own": "Comparte este ID de usuario para que otros puedan encontrarte en otras",
+    "share_user_id_other": "Copia este ID de usuario para encontrarlos en otras"
   },
   "notifications": {
     "toggle": {

@@ -15,6 +15,7 @@ import { getDiceBearDataUrl } from '@/lib/dicebear';
 import { nip19 } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useTranslation } from 'react-i18next';
 
 interface UserProfileModalProps {
   pubkey: string | null;
@@ -24,6 +25,7 @@ interface UserProfileModalProps {
 }
 
 export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserProfileModalProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { identity } = useNostrLogin();
   const { resolveIdentity } = useIdentityResolution(groupId);
@@ -94,7 +96,7 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
             <p className="text-xs text-muted-foreground text-center">
               {isOwnProfile ? (
                 <>
-                  Share this user ID so people can find you in other{' '}
+                  {t('profile.share_user_id_own')}{' '}
                   <a
                     href="https://nostr.com/"
                     target="_blank"
@@ -107,7 +109,7 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
                 </>
               ) : (
                 <>
-                  Copy this user ID to find them in other{' '}
+                  {t('profile.share_user_id_other')}{' '}
                   <a
                     href="https://nostr.com/"
                     target="_blank"
