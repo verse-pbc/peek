@@ -22,6 +22,7 @@ import { hexToBytes } from '@/lib/hex';
 import { SimplePool } from 'nostr-tools';
 import { useQueryClient } from '@tanstack/react-query';
 import { NotificationToggle } from './Notifications/NotificationToggle';
+import { useTranslation } from 'react-i18next';
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface ProfileEditModalProps {
 }
 
 export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModalProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { identity } = useNostrLogin();
   const { data: profile } = useProfile(pubkey);
@@ -114,14 +116,14 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
       queryClient.invalidateQueries({ queryKey: ['profile', pubkey] });
 
       toast({
-        title: "Profile updated!",
-        description: "Your profile has been published to Nostr relays.",
+        title: t('profile.edit_dialog.toast.profile_updated'),
+        description: t('profile.edit_dialog.toast.profile_updated_desc'),
       });
 
       onOpenChange(false);
     } catch (err) {
       console.error('Failed to publish profile:', err);
-      setError('Failed to save profile. Please try again.');
+      setError(t('errors.profile_save_failed', { defaultValue: 'Failed to save profile. Please try again.' }));
     } finally {
       setSaving(false);
     }
@@ -130,7 +132,10 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   const handleCopyNpub = () => {
     const npub = nip19.npubEncode(pubkey);
     navigator.clipboard.writeText(npub);
-    toast({ title: "Public ID copied!", description: "Safe to share anywhere." });
+    toast({ 
+      title: t('profile.edit_dialog.toast.npub_copied'), 
+      description: t('profile.edit_dialog.toast.npub_copied_desc')
+    });
   };
 
   const handleCopyNsec = () => {
@@ -144,8 +149,8 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
     setHasMarkedNsecSaved(true);
 
     toast({
-      title: "Secret key copied!",
-      description: "Store this safely. You can now switch accounts without losing access."
+      title: t('profile.edit_dialog.toast.nsec_copied'),
+      description: t('profile.edit_dialog.toast.nsec_copied_desc')
     });
   };
 
@@ -153,59 +158,49 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Profile & Keys</DialogTitle>
+          <DialogTitle>{t('profile.edit_dialog.title')}</DialogTitle>
           <DialogDescription>
-            Manage your Nostr profile and identity keys.
+            {t('profile.edit_dialog.description')}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profile' | 'keys')} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="keys">Your Keys</TabsTrigger>
+            <TabsTrigger value="profile">{t('profile.edit_dialog.tabs.profile')}</TabsTrigger>
+            <TabsTrigger value="keys">{t('profile.edit_dialog.tabs.keys')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="space-y-4 py-4">
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
-              <AlertDescription className="text-sm">
-                💡 <strong>Works across all Nostr apps!</strong> Your profile is part of the Nostr protocol.{' '}
-                <a
-                  href="https://nostr.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-coral hover:underline inline-flex items-center gap-0.5"
-                >
-                  Learn more →
-                </a>
-              </AlertDescription>
+              <AlertDescription className="text-sm" dangerouslySetInnerHTML={{ __html: t('profile.edit_dialog.profile_tab.info') }} />
             </Alert>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">{t('profile.edit_dialog.profile_tab.name_label')}</Label>
                 <Input
                   id="name"
-                  placeholder="Your name"
+                  placeholder={t('profile.edit_dialog.profile_tab.name_placeholder')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="display-name">Display Name (optional)</Label>
+                <Label htmlFor="display-name">{t('profile.edit_dialog.profile_tab.display_name_label')}</Label>
                 <Input
                   id="display-name"
-                  placeholder="Full name with special characters"
+                  placeholder={t('profile.edit_dialog.profile_tab.display_name_placeholder')}
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="about">About</Label>
+                <Label htmlFor="about">{t('profile.edit_dialog.profile_tab.about_label')}</Label>
                 <Textarea
                   id="about"
-                  placeholder="A short bio..."
+                  placeholder={t('profile.edit_dialog.profile_tab.about_placeholder')}
                   value={about}
                   onChange={(e) => setAbout(e.target.value)}
                   rows={3}
@@ -213,11 +208,11 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="picture">Profile Picture URL</Label>
+                <Label htmlFor="picture">{t('profile.edit_dialog.profile_tab.picture_label')}</Label>
                 <Input
                   id="picture"
                   type="url"
-                  placeholder="https://example.com/avatar.jpg"
+                  placeholder={t('profile.edit_dialog.profile_tab.picture_placeholder')}
                   value={picture}
                   onChange={(e) => setPicture(e.target.value)}
                 />
@@ -241,8 +236,8 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
             <div className="space-y-4">
               <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium">Your User ID</Label>
-                  <p className="text-xs text-muted-foreground">Safe to share so people can find you in other Nostr apps - like your email address</p>
+                  <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.npub_label')}</Label>
+                  <p className="text-xs text-muted-foreground">{t('profile.edit_dialog.keys_tab.npub_desc')}</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-background p-2 rounded border font-mono">
                       {truncatedNpub}
@@ -258,26 +253,24 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                 <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium">Your Secret Password</Label>
+                      <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.nsec_label')}</Label>
                       {nsecStatus === 'saved' ? (
                         <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-500">
-                          <CheckCircle className="h-3 w-3" /> Saved
+                          <CheckCircle className="h-3 w-3" /> {t('profile.edit_dialog.keys_tab.nsec_saved')}
                         </span>
                       ) : (
                         <span className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-500">
-                          <AlertCircle className="h-3 w-3" /> Not saved
+                          <AlertCircle className="h-3 w-3" /> {t('profile.edit_dialog.keys_tab.nsec_not_saved')}
                         </span>
                       )}
                     </div>
                     <Alert variant="destructive" className="py-2">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        <strong>NEVER share this!</strong> Store it in a password manager. If you lose it, you lose access to this identity forever.
-                      </AlertDescription>
+                      <AlertDescription className="text-xs" dangerouslySetInnerHTML={{ __html: t('profile.edit_dialog.keys_tab.nsec_warning') }} />
                     </Alert>
                     <Button variant="outline" className="w-full" onClick={handleCopyNsec}>
                       <Copy className="mr-2 h-4 w-4" />
-                      Copy to Password Manager
+                      {t('profile.edit_dialog.keys_tab.copy_nsec')}
                     </Button>
                   </div>
                 </div>
@@ -287,7 +280,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                 <Alert className="bg-mint/10 border-mint/30">
                   <AlertCircle className="h-4 w-4 text-mint" />
                   <AlertDescription className="text-sm">
-                    🔒 Your secret key is managed by your browser extension and never exposed.
+                    {t('profile.edit_dialog.keys_tab.extension_managed')}
                   </AlertDescription>
                 </Alert>
               )}
@@ -299,7 +292,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                   rel="noopener noreferrer"
                   className="text-xs text-coral hover:underline inline-flex items-center gap-1"
                 >
-                  New to Nostr? Learn more →
+                  {t('profile.edit_dialog.keys_tab.learn_more')}
                 </a>
               </div>
             </div>
@@ -309,11 +302,11 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
         {activeTab === 'profile' && (
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t('common.buttons.cancel')}
             </Button>
             <Button type="button" onClick={handleSave} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Profile
+              {t('profile.edit_dialog.profile_tab.save_button')}
             </Button>
           </DialogFooter>
         )}
