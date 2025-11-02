@@ -14,12 +14,14 @@ import { RelaySelector } from '@/components/RelaySelector';
 import { WalletModal } from '@/components/WalletModal';
 import { useLoggedInAccounts, type Account } from '@/hooks/useLoggedInAccounts';
 import { genUserName } from '@/lib/genUserName';
+import { useTranslation } from 'react-i18next';
 
 interface AccountSwitcherProps {
   onAddAccountClick: () => void;
 }
 
 export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
+  const { t } = useTranslation();
   const { currentUser, otherUsers, setLogin, removeLogin } = useLoggedInAccounts();
 
   if (!currentUser) return null;
@@ -43,10 +45,10 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className='w-56 p-2 animate-scale-in'>
-        <div className='font-medium text-sm px-2 py-1.5'>Switch Relay</div>
+        <div className='font-medium text-sm px-2 py-1.5'>{t('auth.account_switcher.switch_relay')}</div>
         <RelaySelector className="w-full" />
         <DropdownMenuSeparator />
-        <div className='font-medium text-sm px-2 py-1.5'>Switch Account</div>
+        <div className='font-medium text-sm px-2 py-1.5'>{t('auth.account_switcher.switch_account')}</div>
         {otherUsers.map((user) => (
           <DropdownMenuItem
             key={user.id}
@@ -70,7 +72,7 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
             onSelect={(e) => e.preventDefault()}
           >
             <Wallet className='w-4 h-4' />
-            <span>Wallet Settings</span>
+            <span>{t('auth.account_switcher.wallet_settings')}</span>
           </DropdownMenuItem>
         </WalletModal>
         <DropdownMenuItem
@@ -78,14 +80,14 @@ export function AccountSwitcher({ onAddAccountClick }: AccountSwitcherProps) {
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md'
         >
           <UserPlus className='w-4 h-4' />
-          <span>Add another account</span>
+          <span>{t('auth.account_switcher.add_account')}</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => removeLogin(currentUser.id)}
           className='flex items-center gap-2 cursor-pointer p-2 rounded-md text-red-500'
         >
           <LogOut className='w-4 h-4' />
-          <span>Log out</span>
+          <span>{t('auth.account_switcher.logout')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
