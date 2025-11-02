@@ -413,7 +413,9 @@
         "about_placeholder": "Una breve biografía...",
         "picture_label": "URL de Imagen de Perfil",
         "picture_placeholder": "https://ejemplo.com/avatar.jpg",
-        "save_button": "Guardar Perfil"
+        "save_button": "Guardar Perfil",
+        "info_text": "¡Funciona en todas las aplicaciones de Nostr! Tu perfil es parte del protocolo Nostr.",
+        "learn_more_link": "Aprende más"
       },
       "keys_tab": {
         "npub_label": "ID Público (npub)",

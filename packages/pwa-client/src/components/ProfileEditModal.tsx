@@ -173,7 +173,17 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
           <TabsContent value="profile" className="space-y-4 py-4">
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
-              <AlertDescription className="text-sm" dangerouslySetInnerHTML={{ __html: t('profile.edit_dialog.profile_tab.info') }} />
+              <AlertDescription className="text-sm">
+                💡 <strong>{t('profile.edit_dialog.profile_tab.info_text')}</strong>{' '}
+                <a
+                  href="https://nostr.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-coral hover:underline inline-flex items-center gap-0.5"
+                >
+                  {t('profile.edit_dialog.profile_tab.learn_more_link')} →
+                </a>
+              </AlertDescription>
             </Alert>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -266,7 +276,9 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                     </div>
                     <Alert variant="destructive" className="py-2">
                       <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs" dangerouslySetInnerHTML={{ __html: t('profile.edit_dialog.keys_tab.nsec_warning') }} />
+                      <AlertDescription className="text-xs">
+                        {t('profile.edit_dialog.keys_tab.nsec_warning')}
+                      </AlertDescription>
                     </Alert>
                     <Button variant="outline" className="w-full" onClick={handleCopyNsec}>
                       <Copy className="mr-2 h-4 w-4" />
