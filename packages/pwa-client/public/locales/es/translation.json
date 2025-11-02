@@ -41,6 +41,15 @@
       "altitude": "Altitud",
       "timestamp": "Marca de Tiempo",
       "na": "N/D"
+    },
+    "user_menu": {
+      "profile_and_keys": "Perfil y Claves",
+      "theme": "Tema",
+      "theme_light": "Claro",
+      "theme_dark": "Oscuro",
+      "theme_system": "Sistema",
+      "switch_account": "Cambiar Cuenta",
+      "switching": "Cambiando..."
     }
   },
   "home": {

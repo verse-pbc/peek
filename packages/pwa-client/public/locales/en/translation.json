@@ -41,6 +41,15 @@
       "altitude": "Altitude",
       "timestamp": "Timestamp",
       "na": "N/A"
+    },
+    "user_menu": {
+      "profile_and_keys": "Profile & Keys",
+      "theme": "Theme",
+      "theme_light": "Light",
+      "theme_dark": "Dark",
+      "theme_system": "System",
+      "switch_account": "Switch Account",
+      "switching": "Switching..."
     }
   },
   "home": {
