@@ -174,14 +174,14 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
               <AlertDescription className="text-sm">
-                💡 <strong>Works across all Nostr apps!</strong> Your profile is part of the Nostr protocol.{' '}
+                💡 <strong>{t('profile.edit_dialog.profile_tab.info_text')}</strong>{' '}
                 <a
                   href="https://nostr.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-coral hover:underline inline-flex items-center gap-0.5"
                 >
-                  Learn more →
+                  {t('profile.edit_dialog.profile_tab.learn_more_link')} →
                 </a>
               </AlertDescription>
             </Alert>
