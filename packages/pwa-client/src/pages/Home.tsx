@@ -19,7 +19,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { useNostrLogin } from '../lib/nostrify-shim';
+import { useNostrLogin } from '../lib/nostr-identity';
 import { useRelayManager } from '../contexts/RelayContext';
 import { useTranslation } from 'react-i18next';
 import { UserIdentityButton } from '@/components/UserIdentityButton';

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { setupNostrIdentity, type IdentitySetup } from '@/lib/nostr-identity-helper';
-import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useNostrLogin } from '@/lib/nostr-identity';
 
 /**
  * Hook to get properly configured Nostr identity and encryption for operations

@@ -1,3 +1,4 @@
+import type { StoredIdentity } from './nostr-identity';
 /**
  * Cryptography Utilities for Push Notifications
  *
@@ -7,7 +8,7 @@
  */
 
 import * as nip44 from 'nostr-tools/nip44'
-import { hasNip44Support } from './nostrify-shim'
+import { hasNip44Support } from './nostr-identity'
 
 /**
  * Convert hex string to Uint8Array
@@ -115,18 +116,18 @@ export function isValidNIP44Ciphertext(content: string): boolean {
  * Get private key as Uint8Array from Peek's StoredIdentity
  * Returns null if using NIP-07 extension (no direct access to private key)
  */
-export function getPrivateKeyFromIdentity(identity: { secretKey: string } | null): Uint8Array | null {
-  if (!identity || !identity.secretKey) {
+export function getPrivateKeyFromIdentity(identity: StoredIdentity | null): Uint8Array | null {
+  if (!identity) {
     return null
   }
 
-  // NIP-07 extension case - no direct access to private key
-  if (identity.secretKey === 'NIP07_EXTENSION') {
-    return null
+  // Only local identities have secretKey
+  if (identity.type === 'local') {
+    return hexToBytes(identity.secretKey)
   }
 
-  // Regular case - secretKey is hex encoded
-  return hexToBytes(identity.secretKey)
+  // Extension and bunker identities don't have local private key
+  return null
 }
 
 /**
@@ -140,7 +141,7 @@ export function getPrivateKeyFromIdentity(identity: { secretKey: string } | null
  */
 export async function encryptForServiceAsync(
   plaintext: string,
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   recipientPubkey: string
 ): Promise<string> {
   if (!identity) {
@@ -148,7 +149,7 @@ export async function encryptForServiceAsync(
   }
 
   // Check if using NIP-07 extension with nip44 support
-  if (identity.secretKey === 'NIP07_EXTENSION') {
+  if (identity.type === 'extension') {
     if (!hasNip44Support()) {
       throw new Error('NIP-07 extension does not support nip44 encryption')
     }
@@ -162,6 +163,9 @@ export async function encryptForServiceAsync(
   }
 
   // Local key path - use synchronous encryption
+  if (identity.type !== 'local') {
+    throw new Error('Encryption requires local identity or extension')
+  }
   const privateKeyBytes = hexToBytes(identity.secretKey)
   return encryptForService(plaintext, privateKeyBytes, recipientPubkey)
 }
@@ -177,7 +181,7 @@ export async function encryptForServiceAsync(
  */
 export async function decryptFromServiceAsync(
   ciphertext: string,
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   senderPubkey: string
 ): Promise<string> {
   if (!identity) {
@@ -185,7 +189,7 @@ export async function decryptFromServiceAsync(
   }
 
   // Check if using NIP-07 extension with nip44 support
-  if (identity.secretKey === 'NIP07_EXTENSION') {
+  if (identity.type === 'extension') {
     if (!hasNip44Support()) {
       throw new Error('NIP-07 extension does not support nip44 decryption')
     }
@@ -199,6 +203,9 @@ export async function decryptFromServiceAsync(
   }
 
   // Local key path - use synchronous decryption
+  if (identity.type !== 'local') {
+    throw new Error('Decryption requires local identity or extension')
+  }
   const privateKeyBytes = hexToBytes(identity.secretKey)
   return decryptFromService(ciphertext, privateKeyBytes, senderPubkey)
 }

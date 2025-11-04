@@ -13,7 +13,7 @@ import {
   Loader2,
   XCircle
 } from 'lucide-react';
-import { useNostrLogin } from '../lib/nostrify-shim';
+import { useNostrLogin } from '../lib/nostr-identity';
 import { NostrLocationService, type LocationValidationResponse } from '../services/nostr-location';
 import { useToast } from '@/hooks/useToast';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -218,7 +218,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       });
       setCurrentStep(JoinStep.ERROR);
     }
-  }, [communityId, identity?.secretKey, pubkey, relayManager]);
+  }, [communityId, identity?.type === 'local' ? identity.secretKey : undefined, pubkey, relayManager]);
 
   // Initial load - fetch preview data with a test location
   useEffect(() => {
@@ -425,7 +425,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       setError(parsedError);
       setCurrentStep(JoinStep.ERROR);
     }
-  }, [communityId, identity?.secretKey, pubkey, relayManager, toast]);
+  }, [communityId, identity?.type === 'local' ? identity.secretKey : undefined, pubkey, relayManager, toast]);
 
   const handleLocationCaptured = useCallback(async (location: {
     latitude: number;

@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { AlertCircle, Loader2, Copy, CheckCircle } from 'lucide-react';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/hooks/useToast';
-import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useNostrLogin } from '@/lib/nostr-identity';
 import { EventTemplate, finalizeEvent, nip19 } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { SimplePool } from 'nostr-tools';
@@ -31,7 +31,7 @@ interface ProfileEditModalProps {
 }
 
 export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { identity } = useNostrLogin();
   const { data: profile } = useProfile(pubkey);
@@ -46,7 +46,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   const [activeTab, setActiveTab] = useState<'profile' | 'keys'>('profile');
   const [hasMarkedNsecSaved, setHasMarkedNsecSaved] = useState(false);
 
-  const hasBackedUpNsec = identity?.hasBackedUpNsec ?? false;
+  const hasBackedUpNsec = (identity?.type === 'local' && identity.hasBackedUpNsec) ?? false;
   const nsecStatus = hasBackedUpNsec || hasMarkedNsecSaved ? 'saved' : 'not-saved';
 
   // Truncated npub for display
@@ -89,13 +89,16 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
 
       // Sign event
       let signedEvent;
-      if (identity.secretKey === 'NIP07_EXTENSION') {
+      if (identity.type === 'extension') {
         // Use NIP-07 extension
         signedEvent = await window.nostr!.signEvent(event);
-      } else {
-        // Use secret key
+      } else if (identity.type === 'local') {
+        // Use local secret key
         const secretKey = hexToBytes(identity.secretKey);
         signedEvent = finalizeEvent(event, secretKey);
+      } else {
+        // Bunker - use RelayManager's eventSigner
+        throw new Error('Profile editing with bunker not yet supported');
       }
 
       // Publish to profile relays
@@ -139,7 +142,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   };
 
   const handleCopyNsec = () => {
-    if (!identity?.secretKey || identity.secretKey === 'NIP07_EXTENSION') return;
+    if (!identity || identity.type !== 'local') return;
 
     const nsec = nip19.nsecEncode(hexToBytes(identity.secretKey));
     navigator.clipboard.writeText(nsec);
@@ -176,7 +179,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
               <AlertDescription className="text-sm">
                 💡 <strong>{t('profile.edit_dialog.profile_tab.info_text')}</strong>{' '}
                 <a
-                  href="https://nostr.com/"
+                  href={`https://nostr.how/${i18n.language}/get-started`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-coral hover:underline inline-flex items-center gap-0.5"
@@ -259,7 +262,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                 </div>
               </div>
 
-              {identity?.secretKey && identity.secretKey !== 'NIP07_EXTENSION' && (
+              {identity?.type === 'local' && (
                 <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -288,7 +291,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                 </div>
               )}
 
-              {identity?.secretKey === 'NIP07_EXTENSION' && (
+              {identity?.type === 'extension' && (
                 <Alert className="bg-mint/10 border-mint/30">
                   <AlertCircle className="h-4 w-4 text-mint" />
                   <AlertDescription className="text-sm">
@@ -299,7 +302,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
 
               <div className="pt-2">
                 <a
-                  href="https://nostr.com/"
+                  href={`https://nostr.how/${i18n.language}/get-started`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-coral hover:underline inline-flex items-center gap-1"

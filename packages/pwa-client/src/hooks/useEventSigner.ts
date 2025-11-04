@@ -1,3 +1,4 @@
+import type { StoredIdentity } from '@/lib/nostr-identity';
 import { useCallback } from 'react';
 import { EventTemplate, finalizeEvent, type VerifiedEvent } from 'nostr-tools';
 import { resolveSecretKey, isNip07Identity } from '@/lib/secret-key-utils';
@@ -6,7 +7,7 @@ import { resolveSecretKey, isNip07Identity } from '@/lib/secret-key-utils';
  * Hook to get event signing function based on identity type
  * Data-oriented: returns a function that transforms EventTemplate → VerifiedEvent
  */
-export function useEventSigner(identity: { secretKey: string } | null | undefined) {
+export function useEventSigner(identity: StoredIdentity | null | undefined) {
   const signEvent = useCallback(async (eventTemplate: EventTemplate): Promise<VerifiedEvent> => {
     if (isNip07Identity(identity)) {
       // Use NIP-07 extension for signing

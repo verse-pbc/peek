@@ -28,5 +28,8 @@
     "url": "git+https://github.com/verse-pbc/peek.git"
   },
   "author": "verse-pbc",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@nostrify/react": "^0.2.17"
+  }
 }

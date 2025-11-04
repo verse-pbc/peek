@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { NostrEvent, NPool, NRelay1, NostrContext } from '@/lib/nostrify-shim';
+import { NostrEvent, NPool, NRelay1, NostrContext } from '@/lib/nostr-identity';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '@/hooks/useAppContext';
 import type { Filter } from 'nostr-tools';

@@ -392,6 +392,65 @@
       "logout": "Log out"
     }
   },
+  "identity_modal": {
+    "title": "Switch Account",
+    "description": "Switch to a different identity.",
+    "description_with_migration": "Switch to a different identity. You can bring your communities and roles with you, or start with a clean slate.",
+    "new_to_nostr_link": "New to Nostr?",
+    "cancel": "Cancel",
+    "tabs": {
+      "extension": "Browser Extension",
+      "key_manager": "Use a Key Manager",
+      "paste_key": "Paste Your Key"
+    },
+    "key_manager": {
+      "title": "Use a Key Manager",
+      "description": "Your Nostr key is stored in your key manager (like nsec.app). Peek requests signatures when needed.",
+      "input_label": "Connection code from your key manager",
+      "input_hint": "For nsec.app: Advanced → Bunker URL",
+      "how_to_get": "How to get a connection code",
+      "steps": {
+        "1": "Open your key manager (e.g., nsec.app, Amber)",
+        "2": "Login or create account",
+        "3": "Find connection settings (usually in Advanced)",
+        "4": "Copy your bunker URL (starts with bunker://)",
+        "5": "Paste it above and click Connect",
+        "6": "Approve the connection when prompted"
+      },
+      "popup_blocked": "If popup is blocked, allow popups for this site",
+      "connect_button": "Connect"
+    },
+    "paste_key": {
+      "title": "Already have a Nostr key? Use it here",
+      "description": "Paste a key from another Nostr app to use that identity in Peek.",
+      "input_label": "Your Nostr Key (nsec)",
+      "security_notice": "Security Notice",
+      "security_warning": "Your key will be stored on THIS device only. Anyone with access to this device could access your Nostr account.",
+      "best_for": "Best for: Personal devices you control",
+      "avoid": "Avoid: Shared or public computers",
+      "more_secure": "More secure: Use a key manager instead",
+      "new_to_nostr": "New to Nostr? Learn more",
+      "switch_account": "Switch Account",
+      "upgrade_keep": "Upgrade & Keep Communities",
+      "switch_fresh": "Switch & Start Fresh",
+      "error_invalid": "Invalid nsec key - please check and try again"
+    },
+    "extension": {
+      "description": "Connect your Nostr browser extension (like Alby or nos2x) to use your existing identity without exposing your private key.",
+      "security_note": "Your browser extension will handle signing events securely. Your private key never leaves the extension.",
+      "not_detected": "No Nostr browser extension detected. Please install Alby, nos2x, or another NIP-07 compatible extension.",
+      "connect_button": "Connect Extension"
+    },
+    "migration": {
+      "keep_communities": "Keep my communities and admin roles",
+      "keep_description": "Your previous messages will belong to your new identity",
+      "save_key_warning": "Save your secret key first!",
+      "save_key_reason": "You need this to return to your current communities later.",
+      "copy_key": "Copy Secret Key to Continue",
+      "key_copied": "Secret Key Copied",
+      "store_safely": "Store it in a password manager or secure notes. Never share it with anyone."
+    }
+  },
   "profile": {
     "title": "Profile",
     "public_key": "Public Key",

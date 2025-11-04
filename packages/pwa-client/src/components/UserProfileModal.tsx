@@ -14,7 +14,7 @@ import { genUserName } from '@/lib/genUserName';
 import { getDiceBearDataUrl } from '@/lib/dicebear';
 import { nip19 } from 'nostr-tools';
 import { useToast } from '@/hooks/useToast';
-import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useNostrLogin } from '@/lib/nostr-identity';
 import { useTranslation } from 'react-i18next';
 
 interface UserProfileModalProps {
@@ -25,7 +25,7 @@ interface UserProfileModalProps {
 }
 
 export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserProfileModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { identity } = useNostrLogin();
   const { resolveIdentity } = useIdentityResolution(groupId);
@@ -98,7 +98,7 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
                 <>
                   {t('profile.share_user_id_own')}{' '}
                   <a
-                    href="https://nostr.com/"
+                    href={`https://nostr.how/${i18n.language}/get-started`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-coral hover:underline"
@@ -111,7 +111,7 @@ export function UserProfileModal({ pubkey, open, onOpenChange, groupId }: UserPr
                 <>
                   {t('profile.share_user_id_other')}{' '}
                   <a
-                    href="https://nostr.com/"
+                    href={`https://nostr.how/${i18n.language}/get-started`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-coral hover:underline"

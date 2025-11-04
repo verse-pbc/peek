@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Send } from 'lucide-react';
-import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useNostrLogin } from '@/lib/nostr-identity';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { useIdentityResolution } from '@/hooks/useIdentityResolution';
 import { Event, nip19 } from 'nostr-tools';
@@ -158,10 +158,11 @@ export function CommunityFeed({
 
     setSending(true);
     try {
-      // If using NIP-07, pass undefined for secretKey (will use event signer)
-      const secretKey = identity.secretKey === 'NIP07_EXTENSION'
-        ? undefined
-        : hexToBytes(identity.secretKey);
+      // If using NIP-07 extension or bunker, pass undefined (will use event signer)
+      // Only local identities have secretKey
+      const secretKey = identity.type === 'local'
+        ? hexToBytes(identity.secretKey)
+        : undefined;
 
       await relayManager.sendMessage(groupId, newMessage.trim(), secretKey);
       setNewMessage('');

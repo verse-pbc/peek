@@ -392,6 +392,65 @@
       "logout": "Cerrar sesión"
     }
   },
+  "identity_modal": {
+    "title": "Cambiar Cuenta",
+    "description": "Cambiar a una identidad diferente.",
+    "description_with_migration": "Cambiar a una identidad diferente. Puedes llevar tus comunidades y roles contigo, o empezar desde cero.",
+    "new_to_nostr_link": "¿Nuevo en Nostr?",
+    "cancel": "Cancelar",
+    "tabs": {
+      "extension": "Extensión",
+      "key_manager": "Gestor de Claves",
+      "paste_key": "Tu Clave"
+    },
+    "key_manager": {
+      "title": "Usar un Gestor de Claves",
+      "description": "Tu clave de Nostr se almacena en tu gestor de claves (como nsec.app). Peek solicita firmas cuando es necesario.",
+      "input_label": "Código de conexión de tu gestor de claves",
+      "input_hint": "Para nsec.app: Avanzado → URL de Bunker",
+      "how_to_get": "Cómo obtener un código de conexión",
+      "steps": {
+        "1": "Abre tu gestor de claves (ej: nsec.app, Amber)",
+        "2": "Inicia sesión o crea una cuenta",
+        "3": "Busca configuración de conexión (usualmente en Avanzado)",
+        "4": "Copia tu URL de bunker (empieza con bunker://)",
+        "5": "Pégalo arriba y haz clic en Conectar",
+        "6": "Aprueba la conexión cuando se te solicite"
+      },
+      "popup_blocked": "Si la ventana emergente está bloqueada, permite ventanas emergentes para este sitio",
+      "connect_button": "Conectar"
+    },
+    "paste_key": {
+      "title": "¿Ya tienes una clave de Nostr? Úsala aquí",
+      "description": "Pega una clave de otra aplicación de Nostr para usar esa identidad en Peek.",
+      "input_label": "Tu Clave de Nostr (nsec)",
+      "security_notice": "Aviso de Seguridad",
+      "security_warning": "Tu clave se almacenará SOLO en ESTE dispositivo. Cualquiera con acceso a este dispositivo podría acceder a tu cuenta de Nostr.",
+      "best_for": "Mejor para: Dispositivos personales que controlas",
+      "avoid": "Evitar: Computadoras compartidas o públicas",
+      "more_secure": "Más seguro: Usa un gestor de claves",
+      "new_to_nostr": "¿Nuevo en Nostr? Aprende más",
+      "switch_account": "Cambiar Cuenta",
+      "upgrade_keep": "Actualizar y Mantener Comunidades",
+      "switch_fresh": "Cambiar y Empezar de Nuevo",
+      "error_invalid": "Clave nsec inválida - por favor verifica e intenta nuevamente"
+    },
+    "extension": {
+      "description": "Conecta tu extensión de navegador Nostr (como Alby o nos2x) para usar tu identidad existente sin exponer tu clave privada.",
+      "security_note": "Tu extensión del navegador manejará la firma de eventos de forma segura. Tu clave privada nunca sale de la extensión.",
+      "not_detected": "No se detectó extensión de navegador Nostr. Por favor instala Alby, nos2x, u otra extensión compatible con NIP-07.",
+      "connect_button": "Conectar Extensión"
+    },
+    "migration": {
+      "keep_communities": "Mantener mis comunidades y roles de administrador",
+      "keep_description": "Tus mensajes anteriores pertenecerán a tu nueva identidad",
+      "save_key_warning": "¡Guarda tu clave secreta primero!",
+      "save_key_reason": "Necesitas esto para volver a tus comunidades actuales más tarde.",
+      "copy_key": "Copiar Clave Secreta para Continuar",
+      "key_copied": "Clave Secreta Copiada",
+      "store_safely": "Guárdala en un gestor de contraseñas o notas seguras. Nunca la compartas con nadie."
+    }
+  },
   "profile": {
     "title": "Perfil",
     "public_key": "Clave Pública",

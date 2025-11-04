@@ -1,5 +1,5 @@
 import React from 'react';
-import { NostrContext, useNostrLogin, NPool } from '@/lib/nostrify-shim';
+import { NostrContext, useNostrLogin, NPool } from '@/lib/nostr-identity';
 
 interface NostrUser { pubkey: string }
 

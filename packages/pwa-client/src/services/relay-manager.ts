@@ -604,7 +604,15 @@ export class RelayManager {
       ],
     };
 
-    const sub = this.pool.subscribeMany([this.relayUrl], [filter], {
+    console.log(`[RelayManager] Subscribing to all group metadata`);
+
+    if (!this.relay) {
+      console.error(`[RelayManager] Cannot subscribe to metadata - relay not connected`);
+      return;
+    }
+
+    // Use authenticated relay connection
+    const sub = this.relay.subscribe([filter], {
       onevent: (event) => this.handleMetadataEvent(event),
     });
 
@@ -668,9 +676,16 @@ export class RelayManager {
       since: Math.floor(Date.now() / 1000) - 10, // Last 10 seconds
     };
 
-    const sub = this.pool.subscribeMany([this.relayUrl], [hFilter, dFilter], {
+    if (!this.relay) {
+      console.error(`[RelayManager] Cannot subscribe to group - relay not connected`);
+      return;
+    }
+
+    console.log(`[RelayManager] Subscribing to group ${groupId} with authenticated connection`);
+
+    // Use authenticated relay connection
+    const sub = this.relay.subscribe([hFilter, dFilter], {
       onevent: (event) => this.handleGroupEvent(groupId, event),
-      onauth: this.authHandler,
     });
 
     this.subscriptions.set(`group-${groupId}`, sub);
@@ -1093,8 +1108,14 @@ export class RelayManager {
       limit: 0, // Live events only - relay delivers new events regardless of created_at
     };
 
-    // Use pool.subscribeMany for consistency (pool manages relay lifecycle)
-    const sub = this.pool.subscribeMany([this.relayUrl], [filter], {
+    if (!this.relay) {
+      throw new Error("Relay not connected - cannot subscribe to gift wraps");
+    }
+
+    console.log(`[RelayManager] Subscribing to gift wraps with authenticated connection`);
+
+    // Use authenticated relay connection
+    const sub = this.relay.subscribe([filter], {
       onevent: handler,
     });
 
@@ -1214,8 +1235,23 @@ export class RelayManager {
       "#h": [groupId],
     };
 
-    const sub = this.pool.subscribeMany([this.relayUrl], [filter], {
+    console.log(`[RelayManager] Subscribing to messages with filter:`, {
+      subId,
+      relay: this.relayUrl,
+      filter
+    });
+
+    if (!this.relay) {
+      console.error(`[RelayManager] Cannot subscribe - relay not connected`);
+      return () => {};
+    }
+
+    // Use authenticated relay connection (NOT pool.subscribeMany which creates unauthenticated connections)
+    const sub = this.relay.subscribe([filter], {
       onevent: onMessage,
+      oneose: () => {
+        console.log(`[RelayManager] EOSE received for ${subId}`);
+      }
     });
 
     this.subscriptions.set(subId, sub);
@@ -1260,8 +1296,17 @@ export class RelayManager {
       ],
     };
 
-    const sub = this.pool.subscribeMany([this.relayUrl], [filter], {
+    console.log(`[RelayManager] Subscribing to metadata for ${groupId}`);
+
+    if (!this.relay) {
+      console.error(`[RelayManager] Cannot subscribe to metadata - relay not connected`);
+      return () => {};
+    }
+
+    // Use authenticated relay connection
+    const sub = this.relay.subscribe([filter], {
       onevent: (event) => {
+        console.log(`[RelayManager] Received metadata event kind ${event.kind} for ${groupId}`);
         // Also update internal group state for membership tracking
         this.handleMetadataEvent(event);
         // Notify the component's handler
