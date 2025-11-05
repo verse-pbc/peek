@@ -11,7 +11,8 @@
       "continue": "Continuar",
       "skip": "Saltar por ahora",
       "reload": "Recargar Página",
-      "close": "Cerrar"
+      "close": "Cerrar",
+      "copy": "Copiar"
     },
     "status": {
       "loading": "Cargando...",
@@ -440,10 +441,18 @@
     },
     "key_manager": {
       "title": "Usar un Gestor de Claves",
-      "description": "Tu clave de Nostr se almacena en tu gestor de claves (como nsec.app). Peek solicita firmas cuando es necesario.",
-      "input_label": "Código de conexión de tu gestor de claves",
+      "description": "Tu clave de Nostr se almacena en tu gestor de claves (como nsec.app). Peek solicitará permiso cuando sea necesario.",
+      "generate_desc": "Peek creará un código de conexión para ti",
+      "generate_button": "Generar Código de Conexión",
+      "advanced_bunker": "Avanzado: Tengo una URL de bunker →",
+      "waiting_approval": "Esperando aprobación...",
+      "connection_code": "Código de conexión",
+      "paste_instruction": "Pega en nsec.app → Conectar App, luego aprueba",
+      "start_over": "Empezar de Nuevo",
+      "back_to_generate": "← Volver a generar",
+      "input_label": "Pega la URL de bunker de tu gestor de claves",
       "input_hint": "Para nsec.app: Avanzado → URL de Bunker",
-      "how_to_get": "Cómo obtener un código de conexión",
+      "how_to_get": "Cómo obtener una URL de bunker",
       "steps": {
         "1": "Abre tu gestor de claves (ej: nsec.app, Amber)",
         "2": "Inicia sesión o crea una cuenta",

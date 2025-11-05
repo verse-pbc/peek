@@ -11,7 +11,8 @@
       "continue": "Continue",
       "skip": "Skip for now",
       "reload": "Reload Page",
-      "close": "Close"
+      "close": "Close",
+      "copy": "Copy"
     },
     "status": {
       "loading": "Loading...",
@@ -440,10 +441,18 @@
     },
     "key_manager": {
       "title": "Use a Key Manager",
-      "description": "Your Nostr key is stored in your key manager (like nsec.app). Peek requests signatures when needed.",
-      "input_label": "Connection code from your key manager",
+      "description": "Your Nostr key is stored in your key manager (like nsec.app). Peek will request permission when needed.",
+      "generate_desc": "Peek will create a connection code for you",
+      "generate_button": "Generate Connection Code",
+      "advanced_bunker": "Advanced: I have a bunker URL →",
+      "waiting_approval": "Waiting for approval...",
+      "connection_code": "Connection code",
+      "paste_instruction": "Paste into nsec.app → Connect App, then approve",
+      "start_over": "Start Over",
+      "back_to_generate": "← Back to generate",
+      "input_label": "Paste bunker URL from your key manager",
       "input_hint": "For nsec.app: Advanced → Bunker URL",
-      "how_to_get": "How to get a connection code",
+      "how_to_get": "How to get a bunker URL",
       "steps": {
         "1": "Open your key manager (e.g., nsec.app, Amber)",
         "2": "Login or create account",
