@@ -12,6 +12,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { AlertCircle, Loader2, Copy, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/hooks/useToast';
@@ -42,6 +43,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   const [picture, setPicture] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'profile' | 'keys'>('profile');
   const [hasMarkedNsecSaved, setHasMarkedNsecSaved] = useState(false);
   const [isBackupExpanded, setIsBackupExpanded] = useState(false);
 
@@ -173,9 +175,14 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto styled-scrollbar">
-          {/* Profile Section */}
-          <div className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profile' | 'keys')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="profile">{t('profile.edit_dialog.tabs.profile')}</TabsTrigger>
+            <TabsTrigger value="keys">{t('profile.edit_dialog.tabs.keys')}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="profile" className="space-y-4 py-4">
+            {/* Profile Info Banner */}
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
               <AlertDescription className="text-sm">
@@ -241,10 +248,15 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
               )}
             </div>
 
-          </div>
+            {/* Push Notifications */}
+            <div className="pt-4 border-t">
+              <NotificationToggle />
+            </div>
+          </TabsContent>
 
-          {/* Account ID Section (npub) */}
-          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+          <TabsContent value="keys" className="space-y-4 py-4">
+            {/* Account ID Section (npub) */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.npub_label')}</Label>
               <p className="text-xs text-muted-foreground">{t('profile.edit_dialog.keys_tab.npub_desc')}</p>
@@ -330,31 +342,29 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
             </div>
           )}
 
-          {/* Extension users - show info */}
-          {identity?.type === 'extension' && (
-            <Alert className="bg-mint/10 border-mint/30">
-              <AlertCircle className="h-4 w-4 text-mint" />
-              <AlertDescription className="text-sm">
-                🔒 {t('profile.edit_dialog.keys_tab.extension_managed')}
-              </AlertDescription>
-            </Alert>
-          )}
+            {/* Extension users - show info */}
+            {identity?.type === 'extension' && (
+              <Alert className="bg-mint/10 border-mint/30">
+                <AlertCircle className="h-4 w-4 text-mint" />
+                <AlertDescription className="text-sm">
+                  🔒 {t('profile.edit_dialog.keys_tab.extension_managed')}
+                </AlertDescription>
+              </Alert>
+            )}
+          </TabsContent>
+        </Tabs>
 
-          {/* Push Notifications */}
-          <div className="pt-2 border-t">
-            <NotificationToggle />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.buttons.cancel')}
-          </Button>
-          <Button type="button" onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {t('profile.edit_dialog.profile_tab.save_button')}
-          </Button>
-        </DialogFooter>
+        {activeTab === 'profile' && (
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {t('common.buttons.cancel')}
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t('profile.edit_dialog.profile_tab.save_button')}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
