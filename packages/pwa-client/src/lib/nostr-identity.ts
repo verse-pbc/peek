@@ -439,17 +439,17 @@ export const useNostrLogin = () => {
           remotePubkey = await signer.getPublicKey();
           console.log('[loginWithBunker] ✅ Remote signer connected! Pubkey:', remotePubkey.slice(0, 8) + '...');
 
-          // Close pool
-          pool.close([relay!]);
+          // Close signer first (it will clean up its subscription)
+          await signer.close();
+
+          // Then close pool
+          pool.close(['wss://relay.nsec.app/']);
         } catch (signerError) {
           console.error('[loginWithBunker] ❌ BunkerSigner.fromURI failed:', signerError);
           // Close pool on error
-          pool.close([relay!]);
+          pool.close(['wss://relay.nsec.app/']);
           throw signerError;
         }
-
-        // Close connection (will reconnect in RelayContext)
-        await signer.close();
 
       } else {
         // Remote signer-initiated flow: parse bunker:// URL
