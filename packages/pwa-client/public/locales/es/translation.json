@@ -42,6 +42,8 @@
       "timestamp": "Marca de Tiempo",
       "na": "N/D"
     },
+    "show_password": "Mostrar contraseña",
+    "hide_password": "Ocultar contraseña",
     "user_menu": {
       "profile_and_keys": "Perfil y Claves",
       "theme": "Tema",
@@ -50,6 +52,38 @@
       "theme_system": "Sistema",
       "switch_account": "Cambiar Cuenta",
       "switching": "Cambiando..."
+    }
+  },
+  "pwa_import": {
+    "title": "Conecta Tu Cuenta",
+    "subtitle": "Configuración única para la app de inicio",
+    "info_banner": "Conecta tu cuenta de {{browser}} para sincronizar comunidades y habilitar notificaciones en esta app.",
+    "how_to_title": "Cómo conectar:",
+    "steps": {
+      "1": "Abre Peek en <1>{{browser}}</1>",
+      "2": "Toca tu <1>perfil</1> (arriba a la derecha)",
+      "3": "Abre configuración",
+      "4": "Busca la sección de respaldo",
+      "5": "Copia tu clave de cuenta",
+      "6": "Vuelve aquí y pega abajo"
+    },
+    "paste_label": "Pega tu clave aquí:",
+    "security_note": "Tu clave se guarda de forma segura solo en este dispositivo.",
+    "connect_button": "Conectar Cuenta",
+    "connecting": "Conectando...",
+    "or_key_manager": "O conecta con un gestor de claves →",
+    "no_account": "No tengo una cuenta en {{browser}}",
+    "toast": {
+      "no_key_title": "No Se Proporcionó Clave",
+      "no_key_desc": "Por favor pega tu clave secreta",
+      "connected_title": "¡Cuenta Conectada!",
+      "connected_with_notifs": "Comunidades y notificaciones habilitadas",
+      "connected_enable_notifs": "Habilita notificaciones en configuración para alertas",
+      "connected_synced": "Tus comunidades están sincronizadas",
+      "import_failed": "Importación Fallida",
+      "invalid_key": "Formato de clave secreta inválido",
+      "bunker_failed": "Conexión fallida",
+      "bunker_failed_desc": "No se pudo conectar"
     }
   },
   "home": {

@@ -16,6 +16,7 @@ import { useNostrLogin } from '@/lib/nostr-identity'
 import { useToast } from '@/hooks/useToast'
 import { requestNotificationPermission } from '@/services/push'
 import { IdentityModal } from './IdentityModal'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Detect platform and return appropriate browser name
@@ -35,6 +36,7 @@ function getPlatformBrowser(): string {
 }
 
 export function IOSPWAImportPrompt() {
+  const { t } = useTranslation()
   const { importIdentity, loginWithBunker } = useNostrLogin()
   const { toast } = useToast()
   const [nsecInput, setNsecInput] = useState('')
@@ -47,8 +49,8 @@ export function IOSPWAImportPrompt() {
   const handleImport = async () => {
     if (!nsecInput.trim()) {
       toast({
-        title: 'No Key Provided',
-        description: 'Please paste your secret key',
+        title: t('pwa_import.toast.no_key_title'),
+        description: t('pwa_import.toast.no_key_desc'),
         variant: 'destructive'
       })
       return
@@ -63,20 +65,20 @@ export function IOSPWAImportPrompt() {
         const permission = await requestNotificationPermission()
         if (permission === 'granted') {
           toast({
-            title: 'Account Connected!',
-            description: 'Communities and notifications enabled'
+            title: t('pwa_import.toast.connected_title'),
+            description: t('pwa_import.toast.connected_with_notifs')
           })
           console.log('[PWA Import] Push permission granted, will auto-register on reload')
         } else {
           toast({
-            title: 'Account Connected!',
-            description: 'Enable notifications in settings for alerts'
+            title: t('pwa_import.toast.connected_title'),
+            description: t('pwa_import.toast.connected_enable_notifs')
           })
         }
       } catch (e) {
         toast({
-          title: 'Account Connected!',
-          description: 'Your communities are now synced'
+          title: t('pwa_import.toast.connected_title'),
+          description: t('pwa_import.toast.connected_synced')
         })
         console.warn('[PWA Import] Failed to request push permission:', e)
       }
@@ -85,8 +87,8 @@ export function IOSPWAImportPrompt() {
       setTimeout(() => window.location.href = '/', 1500)
     } catch (error) {
       toast({
-        title: 'Import Failed',
-        description: error instanceof Error ? error.message : 'Invalid secret key format',
+        title: t('pwa_import.toast.import_failed'),
+        description: error instanceof Error ? error.message : t('pwa_import.toast.invalid_key'),
         variant: 'destructive'
       })
       setImporting(false)
@@ -106,14 +108,14 @@ export function IOSPWAImportPrompt() {
         const permission = await requestNotificationPermission();
         if (permission === 'granted') {
           toast({
-            title: 'Account Connected!',
-            description: 'Communities and notifications enabled'
+            title: t('pwa_import.toast.connected_title'),
+            description: t('pwa_import.toast.connected_with_notifs')
           });
         }
       } catch {
         toast({
-          title: 'Account Connected!',
-          description: 'Your communities are now synced'
+          title: t('pwa_import.toast.connected_title'),
+          description: t('pwa_import.toast.connected_synced')
         });
       }
 
@@ -121,8 +123,8 @@ export function IOSPWAImportPrompt() {
       setTimeout(() => window.location.href = '/', 1500);
     } catch (err) {
       toast({
-        title: 'Connection failed',
-        description: err instanceof Error ? err.message : 'Failed to connect',
+        title: t('pwa_import.toast.bunker_failed'),
+        description: err instanceof Error ? err.message : t('pwa_import.toast.bunker_failed_desc'),
         variant: 'destructive'
       });
     }
@@ -152,35 +154,34 @@ export function IOSPWAImportPrompt() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Download className="h-5 w-5" />
-            Connect Your Account
+            {t('pwa_import.title')}
           </CardTitle>
           <CardDescription>
-            One-time setup for Peek homescreen app
+            {t('pwa_import.subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-sm text-blue-800 dark:text-blue-200">
-              Connect your {browserName} account to sync communities and enable notifications in this app.
+              {t('pwa_import.info_banner', { browser: browserName })}
             </AlertDescription>
           </Alert>
 
           <div className="space-y-2">
-            <h3 className="font-medium text-sm">How to connect:</h3>
+            <h3 className="font-medium text-sm">{t('pwa_import.how_to_title')}</h3>
             <ol className="text-sm space-y-1.5 text-muted-foreground list-decimal list-inside">
-              <li>Open Peek in <strong>{browserName}</strong></li>
-              <li>Go to "My Communities" (tap back ← if in a community)</li>
-              <li>Tap your <strong>avatar</strong> (top right corner)</li>
-              <li>Select <strong>"Profile & Keys"</strong></li>
-              <li>Go to <strong>"Your Keys"</strong> tab</li>
-              <li>Tap <strong>"Copy Secret Key"</strong></li>
-              <li>Return here and paste below</li>
+              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.1', { browser: `<strong>${browserName}</strong>` }) }} />
+              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.2') }} />
+              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.3') }} />
+              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.4') }} />
+              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.5') }} />
+              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.6') }} />
             </ol>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Paste your key here:</label>
+            <label className="text-sm font-medium">{t('pwa_import.paste_label')}</label>
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
@@ -195,13 +196,13 @@ export function IOSPWAImportPrompt() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t('common.hide_password') : t('common.show_password')}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Your key is stored securely on this device only.
+              {t('pwa_import.security_note')}
             </p>
           </div>
 
@@ -211,7 +212,7 @@ export function IOSPWAImportPrompt() {
               disabled={importing || !nsecInput.trim()}
               className="w-full"
             >
-              {importing ? 'Connecting...' : 'Connect Account'}
+              {importing ? t('pwa_import.connecting') : t('pwa_import.connect_button')}
             </Button>
 
             <div className="pt-2 border-t">
@@ -219,7 +220,7 @@ export function IOSPWAImportPrompt() {
                 onClick={() => setShowBunkerModal(true)}
                 className="w-full text-sm text-muted-foreground hover:text-foreground hover:underline py-2"
               >
-                Or connect with a key manager →
+                {t('pwa_import.or_key_manager')}
               </button>
             </div>
 
@@ -229,7 +230,7 @@ export function IOSPWAImportPrompt() {
               size="sm"
               className="w-full text-xs text-muted-foreground"
             >
-              I don't have a {browserName} account
+              {t('pwa_import.no_account', { browser: browserName })}
             </Button>
           </div>
         </CardContent>

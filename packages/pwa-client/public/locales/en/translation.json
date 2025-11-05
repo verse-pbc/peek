@@ -42,6 +42,8 @@
       "timestamp": "Timestamp",
       "na": "N/A"
     },
+    "show_password": "Show password",
+    "hide_password": "Hide password",
     "user_menu": {
       "profile_and_keys": "Profile & Keys",
       "theme": "Theme",
@@ -50,6 +52,38 @@
       "theme_system": "System",
       "switch_account": "Switch Account",
       "switching": "Switching..."
+    }
+  },
+  "pwa_import": {
+    "title": "Connect Your Account",
+    "subtitle": "One-time setup for Peek homescreen app",
+    "info_banner": "Connect your {{browser}} account to sync communities and enable notifications in this app.",
+    "how_to_title": "How to connect:",
+    "steps": {
+      "1": "Open Peek in <1>{{browser}}</1>",
+      "2": "Tap your <1>profile</1> (top right)",
+      "3": "Open settings",
+      "4": "Find the backup section",
+      "5": "Copy your account key",
+      "6": "Return here and paste below"
+    },
+    "paste_label": "Paste your key here:",
+    "security_note": "Your key is stored securely on this device only.",
+    "connect_button": "Connect Account",
+    "connecting": "Connecting...",
+    "or_key_manager": "Or connect with a key manager →",
+    "no_account": "I don't have a {{browser}} account",
+    "toast": {
+      "no_key_title": "No Key Provided",
+      "no_key_desc": "Please paste your secret key",
+      "connected_title": "Account Connected!",
+      "connected_with_notifs": "Communities and notifications enabled",
+      "connected_enable_notifs": "Enable notifications in settings for alerts",
+      "connected_synced": "Your communities are now synced",
+      "import_failed": "Import Failed",
+      "invalid_key": "Invalid secret key format",
+      "bunker_failed": "Connection failed",
+      "bunker_failed_desc": "Failed to connect"
     }
   },
   "home": {
