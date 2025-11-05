@@ -157,12 +157,12 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
             !nostrConnectUri ? (
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">
-                  Peek will create a connection code for you
+                  {t('identity_modal.key_manager.generate_desc')}
                 </p>
 
                 <Button onClick={handleGenerateNostrConnect} className="w-full">
                   <Cloud className="mr-2 h-4 w-4" />
-                  Generate Connection Code
+                  {t('identity_modal.key_manager.generate_button')}
                 </Button>
 
                 <div className="flex justify-end">
@@ -170,7 +170,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                     onClick={() => setShowAdvanced(true)}
                     className="text-xs text-muted-foreground hover:text-foreground hover:underline"
                   >
-                    Advanced: I have a bunker URL →
+                    {t('identity_modal.key_manager.advanced_bunker')}
                   </button>
                 </div>
               </div>
@@ -178,15 +178,15 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
               // After generating
               <div className="space-y-3">
                 {isWaitingForConnection && (
-                  <p className="text-sm">⏳ Waiting for approval...</p>
+                  <p className="text-sm">⏳ {t('identity_modal.key_manager.waiting_approval')}</p>
                 )}
 
                 <div>
                   <div className="flex justify-between mb-1">
-                    <Label className="text-sm">Connection code</Label>
+                    <Label className="text-sm">{t('identity_modal.key_manager.connection_code')}</Label>
                     <Button onClick={handleCopyNostrConnect} size="sm" variant="ghost">
                       <Copy className="w-3 h-3 mr-1" />
-                      Copy
+                      {t('common.buttons.copy')}
                     </Button>
                   </div>
                   <Input
@@ -198,7 +198,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Paste into nsec.app → Connect App, then approve
+                  {t('identity_modal.key_manager.paste_instruction')}
                 </p>
 
                 <Button
@@ -209,7 +209,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                     setIsWaitingForConnection(false);
                   }}
                 >
-                  Start Over
+                  {t('identity_modal.key_manager.start_over')}
                 </Button>
               </div>
             )
@@ -220,11 +220,11 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 onClick={() => setShowAdvanced(false)}
                 className="text-xs text-blue-600 hover:underline"
               >
-                ← Back to generate
+                {t('identity_modal.key_manager.back_to_generate')}
               </button>
 
               <div className="space-y-2">
-                <Label htmlFor="bunkerUri">Paste bunker URL from your key manager</Label>
+                <Label htmlFor="bunkerUri">{t('identity_modal.key_manager.input_label')}</Label>
                 <Input
                   id="bunkerUri"
                   type="text"
