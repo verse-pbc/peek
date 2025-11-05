@@ -58,7 +58,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   const [showBackupWarning, setShowBackupWarning] = useState(false);
   const [hasConfirmedBackup, setHasConfirmedBackup] = useState(false);
 
-  // Bunker-specific state (restored for testing nostrconnect)
+  // Bunker-specific state
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [nostrConnectUri, setNostrConnectUri] = useState<string | null>(null);
   const [nostrConnectData, setNostrConnectData] = useState<{
     uri: string;
@@ -399,7 +400,6 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           </TabsContent>
 
           <TabsContent value="bunker" className="space-y-4">
-            {/* Testing nostrconnect with fixed parameters */}
             <div className="space-y-3">
               <div>
                 <p className="font-medium text-sm">{t('identity_modal.key_manager.title')}</p>
@@ -408,57 +408,129 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 </p>
               </div>
 
-              {!nostrConnectUri ? (
-                // Generate flow (default)
-                <div className="space-y-3">
-                  <p className="text-sm">Testing improved nsec.app connection</p>
-                  <p className="text-xs text-muted-foreground">
-                    Click to generate a connection code with proper metadata
-                  </p>
+              {!showAdvanced ? (
+                // Default: Generate nostrconnect (client-initiated)
+                !nostrConnectUri ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Peek will create a connection code for you
+                    </p>
 
-                  <Button onClick={handleGenerateNostrConnect} className="w-full">
-                    <Cloud className="mr-2 h-4 w-4" />
-                    Generate Connection Code
-                  </Button>
-                </div>
-              ) : (
-                // After generating
-                <div className="space-y-3">
-                  {isWaitingForConnection && (
-                    <p className="text-sm">⏳ Waiting for nsec.app approval...</p>
-                  )}
+                    <Button onClick={handleGenerateNostrConnect} className="w-full">
+                      <Cloud className="mr-2 h-4 w-4" />
+                      Generate Connection Code
+                    </Button>
 
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <Label className="text-sm">Connection code</Label>
-                      <Button onClick={handleCopyNostrConnect} size="sm" variant="ghost">
-                        <Copy className="w-3 h-3 mr-1" />
-                        Copy
-                      </Button>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setShowAdvanced(true)}
+                        className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        Advanced: I have a bunker URL →
+                      </button>
                     </div>
+                  </div>
+                ) : (
+                  // After generating
+                  <div className="space-y-3">
+                    {isWaitingForConnection && (
+                      <p className="text-sm">⏳ Waiting for approval...</p>
+                    )}
+
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <Label className="text-sm">Connection code</Label>
+                        <Button onClick={handleCopyNostrConnect} size="sm" variant="ghost">
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy
+                        </Button>
+                      </div>
+                      <Input
+                        value={nostrConnectUri}
+                        readOnly
+                        className="font-mono text-xs"
+                        onClick={(e) => e.currentTarget.select()}
+                      />
+                    </div>
+
+                    <p className="text-xs text-muted-foreground">
+                      Paste into nsec.app → Connect App, then approve
+                    </p>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNostrConnectUri(null);
+                        setNostrConnectData(null);
+                        setIsWaitingForConnection(false);
+                      }}
+                    >
+                      Start Over
+                    </Button>
+                  </div>
+                )
+              ) : (
+                // Advanced: Paste bunker URL (remote-initiated)
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setShowAdvanced(false)}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    ← Back to generate
+                  </button>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bunkerUri">Paste bunker URL from your key manager</Label>
                     <Input
-                      value={nostrConnectUri}
-                      readOnly
+                      id="bunkerUri"
+                      type="text"
+                      placeholder="bunker://..."
+                      value={bunkerUri}
+                      onChange={(e) => {
+                        setBunkerUri(e.target.value);
+                        setBunkerError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleBunker();
+                      }}
                       className="font-mono text-xs"
-                      onClick={(e) => e.currentTarget.select()}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      {t('identity_modal.key_manager.input_hint')}
+                    </p>
                   </div>
 
-                  <p className="text-xs text-muted-foreground">
-                    Paste into nsec.app → Connect App, then approve
-                  </p>
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                      {t('identity_modal.key_manager.how_to_get')}
+                    </summary>
+                    <ol className="mt-2 space-y-1 list-decimal list-inside text-muted-foreground">
+                      <li><a href="https://nsec.app" target="_blank" className="text-blue-600 hover:underline">{t('identity_modal.key_manager.steps.1')}</a></li>
+                      <li>{t('identity_modal.key_manager.steps.2')}</li>
+                      <li>{t('identity_modal.key_manager.steps.3')}</li>
+                      <li>{t('identity_modal.key_manager.steps.4')}</li>
+                      <li>{t('identity_modal.key_manager.steps.5')}</li>
+                      <li>{t('identity_modal.key_manager.steps.6')}</li>
+                    </ol>
+                    <p className="mt-2 text-muted-foreground">
+                      💡 {t('identity_modal.key_manager.popup_blocked')}
+                    </p>
+                  </details>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setNostrConnectUri(null);
-                      setNostrConnectData(null);
-                      setIsWaitingForConnection(false);
-                    }}
-                  >
-                    Start Over
-                  </Button>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      {t('identity_modal.cancel')}
+                    </Button>
+                    <Button
+                      onClick={handleBunker}
+                      disabled={!bunkerUri.trim()}
+                      className="flex-1"
+                    >
+                      <Cloud className="mr-2 h-4 w-4" />
+                      {t('identity_modal.key_manager.connect_button')}
+                    </Button>
+                  </DialogFooter>
                 </div>
               )}
             </div>
