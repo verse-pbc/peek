@@ -1,4 +1,3 @@
-import type { StoredIdentity } from '@/lib/nostr-identity';
 import { useState, useEffect, useRef } from 'react';
 import {
   Table,

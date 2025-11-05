@@ -54,10 +54,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   const { identity } = useNostrLogin();
   const identityRef = useRef(identity);
   const previousPubkeyRef = useRef<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bunkerSignerRef = useRef<any | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bunkerPoolRef = useRef<any | null>(null);
+  const bunkerSignerRef = useRef<{ signEvent: (event: EventTemplate) => Promise<VerifiedEvent>; close: () => void } | null>(null);
+  const bunkerPoolRef = useRef<{ close: (relays: string[]) => void } | null>(null);
 
   // Keep identity ref up to date
   useEffect(() => {

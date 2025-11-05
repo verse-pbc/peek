@@ -13,10 +13,9 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Checkbox } from './ui/checkbox';
-import { AlertCircle, Zap, Copy, AlertTriangle, Cloud, Loader2, Shield, KeyRound } from 'lucide-react';
+import { AlertCircle, Zap, Copy, AlertTriangle, Cloud, Shield, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useAppContext } from '@/hooks/useAppContext';
 import { useTranslation } from 'react-i18next';
 import { generateNostrConnectURI } from '@/lib/nostr-identity';
 
@@ -50,7 +49,6 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { config } = useAppContext();
   const [nsecInput, setNsecInput] = useState('');
   const [bunkerUri, setBunkerUri] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -60,14 +58,14 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   const [showBackupWarning, setShowBackupWarning] = useState(false);
   const [hasConfirmedBackup, setHasConfirmedBackup] = useState(false);
 
-  // Bunker-specific state
-  const [bunkerMode, setBunkerMode] = useState<'paste' | 'generate'>('generate');
+  // Bunker-specific state (restored for testing nostrconnect)
   const [nostrConnectUri, setNostrConnectUri] = useState<string | null>(null);
   const [nostrConnectData, setNostrConnectData] = useState<{
     uri: string;
     clientSecretKey: string;
     clientPubkey: string;
     secret: string;
+    relay: string;
   } | null>(null);
   const [isWaitingForConnection, setIsWaitingForConnection] = useState(false);
 
@@ -148,30 +146,23 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
 
   const handleGenerateNostrConnect = async () => {
     try {
-      // Use app's configured relay for NIP-46 communication
-      // This is where Peek will listen for bunker responses
-      const data = generateNostrConnectURI(config.relayUrl);
+      const data = generateNostrConnectURI();
       setNostrConnectUri(data.uri);
       setNostrConnectData(data);
       setBunkerError(null);
       setIsWaitingForConnection(true);
 
-      console.log('[IdentityModal] Generated nostrconnect:// URI with relay:', data.relay);
-      console.log('[IdentityModal] Peek will listen on relay:', data.relay);
-      console.log('[IdentityModal] Client pubkey:', data.clientPubkey);
+      console.log('[IdentityModal] Generated nostrconnect:// with nsec.app format');
 
-      // Immediately start listening for remote signer connection
-      // Don't wait for state update - use data directly
+      // Start listening for connection
       if (onBunker) {
-        console.log('[IdentityModal] Starting to listen for remote signer on:', data.relay);
         await onBunker(data.uri, {
           clientSecretKey: data.clientSecretKey,
           isNostrConnect: true
         });
-        // Success - will close modal and reload
       }
     } catch (err) {
-      console.error('[IdentityModal] Failed to connect:', err);
+      console.error('[IdentityModal] Failed:', err);
       setBunkerError(err instanceof Error ? err.message : 'Connection failed');
       setIsWaitingForConnection(false);
     }
@@ -180,32 +171,8 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   const handleCopyNostrConnect = () => {
     if (!nostrConnectUri) return;
     navigator.clipboard.writeText(nostrConnectUri);
-    toast({
-      title: "Connection string copied!",
-      description: "Paste this into nsec.app or your remote signer"
-    });
+    toast({ title: "Copied!", description: "Paste into nsec.app" });
   };
-
-  const handleNostrConnectLogin = React.useCallback(async () => {
-    if (!nostrConnectUri || !nostrConnectData) return;
-
-    setIsWaitingForConnection(true);
-    setBunkerError(null);
-
-    try {
-      if (onBunker) {
-        await onBunker(nostrConnectUri, {
-          clientSecretKey: nostrConnectData.clientSecretKey,
-          isNostrConnect: true
-        });
-        // onOpenChange(false); // Will be called by parent after success
-      }
-    } catch (err) {
-      console.error('[IdentityModal] NostrConnect login failed:', err);
-      setBunkerError(err instanceof Error ? err.message : 'Connection failed');
-      setIsWaitingForConnection(false);
-    }
-  }, [nostrConnectUri, nostrConnectData, onBunker]);
 
   // Set default tab based on platform and available options
   React.useEffect(() => {
@@ -432,7 +399,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           </TabsContent>
 
           <TabsContent value="bunker" className="space-y-4">
-            {/* Single-purpose: Paste bunker URL from nsec.app */}
+            {/* Testing nostrconnect with fixed parameters */}
             <div className="space-y-3">
               <div>
                 <p className="font-medium text-sm">{t('identity_modal.key_manager.title')}</p>
@@ -441,43 +408,59 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="bunkerUri">{t('identity_modal.key_manager.input_label')}</Label>
-                <Input
-                  id="bunkerUri"
-                  type="text"
-                  placeholder="bunker://..."
-                  value={bunkerUri}
-                  onChange={(e) => {
-                    setBunkerUri(e.target.value);
-                    setBunkerError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleBunker();
-                  }}
-                  className="font-mono text-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t('identity_modal.key_manager.input_hint')}
-                </p>
-              </div>
+              {!nostrConnectUri ? (
+                // Generate flow (default)
+                <div className="space-y-3">
+                  <p className="text-sm">Testing improved nsec.app connection</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click to generate a connection code with proper metadata
+                  </p>
 
-              <details className="text-xs">
-                <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                  {t('identity_modal.key_manager.how_to_get')}
-                </summary>
-                <ol className="mt-2 space-y-1 list-decimal list-inside text-muted-foreground">
-                  <li><a href="https://nsec.app" target="_blank" className="text-blue-600 hover:underline">{t('identity_modal.key_manager.steps.1')}</a></li>
-                  <li>{t('identity_modal.key_manager.steps.2')}</li>
-                  <li>{t('identity_modal.key_manager.steps.3')}</li>
-                  <li>{t('identity_modal.key_manager.steps.4')}</li>
-                  <li>{t('identity_modal.key_manager.steps.5')}</li>
-                  <li>{t('identity_modal.key_manager.steps.6')}</li>
-                </ol>
-                <p className="mt-2 text-muted-foreground">
-                  💡 {t('identity_modal.key_manager.popup_blocked')}
-                </p>
-              </details>
+                  <Button onClick={handleGenerateNostrConnect} className="w-full">
+                    <Cloud className="mr-2 h-4 w-4" />
+                    Generate Connection Code
+                  </Button>
+                </div>
+              ) : (
+                // After generating
+                <div className="space-y-3">
+                  {isWaitingForConnection && (
+                    <p className="text-sm">⏳ Waiting for nsec.app approval...</p>
+                  )}
+
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <Label className="text-sm">Connection code</Label>
+                      <Button onClick={handleCopyNostrConnect} size="sm" variant="ghost">
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                    <Input
+                      value={nostrConnectUri}
+                      readOnly
+                      className="font-mono text-xs"
+                      onClick={(e) => e.currentTarget.select()}
+                    />
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Paste into nsec.app → Connect App, then approve
+                  </p>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNostrConnectUri(null);
+                      setNostrConnectData(null);
+                      setIsWaitingForConnection(false);
+                    }}
+                  >
+                    Start Over
+                  </Button>
+                </div>
+              )}
             </div>
 
             {bunkerError && (
@@ -486,20 +469,6 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                 <AlertDescription>{bunkerError}</AlertDescription>
               </Alert>
             )}
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {t('identity_modal.cancel')}
-              </Button>
-              <Button
-                onClick={handleBunker}
-                disabled={!bunkerUri.trim()}
-                className="flex-1"
-              >
-                <Cloud className="mr-2 h-4 w-4" />
-                {t('identity_modal.key_manager.connect_button')}
-              </Button>
-            </DialogFooter>
           </TabsContent>
         </Tabs>
       </DialogContent>

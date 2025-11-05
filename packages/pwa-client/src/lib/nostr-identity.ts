@@ -9,7 +9,7 @@
 import React from 'react';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { bytesToHex, hexToBytes } from '../lib/hex';
-import { nip19 } from 'nostr-tools';
+import { nip19, type EventTemplate, type VerifiedEvent } from 'nostr-tools';
 
 export const NostrContext = React.createContext<{ nostr?: unknown }>({});
 
@@ -80,50 +80,53 @@ const hasNip07Extension = (): boolean => {
  * Generate a nostrconnect:// URI for client-initiated NIP-46 flow
  * User pastes this into their remote signer (like nsec.app)
  *
- * Includes multiple relays for maximum compatibility since some bunkers
- * (like nsec.app) ignore the relay parameter and use their own defaults.
+ * Following nostr-login pattern for nsec.app compatibility:
+ * - Includes image, url, name, perms metadata (all URL-encoded)
+ * - Metadata parameters come BEFORE secret and relay
+ * - Uses single relay (wss://relay.nsec.app/)
  *
- * @param relay - Primary relay URL where Peek will listen for bunker responses.
- *                Should be the app's configured relay (config.relayUrl).
- *                Defaults to VITE_RELAY_URL environment variable or localhost if not provided.
- * @returns Connection data including URI, client keys, and relay list
+ * @returns Connection data including URI, client keys, and relay
  */
-export function generateNostrConnectURI(relay?: string): {
+export function generateNostrConnectURI(): {
   uri: string;
   clientSecretKey: string; // hex encoded
   clientPubkey: string;
   secret: string;
-  relay: string; // Primary relay
-  relays: string[]; // All relays
+  relay: string;
 } {
   // Generate client keypair
   const clientSecretKey = generateSecretKey();
   const clientPubkey = getPublicKey(clientSecretKey);
 
-  // Generate random secret (32 chars hex)
-  const secret = bytesToHex(generateSecretKey()).substring(0, 32);
+  // Generate random secret (shorter for URL compatibility)
+  const secret = Math.random().toString(36).substring(7);
 
-  // Use multiple relays for maximum compatibility
-  // NOTE: Some bunkers (like nsec.app) ignore the relay parameter and use their own defaults
-  // So we include common bunker relays to ensure we receive responses
-  const relays = [
-    relay || import.meta.env.VITE_RELAY_URL || 'ws://localhost:8080', // User's configured relay (or env default)
-    'wss://relay.nsec.app', // nsec.app's default relay
-    'wss://relay.damus.io', // Common fallback
-  ];
+  // Get app metadata (URL-encoded as per nostr-login pattern)
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://peek.verse.app';
+  const hostname = typeof window !== 'undefined' ? window.location.host : 'peek.verse.app';
 
-  // Build nostrconnect:// URI with multiple relays
-  // Format: nostrconnect://<client-pubkey>?relay=<relay1>&relay=<relay2>&secret=<secret>&name=<name>
-  const relayParams = relays.map(r => `relay=${r}`).join('&');
-  const uri = `nostrconnect://${clientPubkey}?${relayParams}&secret=${secret}&name=Peek`;
+  // Get favicon URL (simplified - use default if not found)
+  const icon = `${origin}/pwa-192x192.png`;
+
+  const metadata = {
+    image: encodeURIComponent(icon),
+    url: encodeURIComponent(origin),
+    name: encodeURIComponent(hostname),
+    perms: encodeURIComponent(''), // Empty for now, could add specific permissions
+  };
+
+  // Use nsec.app's relay (as per nostr-login pattern)
+  const relayUrl = 'wss://relay.nsec.app/';
+
+  // Build URI with metadata BEFORE secret and relay (order matters for nsec.app!)
+  const uri = `nostrconnect://${clientPubkey}?image=${metadata.image}&url=${metadata.url}&name=${metadata.name}&perms=${metadata.perms}&secret=${secret}&relay=${relayUrl}`;
 
   return {
     uri,
     clientSecretKey: bytesToHex(clientSecretKey),
     clientPubkey,
     secret,
-    relay: relays[0], // Primary relay
-    relays // All relays for BunkerSigner
+    relay: relayUrl
   };
 }
 
@@ -373,8 +376,7 @@ export const useNostrLogin = () => {
       // Dynamically import NIP-46 support from nostr-tools
       const { parseBunkerInput, BunkerSigner } = await import('nostr-tools/nip46');
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let signer: any;
+      let signer: { signEvent: (event: EventTemplate) => Promise<VerifiedEvent>; close: () => Promise<void>; getPublicKey: () => Promise<string>; connect?: () => Promise<void> };
       let remotePubkey: string;
       let clientSecretKeyHex: string;
 
