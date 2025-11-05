@@ -22,8 +22,10 @@ interface RelayContextType {
   migrationService: IdentityMigrationService | null;
   connected: boolean;
   waitingForBunkerApproval: boolean;
+  retryInfo: { attempt: number; isRetrying: boolean; maxAttempts: number };
   connect: () => Promise<void>;
   disconnect: () => void;
+  manualRetry: () => void;
   waitForConnection: () => Promise<void>;
 }
 
@@ -48,6 +50,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     useState<IdentityMigrationService | null>(null);
   const [connected, setConnected] = useState(false);
   const [waitingForBunkerApproval, setWaitingForBunkerApproval] = useState(false);
+  const [retryInfo, setRetryInfo] = useState({ attempt: 0, isRetrying: false, maxAttempts: 10 });
   const managerRef = useRef<RelayManager | null>(null);
   const groupManagerRef = useRef<GroupManager | null>(null);
   const migrationServiceRef = useRef<IdentityMigrationService | null>(null);
@@ -64,16 +67,25 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     identityRef.current = identity;
   }, [identity]);
 
+  // Poll retry status while not connected
+  useEffect(() => {
+    if (!connected && managerRef.current) {
+      const interval = setInterval(() => {
+        const info = managerRef.current!.getRetryInfo();
+        setRetryInfo(info);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      // Reset retry info when connected
+      setRetryInfo({ attempt: 0, isRetrying: false, maxAttempts: 10 });
+    }
+  }, [connected]);
+
   // Force reconnection when tab becomes visible (handles sleep/wake)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && managerRef.current) {
-        console.log('[RelayContext] Tab visible, forcing fresh connection');
-
-        // Disconnect to clear any zombie connection
-        managerRef.current.disconnect();
-
-        // Connect with fresh WebSocket
+      if (!document.hidden && managerRef.current && !managerRef.current.isConnected()) {
+        console.log('[RelayContext] Tab visible and disconnected, reconnecting...');
         managerRef.current.connect();
       }
     };
@@ -510,6 +522,14 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     }
   };
 
+  const manualRetry = () => {
+    if (managerRef.current) {
+      console.log('[RelayContext] Manual retry triggered by user');
+      managerRef.current.resetReconnectAttempts();
+      managerRef.current.connect();
+    }
+  };
+
   const waitForConnection = async () => {
     // If already connected, return immediately
     if (connected) {
@@ -546,8 +566,10 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
         migrationService,
         connected,
         waitingForBunkerApproval,
+        retryInfo,
         connect,
         disconnect,
+        manualRetry,
         waitForConnection,
       }}
     >

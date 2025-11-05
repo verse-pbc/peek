@@ -49,7 +49,7 @@ const Home = () => {
   const { user } = useNostrContext();
   const { pubkey, login, identity } = useNostrLogin();
   const { toast } = useToast();
-  const { groupManager, relayManager, connected, waitingForBunkerApproval } = useRelayManager();
+  const { groupManager, relayManager, connected, waitingForBunkerApproval, retryInfo, manualRetry } = useRelayManager();
   const { t } = useTranslation();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
@@ -368,14 +368,31 @@ const Home = () => {
             <Card className="bg-card border-0 shadow-lg">
               <CardContent className="flex flex-col items-center justify-center py-12 space-y-3">
                 <Loader2 className="h-8 w-8 animate-spin text-coral" />
-                {waitingForBunkerApproval && (
+                {waitingForBunkerApproval ? (
                   <div className="text-center space-y-1">
                     <p className="text-sm font-medium">Waiting for approval</p>
                     <p className="text-xs text-muted-foreground">
                       Please approve the request in the nsec.app popup
                     </p>
                   </div>
-                )}
+                ) : retryInfo.attempt >= retryInfo.maxAttempts ? (
+                  <div className="text-center space-y-3">
+                    <p className="text-sm font-medium text-destructive">Connection failed</p>
+                    <p className="text-xs text-muted-foreground">
+                      Unable to connect after {retryInfo.maxAttempts} attempts
+                    </p>
+                    <Button size="sm" onClick={manualRetry} variant="outline">
+                      Retry Connection
+                    </Button>
+                  </div>
+                ) : retryInfo.isRetrying && retryInfo.attempt > 0 ? (
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-medium">Retrying connection...</p>
+                    <p className="text-xs text-muted-foreground">
+                      Attempt {retryInfo.attempt + 1} of {retryInfo.maxAttempts}
+                    </p>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : communities.length === 0 ? (

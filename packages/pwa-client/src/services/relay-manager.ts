@@ -577,6 +577,28 @@ export class RelayManager {
   }
 
   /**
+   * Get current retry information
+   */
+  getRetryInfo(): { attempt: number; isRetrying: boolean; maxAttempts: number } {
+    return {
+      attempt: this.reconnectAttempts,
+      isRetrying: this.reconnectTimer !== undefined,
+      maxAttempts: this.maxReconnectAttempts
+    };
+  }
+
+  /**
+   * Reset reconnect attempts counter (for manual retry)
+   */
+  resetReconnectAttempts(): void {
+    this.reconnectAttempts = 0;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
+  }
+
+  /**
    * Subscribe to connection status changes
    */
   onConnectionChange(handler: ConnectionHandler): () => void {
