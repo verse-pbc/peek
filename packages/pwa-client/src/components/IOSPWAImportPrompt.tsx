@@ -1,8 +1,9 @@
 /**
- * iOS PWA Import Prompt
+ * PWA Import Prompt
  *
  * Shows on PWA first launch when no identity exists.
- * Explains iOS limitation and guides user to import from Safari.
+ * Explains PWA limitation and guides user to import from browser or use key manager.
+ * Platform-aware: shows Safari (iOS), Chrome (Android), or generic "browser" (other).
  */
 
 import React, { useState } from 'react'
@@ -14,13 +15,34 @@ import { AlertCircle, Download, Eye, EyeOff } from 'lucide-react'
 import { useNostrLogin } from '@/lib/nostr-identity'
 import { useToast } from '@/hooks/useToast'
 import { requestNotificationPermission } from '@/services/push'
+import { IdentityModal } from './IdentityModal'
+
+/**
+ * Detect platform and return appropriate browser name
+ */
+function getPlatformBrowser(): string {
+  const userAgent = navigator.userAgent.toLowerCase();
+
+  if (/iphone|ipad|ipod/.test(userAgent)) {
+    return 'Safari';
+  }
+
+  if (/android/.test(userAgent)) {
+    return 'Chrome';
+  }
+
+  return 'your browser';
+}
 
 export function IOSPWAImportPrompt() {
-  const { importIdentity } = useNostrLogin()
+  const { importIdentity, loginWithBunker } = useNostrLogin()
   const { toast } = useToast()
   const [nsecInput, setNsecInput] = useState('')
   const [importing, setImporting] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [showBunkerModal, setShowBunkerModal] = useState(false)
+
+  const browserName = getPlatformBrowser()
 
   const handleImport = async () => {
     if (!nsecInput.trim()) {
@@ -71,15 +93,50 @@ export function IOSPWAImportPrompt() {
     }
   }
 
+  const handleBunkerLogin = async (
+    uri: string,
+    options?: { clientSecretKey?: string; isNostrConnect?: boolean }
+  ) => {
+    try {
+      await loginWithBunker(uri, options);
+      setShowBunkerModal(false);
+
+      // Auto-request push notifications
+      try {
+        const permission = await requestNotificationPermission();
+        if (permission === 'granted') {
+          toast({
+            title: 'Account Connected!',
+            description: 'Communities and notifications enabled'
+          });
+        }
+      } catch {
+        toast({
+          title: 'Account Connected!',
+          description: 'Your communities are now synced'
+        });
+      }
+
+      // Reload to show communities
+      setTimeout(() => window.location.href = '/', 1500);
+    } catch (err) {
+      toast({
+        title: 'Connection failed',
+        description: err instanceof Error ? err.message : 'Failed to connect',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleContinueFresh = () => {
     // Warn user about consequences
     const confirmed = window.confirm(
-      "⚠️ Warning: Creating a new identity here means:\n\n" +
-      "• QR codes will open in Safari with a DIFFERENT identity\n" +
-      "• Communities won't sync between Safari and this app\n" +
-      "• Push notifications won't work for Safari communities\n\n" +
-      "Recommended: Import your Safari identity instead.\n\n" +
-      "Continue anyway?"
+      `⚠️ Warning: Creating a new identity here means:\n\n` +
+      `• QR codes will open in ${browserName} with a DIFFERENT identity\n` +
+      `• Communities won't sync between ${browserName} and this app\n` +
+      `• Push notifications won't work for ${browserName} communities\n\n` +
+      `Recommended: Import your ${browserName} identity instead.\n\n` +
+      `Continue anyway?`
     )
 
     if (confirmed) {
@@ -105,14 +162,14 @@ export function IOSPWAImportPrompt() {
           <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             <AlertDescription className="text-sm text-blue-800 dark:text-blue-200">
-              Connect your Safari account to sync communities and enable notifications in this app.
+              Connect your {browserName} account to sync communities and enable notifications in this app.
             </AlertDescription>
           </Alert>
 
           <div className="space-y-2">
             <h3 className="font-medium text-sm">How to connect:</h3>
             <ol className="text-sm space-y-1.5 text-muted-foreground list-decimal list-inside">
-              <li>Open Peek in <strong>Safari browser</strong></li>
+              <li>Open Peek in <strong>{browserName}</strong></li>
               <li>Go to "My Communities" (tap back ← if in a community)</li>
               <li>Tap your <strong>avatar</strong> (top right corner)</li>
               <li>Select <strong>"Profile & Keys"</strong></li>
@@ -157,17 +214,39 @@ export function IOSPWAImportPrompt() {
               {importing ? 'Connecting...' : 'Connect Account'}
             </Button>
 
+            <div className="pt-2 border-t">
+              <button
+                onClick={() => setShowBunkerModal(true)}
+                className="w-full text-sm text-muted-foreground hover:text-foreground hover:underline py-2"
+              >
+                Or connect with a key manager →
+              </button>
+            </div>
+
             <Button
               onClick={handleContinueFresh}
               variant="ghost"
               size="sm"
               className="w-full text-xs text-muted-foreground"
             >
-              I don't have a Safari account
+              I don't have a {browserName} account
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Key Manager Modal */}
+      {showBunkerModal && (
+        <IdentityModal
+          open={showBunkerModal}
+          onOpenChange={setShowBunkerModal}
+          onBunker={handleBunkerLogin}
+          mode="upgrade"
+          isLocalIdentity={true}
+          hasJoinedCommunities={false}
+          isUsingExtension={false}
+        />
+      )}
     </div>
   )
 }
