@@ -13,7 +13,7 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Checkbox } from './ui/checkbox';
-import { AlertCircle, Zap, Copy, AlertTriangle, Cloud, Shield, KeyRound } from 'lucide-react';
+import { AlertCircle, Zap, Copy, AlertTriangle, Cloud, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTranslation } from 'react-i18next';
@@ -56,17 +56,9 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   // Bunker-specific state
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [nostrConnectUri, setNostrConnectUri] = useState<string | null>(null);
-  const [nostrConnectData, setNostrConnectData] = useState<{
-    uri: string;
-    clientSecretKey: string;
-    clientPubkey: string;
-    secret: string;
-    relay: string;
-  } | null>(null);
   const [isWaitingForConnection, setIsWaitingForConnection] = useState(false);
 
-  const isUpgradeMode = mode === 'upgrade';
-  const showMigrationChoice = isUpgradeMode && isLocalIdentity && hasJoinedCommunities;
+  const showMigrationChoice = mode === 'upgrade' && isLocalIdentity && hasJoinedCommunities;
   const hasExtension = typeof window !== 'undefined' && !!window.nostr;
   const showExtensionTab = hasExtension && !isUsingExtension && !isMobile; // Hide extension tab on mobile
 
@@ -114,7 +106,6 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
     try {
       const data = generateNostrConnectURI();
       setNostrConnectUri(data.uri);
-      setNostrConnectData(data);
       setBunkerError(null);
       setIsWaitingForConnection(true);
 
@@ -215,7 +206,6 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
                   size="sm"
                   onClick={() => {
                     setNostrConnectUri(null);
-                    setNostrConnectData(null);
                     setIsWaitingForConnection(false);
                   }}
                 >
