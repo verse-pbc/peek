@@ -73,6 +73,7 @@
     "connecting": "Connecting...",
     "or_key_manager": "Or connect with a key manager →",
     "no_account": "I don't have a {{browser}} account",
+    "confirm_warning": "⚠️ Warning: Creating a new identity here means:\n\n• QR codes will open in {{browser}} with a DIFFERENT identity\n• Communities won't sync between {{browser}} and this app\n• Push notifications won't work for {{browser}} communities\n\nRecommended: Import your {{browser}} identity instead.\n\nContinue anyway?",
     "toast": {
       "no_key_title": "No Key Provided",
       "no_key_desc": "Please paste your secret key",
