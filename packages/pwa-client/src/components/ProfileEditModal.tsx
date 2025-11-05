@@ -173,7 +173,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
+        <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto styled-scrollbar">
           {/* Profile Section */}
           <div className="space-y-4">
             <Alert className="bg-mint/10 border-mint/30">
@@ -282,7 +282,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
               </button>
 
               {isBackupExpanded && (
-                <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                <div className="px-4 pb-4 space-y-3 border-t pt-4">
                   <Alert variant="destructive" className="py-2">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="text-xs">
@@ -291,65 +291,39 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                   </Alert>
 
                   <div className="space-y-3">
-                    <div>
-                      <p className="text-sm font-medium mb-2">Two ways to backup:</p>
+                    <p className="text-sm text-muted-foreground">
+                      Copy your key and save it in a secure place like{' '}
+                      <a
+                        href="https://nsec.app"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-coral hover:underline font-medium"
+                      >
+                        nsec.app
+                      </a>
+                      {' '}(a key manager) or a password manager.
+                    </p>
 
-                      {/* Recommended: Key manager */}
-                      <div className="space-y-2 p-3 border rounded-lg bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
-                        <div className="flex items-start gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500 flex-shrink-0 mt-0.5" />
-                          <div className="space-y-2 flex-1">
-                            <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                              Recommended: Key Manager
-                            </p>
-                            <p className="text-xs text-green-800 dark:text-green-200">
-                              Import into a key manager (like <a href="https://nsec.app" target="_blank" rel="noopener noreferrer" className="underline font-medium">nsec.app</a>) for secure storage + use across all Nostr apps
-                            </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={handleCopyNsec}
-                            >
-                              <Copy className="mr-2 h-3 w-3" />
-                              Copy Key → Import to nsec.app
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Alternative: Password manager */}
-                      <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-muted-foreground">
-                            OR: Basic Backup
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Store in a password manager (less convenient for other Nostr apps)
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={handleCopyNsec}
-                          >
-                            <Copy className="mr-2 h-3 w-3" />
-                            Copy Secret Key
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <a
-                      href={`https://nostr.how/${i18n.language}/get-started`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-coral hover:underline inline-flex items-center gap-1"
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleCopyNsec}
                     >
-                      New to Nostr? Learn more →
-                    </a>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy Secret Key
+                    </Button>
+
+                    <p className="text-xs text-muted-foreground">
+                      💡 Key managers like nsec.app let you use your identity across all Nostr apps securely.{' '}
+                      <a
+                        href={`https://nostr.how/${i18n.language}/get-started`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-coral hover:underline"
+                      >
+                        Learn more
+                      </a>
+                    </p>
                   </div>
                 </div>
               )}
