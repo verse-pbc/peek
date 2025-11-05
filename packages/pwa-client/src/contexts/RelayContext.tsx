@@ -320,6 +320,19 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           try {
             const signedEvent = await bunkerSignerRef.current.signEvent(authEvent);
             console.log("[RelayContext] ✅ Bunker signed NIP-42 auth successfully");
+
+            // If relay timed out while waiting for approval, retry connection
+            if (managerRef.current && !managerRef.current.isConnected()) {
+              console.log("[RelayContext] Relay disconnected during auth - retrying connection...");
+              setTimeout(() => {
+                if (managerRef.current) {
+                  managerRef.current.connect().catch((err) => {
+                    console.error("[RelayContext] Retry connection failed:", err);
+                  });
+                }
+              }, 100);
+            }
+
             return signedEvent as VerifiedEvent;
           } catch (authError) {
             console.error("[RelayContext] ❌ Bunker signing failed:", authError);
