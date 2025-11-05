@@ -38,7 +38,7 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   onExtension,
   onBunker,
   mode,
-  hasBackedUpNsec = false,
+  hasBackedUpNsec: _hasBackedUpNsec = false,
   currentNsec,
   hasJoinedCommunities = false,
   isUsingExtension = false,
