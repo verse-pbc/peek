@@ -16,7 +16,7 @@ import { useNostrLogin } from '@/lib/nostr-identity'
 import { useToast } from '@/hooks/useToast'
 import { requestNotificationPermission } from '@/services/push'
 import { IdentityModal } from './IdentityModal'
-import { useTranslation } from 'react-i18next'
+import { useTranslation, Trans } from 'react-i18next'
 
 /**
  * Detect platform and return appropriate browser name
@@ -133,12 +133,10 @@ export function IOSPWAImportPrompt() {
   const handleContinueFresh = () => {
     // Warn user about consequences
     const confirmed = window.confirm(
-      `⚠️ Warning: Creating a new identity here means:\n\n` +
-      `• QR codes will open in ${browserName} with a DIFFERENT identity\n` +
-      `• Communities won't sync between ${browserName} and this app\n` +
-      `• Push notifications won't work for ${browserName} communities\n\n` +
-      `Recommended: Import your ${browserName} identity instead.\n\n` +
-      `Continue anyway?`
+      t('pwa_import.confirm_warning', {
+        browser: browserName,
+        interpolation: { escapeValue: false }
+      })
     )
 
     if (confirmed) {
@@ -171,12 +169,12 @@ export function IOSPWAImportPrompt() {
           <div className="space-y-2">
             <h3 className="font-medium text-sm">{t('pwa_import.how_to_title')}</h3>
             <ol className="text-sm space-y-1.5 text-muted-foreground list-decimal list-inside">
-              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.1', { browser: `<strong>${browserName}</strong>` }) }} />
-              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.2') }} />
-              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.3') }} />
-              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.4') }} />
-              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.5') }} />
-              <li dangerouslySetInnerHTML={{ __html: t('pwa_import.steps.6') }} />
+              <li><Trans i18nKey="pwa_import.steps.1" values={{ browser: browserName }}><strong></strong></Trans></li>
+              <li><Trans i18nKey="pwa_import.steps.2"><strong></strong></Trans></li>
+              <li><Trans i18nKey="pwa_import.steps.3"><strong></strong></Trans></li>
+              <li><Trans i18nKey="pwa_import.steps.4"><strong></strong></Trans></li>
+              <li><Trans i18nKey="pwa_import.steps.5"><strong></strong></Trans></li>
+              <li><Trans i18nKey="pwa_import.steps.6"><strong></strong></Trans></li>
             </ol>
           </div>
 

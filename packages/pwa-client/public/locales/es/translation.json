@@ -73,6 +73,7 @@
     "connecting": "Conectando...",
     "or_key_manager": "O conecta con un gestor de claves →",
     "no_account": "No tengo una cuenta en {{browser}}",
+    "confirm_warning": "⚠️ Advertencia: Crear una nueva identidad aquí significa:\n\n• Los códigos QR se abrirán en {{browser}} con una identidad DIFERENTE\n• Las comunidades no se sincronizarán entre {{browser}} y esta app\n• Las notificaciones no funcionarán para las comunidades de {{browser}}\n\nRecomendado: Importa tu identidad de {{browser}} en su lugar.\n\n¿Continuar de todos modos?",
     "toast": {
       "no_key_title": "No Se Proporcionó Clave",
       "no_key_desc": "Por favor pega tu clave secreta",
