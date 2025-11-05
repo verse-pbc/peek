@@ -12,8 +12,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { AlertCircle, Loader2, Copy, CheckCircle } from 'lucide-react';
+import { AlertCircle, Loader2, Copy, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@/lib/nostr-identity';
@@ -43,11 +42,18 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   const [picture, setPicture] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'keys'>('profile');
   const [hasMarkedNsecSaved, setHasMarkedNsecSaved] = useState(false);
+  const [isBackupExpanded, setIsBackupExpanded] = useState(false);
 
   const hasBackedUpNsec = (identity?.type === 'local' && identity.hasBackedUpNsec) ?? false;
   const nsecStatus = hasBackedUpNsec || hasMarkedNsecSaved ? 'saved' : 'not-saved';
+
+  // Auto-expand backup section if not backed up yet
+  useEffect(() => {
+    if (identity?.type === 'local' && !hasBackedUpNsec && !hasMarkedNsecSaved) {
+      setIsBackupExpanded(true);
+    }
+  }, [identity, hasBackedUpNsec, hasMarkedNsecSaved]);
 
   // Truncated npub for display
   const truncatedNpub = useMemo(() => {
@@ -167,13 +173,9 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profile' | 'keys')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="profile">{t('profile.edit_dialog.tabs.profile')}</TabsTrigger>
-            <TabsTrigger value="keys">{t('profile.edit_dialog.tabs.keys')}</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile" className="space-y-4 py-4">
+        <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
+          {/* Profile Section */}
+          <div className="space-y-4">
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
               <AlertDescription className="text-sm">
@@ -239,92 +241,146 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
               )}
             </div>
 
-            {/* Push Notifications Toggle - in Profile tab */}
-            <div className="pt-4 border-t mt-4">
-              <NotificationToggle />
-            </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="keys" className="space-y-4 py-4">
-            <div className="space-y-4">
-              <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.npub_label')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('profile.edit_dialog.keys_tab.npub_desc')}</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-background p-2 rounded border font-mono">
-                      {truncatedNpub}
-                    </code>
-                    <Button variant="outline" size="sm" onClick={handleCopyNpub} className="flex-shrink-0">
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
+          {/* Account ID Section (npub) */}
+          <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.npub_label')}</Label>
+              <p className="text-xs text-muted-foreground">{t('profile.edit_dialog.keys_tab.npub_desc')}</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-background p-2 rounded border font-mono">
+                  {truncatedNpub}
+                </code>
+                <Button variant="outline" size="sm" onClick={handleCopyNpub} className="flex-shrink-0">
+                  <Copy className="h-3 w-3" />
+                </Button>
               </div>
+            </div>
+          </div>
 
-              {identity?.type === 'local' && (
-                <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.nsec_label')}</Label>
-                      {nsecStatus === 'saved' ? (
-                        <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-500">
-                          <CheckCircle className="h-3 w-3" /> {t('profile.edit_dialog.keys_tab.nsec_saved')}
-                        </span>
-                      ) : (
-                        <span className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-500">
-                          <AlertCircle className="h-3 w-3" /> {t('profile.edit_dialog.keys_tab.nsec_not_saved')}
-                        </span>
-                      )}
+          {/* Account Backup Section - Only for local identities */}
+          {identity?.type === 'local' && (
+            <div className="border rounded-lg">
+              <button
+                onClick={() => setIsBackupExpanded(!isBackupExpanded)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  {isBackupExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <span className="font-medium text-sm">Account Backup</span>
+                  {nsecStatus === 'saved' ? (
+                    <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-500">
+                      <CheckCircle className="h-3 w-3" /> Saved
+                    </span>
+                  ) : (
+                    <span className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-500">
+                      <AlertCircle className="h-3 w-3" /> Not saved
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              {isBackupExpanded && (
+                <div className="px-4 pb-4 space-y-4 border-t pt-4">
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      ⚠️ <strong>Save your account now.</strong> If you lose your key, you lose access forever.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium mb-2">Two ways to backup:</p>
+
+                      {/* Recommended: Key manager */}
+                      <div className="space-y-2 p-3 border rounded-lg bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-500 flex-shrink-0 mt-0.5" />
+                          <div className="space-y-2 flex-1">
+                            <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                              Recommended: Key Manager
+                            </p>
+                            <p className="text-xs text-green-800 dark:text-green-200">
+                              Import into a key manager (like <a href="https://nsec.app" target="_blank" rel="noopener noreferrer" className="underline font-medium">nsec.app</a>) for secure storage + use across all Nostr apps
+                            </p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={handleCopyNsec}
+                            >
+                              <Copy className="mr-2 h-3 w-3" />
+                              Copy Key → Import to nsec.app
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Alternative: Password manager */}
+                      <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-muted-foreground">
+                            OR: Basic Backup
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Store in a password manager (less convenient for other Nostr apps)
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={handleCopyNsec}
+                          >
+                            <Copy className="mr-2 h-3 w-3" />
+                            Copy Secret Key
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <Alert variant="destructive" className="py-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        {t('profile.edit_dialog.keys_tab.nsec_warning')}
-                      </AlertDescription>
-                    </Alert>
-                    <Button variant="outline" className="w-full" onClick={handleCopyNsec}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      {t('profile.edit_dialog.keys_tab.copy_nsec')}
-                    </Button>
+                  </div>
+
+                  <div className="pt-2">
+                    <a
+                      href={`https://nostr.how/${i18n.language}/get-started`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-coral hover:underline inline-flex items-center gap-1"
+                    >
+                      New to Nostr? Learn more →
+                    </a>
                   </div>
                 </div>
               )}
-
-              {identity?.type === 'extension' && (
-                <Alert className="bg-mint/10 border-mint/30">
-                  <AlertCircle className="h-4 w-4 text-mint" />
-                  <AlertDescription className="text-sm">
-                    {t('profile.edit_dialog.keys_tab.extension_managed')}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className="pt-2">
-                <a
-                  href={`https://nostr.how/${i18n.language}/get-started`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-coral hover:underline inline-flex items-center gap-1"
-                >
-                  {t('profile.edit_dialog.keys_tab.learn_more')}
-                </a>
-              </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          )}
 
-        {activeTab === 'profile' && (
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t('common.buttons.cancel')}
-            </Button>
-            <Button type="button" onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {t('profile.edit_dialog.profile_tab.save_button')}
-            </Button>
-          </DialogFooter>
-        )}
+          {/* Extension users - show info */}
+          {identity?.type === 'extension' && (
+            <Alert className="bg-mint/10 border-mint/30">
+              <AlertCircle className="h-4 w-4 text-mint" />
+              <AlertDescription className="text-sm">
+                🔒 {t('profile.edit_dialog.keys_tab.extension_managed')}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Push Notifications */}
+          <div className="pt-2 border-t">
+            <NotificationToggle />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {t('common.buttons.cancel')}
+          </Button>
+          <Button type="button" onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {t('profile.edit_dialog.profile_tab.save_button')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
