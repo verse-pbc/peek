@@ -309,18 +309,34 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           if (!bunkerSignerRef.current) {
             throw new Error("BunkerSigner not available");
           }
-          const signedEvent = await bunkerSignerRef.current.signEvent(authEvent);
-          return signedEvent as VerifiedEvent;
+
+          console.log("[RelayContext] Calling bunkerSigner.signEvent...");
+          try {
+            const signedEvent = await bunkerSignerRef.current.signEvent(authEvent);
+            console.log("[RelayContext] ✅ Bunker signed NIP-42 auth successfully");
+            return signedEvent as VerifiedEvent;
+          } catch (authError) {
+            console.error("[RelayContext] ❌ Bunker signing failed:", authError);
+            throw authError;
+          }
         });
 
         // Set event signer for bunker
         manager.setEventSigner(async (event: EventTemplate) => {
-          console.log("[RelayContext] Signing event with bunker");
+          console.log("[RelayContext] Signing event with bunker, kind:", event.kind);
           if (!bunkerSignerRef.current) {
             throw new Error("BunkerSigner not available");
           }
-          const signedEvent = await bunkerSignerRef.current.signEvent(event);
-          return signedEvent as VerifiedEvent;
+
+          console.log("[RelayContext] Calling bunkerSigner.signEvent...");
+          try {
+            const signedEvent = await bunkerSignerRef.current.signEvent(event);
+            console.log("[RelayContext] ✅ Bunker signed event successfully");
+            return signedEvent as VerifiedEvent;
+          } catch (signError) {
+            console.error("[RelayContext] ❌ Bunker signing failed:", signError);
+            throw signError;
+          }
         });
       } else if (shouldUseExtension) {
         // Use NIP-07 extension for signing
