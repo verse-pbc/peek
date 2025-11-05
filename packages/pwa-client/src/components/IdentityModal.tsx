@@ -60,6 +60,9 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
 
   // Bunker-specific state
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Import key state
+  const [showPasteField, setShowPasteField] = useState(false);
   const [nostrConnectUri, setNostrConnectUri] = useState<string | null>(null);
   const [nostrConnectData, setNostrConnectData] = useState<{
     uri: string;
@@ -284,81 +287,104 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
           
           <TabsContent value="import" className="space-y-4">
             <div className="space-y-3">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">{t('identity_modal.paste_key.title')}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t('identity_modal.paste_key.description')}
-                </p>
-              </div>
+              <p className="text-sm font-medium">Import Your Nostr Key</p>
 
-              <div className="space-y-2">
-                <Label htmlFor="nsec">{t('identity_modal.paste_key.input_label')}</Label>
-                <Input
-                  id="nsec"
-                  type="password"
-                  placeholder="nsec1..."
-                  value={nsecInput}
-                  onChange={(e) => {
-                    setNsecInput(e.target.value);
-                    setError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleImport();
-                  }}
-                />
-              </div>
-
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="space-y-2">
-                  <p className="font-medium">{t('identity_modal.paste_key.security_notice')}</p>
-                  <p className="text-xs">
-                    {t('identity_modal.paste_key.security_warning')}
-                  </p>
-                  <div className="text-xs space-y-1">
-                    <p>✓ {t('identity_modal.paste_key.best_for')}</p>
-                    <p>✗ {t('identity_modal.paste_key.avoid')}</p>
+              {!showPasteField ? (
+                // Educational path (default)
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">💡 The secure way:</p>
+                    <p className="text-xs text-muted-foreground">
+                      Import your nsec into nsec.app first, then connect Peek through "Use a Key Manager"
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      This keeps your key protected in a key vault, like a password manager
+                    </p>
                   </div>
-                </AlertDescription>
-              </Alert>
 
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  🔐 {t('identity_modal.paste_key.more_secure')}
-                </p>
-                <a
-                  href={`https://nostr.how/${i18n.language}/get-started`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-coral hover:underline inline-flex items-center gap-1"
-                >
-                  {t('identity_modal.paste_key.new_to_nostr')} →
-                </a>
-              </div>
+                  <Button
+                    onClick={() => window.open('https://nsec.app', '_blank')}
+                    className="w-full"
+                  >
+                    Guide me to nsec.app →
+                  </Button>
+
+                  <div className="pt-2 border-t">
+                    <button
+                      onClick={() => setShowPasteField(true)}
+                      className="text-xs text-muted-foreground hover:text-foreground hover:underline w-full text-center"
+                    >
+                      Or paste your key directly (key stays in browser) →
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Paste field (after clicking link)
+                <div className="space-y-3">
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      <p className="font-medium">Pasting directly is less secure</p>
+                      <p className="mt-1">Best for personal devices only. Avoid shared or work computers.</p>
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="nsec">{t('identity_modal.paste_key.input_label')}</Label>
+                    <Input
+                      id="nsec"
+                      type="password"
+                      placeholder="nsec1..."
+                      value={nsecInput}
+                      onChange={(e) => {
+                        setNsecInput(e.target.value);
+                        setError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleImport();
+                      }}
+                    />
+                  </div>
+
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex justify-between items-center text-xs">
+                    <button
+                      onClick={() => setShowPasteField(false)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      ← Back to secure option
+                    </button>
+                    <a
+                      href="https://nsec.app"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      Use nsec.app instead →
+                    </a>
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                      {t('identity_modal.cancel')}
+                    </Button>
+                    <Button
+                      onClick={handleImport}
+                      disabled={showBackupWarning && !hasConfirmedBackup}
+                      className="flex-1"
+                    >
+                      Import Key
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
             </div>
-            
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                {t('identity_modal.cancel')}
-              </Button>
-              <Button
-                type="button"
-                onClick={handleImport}
-                disabled={showBackupWarning && !hasConfirmedBackup}
-              >
-                {hasJoinedCommunities
-                  ? (keepCommunities ? t('identity_modal.paste_key.upgrade_keep') : t('identity_modal.paste_key.switch_fresh'))
-                  : t('identity_modal.paste_key.switch_account')
-                }
-              </Button>
-            </DialogFooter>
           </TabsContent>
 
           <TabsContent value="extension" className="space-y-4">
