@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@nostrify/react':
+        specifier: ^0.2.17
+        version: 0.2.17
     devDependencies:
       '@types/node':
         specifier: ^20.10.0
@@ -41,9 +45,6 @@ importers:
       '@nostrify/nostrify':
         specifier: ^0.46.11
         version: 0.46.11(typescript@5.9.2)
-      '@nostrify/react':
-        specifier: ^0.2.15
-        version: 0.2.15(typescript@5.9.2)
       '@peek/shared':
         specifier: workspace:*
         version: link:../../shared
@@ -183,8 +184,8 @@ importers:
         specifier: ^0.6.3
         version: 0.6.3
       nostr-tools:
-        specifier: ^2.13.0
-        version: 2.16.2(typescript@5.9.2)
+        specifier: ^2.17.2
+        version: 2.17.2(typescript@5.9.2)
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -2800,9 +2801,9 @@ packages:
       '@nostrify/types': 0.36.7
       '@scure/base': 1.2.6
       '@std/encoding': /@jsr/std__encoding@0.224.3
-      '@types/node': 24.5.0
+      '@types/node': 24.10.0
       lru-cache: 10.4.3
-      nostr-tools: 2.16.2(typescript@5.9.2)
+      nostr-tools: 2.17.2(typescript@5.9.2)
       websocket-ts: 2.2.1
       ws: 8.18.3
       zod: 3.25.76
@@ -2812,14 +2813,32 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@nostrify/react@0.2.15(typescript@5.9.2):
-    resolution: {integrity: sha512-XHqshRHPDp2fWmqcQs6qve6nm/q1JnlTzgXgJyhaXTLBwyIqJlQcDcfm5MQ6pr0lsi/Qm15aHnMO6f6qQnN/sA==}
+  /@nostrify/nostrify@0.47.1:
+    resolution: {integrity: sha512-8jdAeKIyyDK/UQN92WgrQn9+B067HYcjfW35TpIjNLAT9qYe+KYFHaC9O6PD+I1DvLHziJMxk4Q18Fu4fqOiAQ==}
     dependencies:
-      '@nostrify/nostrify': 0.46.11(typescript@5.9.2)
+      '@nostrify/types': 0.36.7
+      '@scure/base': 1.2.6
+      '@std/encoding': /@jsr/std__encoding@0.224.3
+      '@types/node': 24.10.0
+      lru-cache: 10.4.3
+      nostr-tools: 2.17.2(typescript@5.9.2)
+      websocket-ts: 2.2.1
+      ws: 8.18.3
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+    dev: false
+
+  /@nostrify/react@0.2.17:
+    resolution: {integrity: sha512-IG6XPiNBe1nDFZ055EnWufxASPjgOZ2cE53Hjanj5xQQURwzA946yMhDDzaHmD9lvoBYjuijopmTiyFk2RObHQ==}
+    dependencies:
+      '@nostrify/nostrify': 0.47.1
       '@nostrify/types': 0.36.7
       '@tanstack/react-query': 5.87.4(react@18.3.1)
       happy-dom: 17.6.3
-      nostr-tools: 2.16.2(typescript@5.9.2)
+      nostr-tools: 2.17.2(typescript@5.9.2)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     transitivePeerDependencies:
@@ -4690,10 +4709,10 @@ packages:
     dependencies:
       undici-types: 6.21.0
 
-  /@types/node@24.5.0:
-    resolution: {integrity: sha512-y1dMvuvJspJiPSDZUQ+WMBvF7dpnEqN4x9DDC9ie5Fs/HUZJA3wFp7EhHoVaKX/iI0cRoECV8X2jL8zi0xrHCg==}
+  /@types/node@24.10.0:
+    resolution: {integrity: sha512-qzQZRBqkFsYyaSWXuEHc2WR9c0a0CXwiE5FWUvn7ZM+vdy1uZLfCunD38UzhuB7YN/J11ndbDBcTmOdxJo9Q7A==}
     dependencies:
-      undici-types: 7.12.0
+      undici-types: 7.16.0
     dev: false
 
   /@types/prop-types@15.7.15:
@@ -4898,7 +4917,7 @@ packages:
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@swc/core': 1.13.5
-      vite: 7.1.5(@types/node@22.18.1)
+      vite: 7.1.5(@types/node@20.19.13)
     transitivePeerDependencies:
       - '@swc/helpers'
     dev: true
@@ -7140,8 +7159,8 @@ packages:
       typescript: 5.9.2
     dev: false
 
-  /nostr-tools@2.16.2(typescript@5.9.2):
-    resolution: {integrity: sha512-ZxH9EbSt5ypURZj2TGNJxZd0Omb5ag5KZSu8IyJMCdLyg2KKz+2GA0sP/cSawCQEkyviIN4eRT4G2gB/t9lMRw==}
+  /nostr-tools@2.17.2(typescript@5.9.2):
+    resolution: {integrity: sha512-B/6rxJ4hyrwEdxsGYUiw2E/+/ZcKuFzQcrSYDHJpYAV0xae344UU2QdL6VHPlbHsBhMufUDU4+h2emZLpIlwLA==}
     peerDependencies:
       typescript: '>=5.0.0'
     peerDependenciesMeta:
@@ -8542,8 +8561,8 @@ packages:
   /undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
-  /undici-types@7.12.0:
-    resolution: {integrity: sha512-goOacqME2GYyOZZfb5Lgtu+1IDmAlAEu5xnD3+xTzS10hT0vzpf0SPjkXwAw9Jm+4n/mQGDP3LO8CPbYROeBfQ==}
+  /undici-types@7.16.0:
+    resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
     dev: false
 
   /unhead@2.0.14:
@@ -8757,6 +8776,57 @@ packages:
       workbox-window: 7.3.0
     transitivePeerDependencies:
       - supports-color
+    dev: true
+
+  /vite@7.1.5(@types/node@20.19.13):
+    resolution: {integrity: sha512-4cKBO9wR75r0BeIWWWId9XK9Lj6La5X846Zw9dFfzMRw38IlTk2iCcUt6hsyiDRcPidc55ZParFYDXi0nXOeLQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^20.19.0 || >=22.12.0
+      jiti: '>=1.21.0'
+      less: ^4.0.0
+      lightningcss: ^1.21.0
+      sass: ^1.70.0
+      sass-embedded: ^1.70.0
+      stylus: '>=0.54.8'
+      sugarss: ^5.0.0
+      terser: ^5.16.0
+      tsx: ^4.8.1
+      yaml: ^2.4.2
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      jiti:
+        optional: true
+      less:
+        optional: true
+      lightningcss:
+        optional: true
+      sass:
+        optional: true
+      sass-embedded:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+      tsx:
+        optional: true
+      yaml:
+        optional: true
+    dependencies:
+      '@types/node': 20.19.13
+      esbuild: 0.25.9
+      fdir: 6.5.0(picomatch@4.0.3)
+      picomatch: 4.0.3
+      postcss: 8.5.6
+      rollup: 4.50.1
+      tinyglobby: 0.2.15
+    optionalDependencies:
+      fsevents: 2.3.3
     dev: true
 
   /vite@7.1.5(@types/node@22.18.1):

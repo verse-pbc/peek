@@ -29,4 +29,4 @@ export type {
 } from './useLocationCapture';
 
 // Nostrify shim exports  
-export * from './nostrify-shim';
+export * from './nostr-identity';

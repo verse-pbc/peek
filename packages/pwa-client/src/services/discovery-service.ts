@@ -77,7 +77,7 @@ export class DiscoveryService {
 
     const sub = this.pool.subscribeMany(
       [this.relayUrl],
-      [filter],
+      filter,
       {
         onevent: (event) => {
           const points = this.parseDiscoveryEvent(event);

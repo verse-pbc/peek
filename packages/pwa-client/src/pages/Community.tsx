@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { isCommunityMember } from "../services/community-storage";
 import { useToast } from "@/hooks/useToast";
-import { useNostrLogin } from "../lib/nostrify-shim";
+import { useNostrLogin } from "../lib/nostr-identity";
 import { useRelayManager } from "../contexts/RelayContext";
 import { useMigrationState } from "../hooks/useMigrationState";
 import { useMigrationPolling } from "../hooks/useMigrationPolling";

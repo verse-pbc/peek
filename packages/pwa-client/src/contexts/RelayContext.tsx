@@ -14,13 +14,14 @@ import {
   type VerifiedEvent,
 } from "nostr-tools";
 import { hexToBytes } from "@/lib/hex";
-import { useNostrLogin } from "@/lib/nostrify-shim";
+import { useNostrLogin } from "@/lib/nostr-identity";
 
 interface RelayContextType {
   relayManager: RelayManager | null;
   groupManager: GroupManager | null;
   migrationService: IdentityMigrationService | null;
   connected: boolean;
+  waitingForBunkerApproval: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
   waitForConnection: () => Promise<void>;
@@ -46,6 +47,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   const [migrationService, setMigrationService] =
     useState<IdentityMigrationService | null>(null);
   const [connected, setConnected] = useState(false);
+  const [waitingForBunkerApproval, setWaitingForBunkerApproval] = useState(false);
   const managerRef = useRef<RelayManager | null>(null);
   const groupManagerRef = useRef<GroupManager | null>(null);
   const migrationServiceRef = useRef<IdentityMigrationService | null>(null);
@@ -54,6 +56,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   const { identity } = useNostrLogin();
   const identityRef = useRef(identity);
   const previousPubkeyRef = useRef<string | null>(null);
+  const bunkerSignerRef = useRef<{ signEvent: (event: EventTemplate) => Promise<VerifiedEvent>; close: () => void } | null>(null);
+  const bunkerPoolRef = useRef<{ close: (relays: string[]) => void } | null>(null);
 
   // Keep identity ref up to date
   useEffect(() => {
@@ -115,6 +119,20 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
         migrationServiceRef.current = null;
       }
 
+      // Close bunker signer if switching from bunker identity
+      if (bunkerSignerRef.current) {
+        console.log('[RelayContext] Identity changed - closing old bunker signer');
+        bunkerSignerRef.current.close();
+        bunkerSignerRef.current = null;
+      }
+
+      // Close bunker pool if active
+      if (bunkerPoolRef.current) {
+        console.log('[RelayContext] Identity changed - closing bunker pool');
+        bunkerPoolRef.current.close([]);
+        bunkerPoolRef.current = null;
+      }
+
       // Clear state - triggers re-initialization in main effect
       setRelayManager(null);
       setGroupManager(null);
@@ -159,7 +177,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
 
       // Check if stored identity is NIP-07 extension-based
       if (
-        personalIdentity?.secretKey === "NIP07_EXTENSION" &&
+        personalIdentity?.type === "extension" &&
         personalIdentity?.publicKey &&
         typeof window !== "undefined" &&
         window.nostr
@@ -173,40 +191,110 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       // If not using extension, check stored identity for key-based auth
       if (!usingExtension && personalIdentity) {
 
-        if (
-          (identity?.secretKey && identity?.publicKey) ||
-          (personalIdentity?.secretKey && personalIdentity?.publicKey)
-        ) {
+        if (personalIdentity || identity) {
           // Use stored identity (unified single source)
           const authIdentity = personalIdentity || identity;
 
-          // Check if this is actually a NIP-07 extension identity
-          const secretKeyValue = authIdentity.secretKey?.trim();
+          // Handle different identity types using discriminated union
+          switch (authIdentity.type) {
+            case 'local': {
+              // Local identity with hex secret key (always auto-generated/anonymous)
+              console.log('[RelayContext] Using anonymous local identity for auth:', authIdentity.publicKey.slice(0, 8) + '...');
+              secretKeyBytes = hexToBytes(authIdentity.secretKey);
+              publicKeyHex = authIdentity.publicKey;
+              break;
+            }
 
-          // Log for debugging (NEVER log secret key value!)
-          console.log('[RelayContext] Checking secretKey:', {
-            type: typeof secretKeyValue,
-            length: secretKeyValue?.length,
-            isNIP07: secretKeyValue === 'NIP07_EXTENSION',
-            isHex: /^[0-9a-f]{64}$/i.test(secretKeyValue || '')
-          });
+            case 'extension': {
+              // Extension identity but extension check failed - use public key only
+              console.log("[RelayContext] NIP-07 identity detected, using public key without secret key");
+              publicKeyHex = authIdentity.publicKey;
+              // secretKeyBytes remains undefined - extension will handle signing
+              break;
+            }
 
-          if (secretKeyValue === 'NIP07_EXTENSION') {
-            // Extension identity but extension check failed - use public key only
-            console.log("[RelayContext] NIP-07 identity detected, using public key without secret key");
-            publicKeyHex = authIdentity.publicKey;
-            // secretKeyBytes remains undefined - extension will handle signing
-          } else if (secretKeyValue && /^[0-9a-f]{64}$/i.test(secretKeyValue)) {
-            // Valid hex secret key - use it
-            const identityType = authIdentity.isAutoGenerated ? 'anonymous' : 'user';
-            console.log(`[RelayContext] Using ${identityType} identity for auth:`, authIdentity.publicKey.slice(0, 8) + '...');
-            secretKeyBytes = hexToBytes(secretKeyValue);
-            publicKeyHex = authIdentity.publicKey;
-          } else {
-            // Invalid or missing secret key
-            console.error('[RelayContext] Invalid secret key format - length:', secretKeyValue?.length);
-            publicKeyHex = authIdentity.publicKey;
-            // secretKeyBytes remains undefined
+            case 'bunker': {
+              // Bunker identity - create BunkerSigner for signing
+              console.log("[RelayContext] Bunker identity detected, creating BunkerSigner...");
+              publicKeyHex = authIdentity.publicKey;
+
+              try {
+                // Import NIP-46 dependencies
+                const { BunkerSigner } = await import('nostr-tools/nip46');
+                const { SimplePool } = await import('nostr-tools/pool');
+
+                // Construct BunkerPointer from stored identity data (per NIP-46 spec)
+                console.log("[RelayContext] Reconstructing BunkerPointer for reconnection");
+                const bunkerInfo = {
+                  pubkey: authIdentity.bunkerPubkey, // Remote signer's pubkey
+                  relays: authIdentity.relays, // Relay URLs from initial connection
+                  secret: authIdentity.secret // Connection secret (optional)
+                };
+                console.log("[RelayContext] Bunker pubkey:", bunkerInfo.pubkey.slice(0, 16) + '...');
+                console.log("[RelayContext] Bunker relays:", bunkerInfo.relays);
+
+                // Create SimplePool for bunker
+                const bunkerPool = new SimplePool();
+                bunkerPoolRef.current = bunkerPool;
+
+                // Create BunkerSigner using fromBunker() factory
+                // NO connect() call - already authorized from initial login
+                const bunkerSigner = BunkerSigner.fromBunker(
+                  hexToBytes(authIdentity.clientSecretKey),
+                  bunkerInfo!,
+                  {
+                    pool: bunkerPool,
+                    onauth: (authUrl: string) => {
+                      console.log('[RelayContext] 🔐 Additional authorization required from nsec.app');
+                      console.log('[RelayContext] Opening auth popup');
+
+                      // Try to open popup
+                      const popup = window.open(authUrl, 'nsec-auth', 'width=600,height=700,popup=yes');
+
+                      // Detect if popup was blocked
+                      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+                        console.warn('[RelayContext] ⚠️ Popup blocked by browser!');
+                        console.log('[RelayContext] User must manually approve at:', authUrl);
+
+                        // Show user-friendly message
+                        const message = 'nsec.app requires approval for this action.\n\n' +
+                                       'Your browser blocked the popup. Please:\n' +
+                                       '1. Allow popups for this site, or\n' +
+                                       '2. Click OK to open the approval page manually';
+
+                        if (confirm(message)) {
+                          window.location.href = authUrl;
+                        }
+                      } else {
+                        console.log('[RelayContext] ✅ Auth popup opened successfully');
+
+                        // Show OS notification to guide user
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                          new Notification('Approval needed', {
+                            body: 'Please approve the request in the nsec.app popup',
+                            icon: '/pwa-192x192.png'
+                          });
+                        }
+                      }
+                    }
+                  }
+                );
+
+                bunkerSignerRef.current = bunkerSigner;
+                console.log("[RelayContext] ✅ BunkerSigner created and ready for signing");
+              } catch (bunkerError) {
+                console.error("[RelayContext] Failed to create BunkerSigner:", bunkerError);
+                throw bunkerError;
+              }
+
+              // secretKeyBytes remains undefined - bunker will handle signing
+              break;
+            }
+
+            default: {
+              console.error('[RelayContext] Unknown identity type');
+              break;
+            }
           }
         }
       }
@@ -220,10 +308,69 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       manager.setUserPubkey(publicKeyHex);
 
       // Check if we should use NIP-07 (either actively detected or stored identity is NIP-07)
-      const isNIP07Identity = personalIdentity?.secretKey === "NIP07_EXTENSION";
+      const isNIP07Identity = personalIdentity?.type === "extension";
       const shouldUseExtension = usingExtension || isNIP07Identity;
+      const isBunkerIdentity = personalIdentity?.type === "bunker";
 
-      if (shouldUseExtension) {
+      if (isBunkerIdentity && bunkerSignerRef.current) {
+        // Use bunker for signing
+        console.log("[RelayContext] Setting up bunker signing handlers");
+
+        manager.setAuthHandler(async (authEvent: EventTemplate) => {
+          console.log(
+            "[RelayContext] Signing NIP-42 auth event with bunker for pubkey:",
+            publicKeyHex.slice(0, 8) + "...",
+          );
+          if (!bunkerSignerRef.current) {
+            throw new Error("BunkerSigner not available");
+          }
+
+          console.log("[RelayContext] Calling bunkerSigner.signEvent...");
+          setWaitingForBunkerApproval(true);
+
+          try {
+            const signedEvent = await bunkerSignerRef.current.signEvent(authEvent);
+            console.log("[RelayContext] ✅ Bunker signed NIP-42 auth successfully");
+            setWaitingForBunkerApproval(false);
+
+            // If relay timed out while waiting for approval, retry connection
+            if (managerRef.current && !managerRef.current.isConnected()) {
+              console.log("[RelayContext] Relay disconnected during auth - retrying connection...");
+              setTimeout(() => {
+                if (managerRef.current) {
+                  managerRef.current.connect().catch((err) => {
+                    console.error("[RelayContext] Retry connection failed:", err);
+                  });
+                }
+              }, 100);
+            }
+
+            return signedEvent as VerifiedEvent;
+          } catch (authError) {
+            console.error("[RelayContext] ❌ Bunker signing failed:", authError);
+            setWaitingForBunkerApproval(false);
+            throw authError;
+          }
+        });
+
+        // Set event signer for bunker
+        manager.setEventSigner(async (event: EventTemplate) => {
+          console.log("[RelayContext] Signing event with bunker, kind:", event.kind);
+          if (!bunkerSignerRef.current) {
+            throw new Error("BunkerSigner not available");
+          }
+
+          console.log("[RelayContext] Calling bunkerSigner.signEvent...");
+          try {
+            const signedEvent = await bunkerSignerRef.current.signEvent(event);
+            console.log("[RelayContext] ✅ Bunker signed event successfully");
+            return signedEvent as VerifiedEvent;
+          } catch (signError) {
+            console.error("[RelayContext] ❌ Bunker signing failed:", signError);
+            throw signError;
+          }
+        });
+      } else if (shouldUseExtension) {
         // Use NIP-07 extension for signing
         manager.setAuthHandler(async (authEvent: EventTemplate) => {
           console.log(
@@ -255,12 +402,9 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           );
           const currentIdentity = identityRef.current;
 
-          // Get the current secret key
+          // Get the current secret key based on identity type
           let currentSecretKey: Uint8Array;
-          if (
-            currentIdentity?.secretKey &&
-            currentIdentity.secretKey !== "NIP07_EXTENSION"
-          ) {
+          if (currentIdentity?.type === 'local') {
             currentSecretKey = hexToBytes(currentIdentity.secretKey);
           } else {
             // Fallback to the original secretKeyBytes if identity not available
@@ -279,12 +423,9 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           console.log("[RelayContext] Signing event with local key");
           const currentIdentity = identityRef.current;
 
-          // Get the current secret key
+          // Get the current secret key based on identity type
           let currentSecretKey: Uint8Array;
-          if (
-            currentIdentity?.secretKey &&
-            currentIdentity.secretKey !== "NIP07_EXTENSION"
-          ) {
+          if (currentIdentity?.type === 'local') {
             currentSecretKey = hexToBytes(currentIdentity.secretKey);
           } else {
             // Fallback to the original secretKeyBytes if identity not available
@@ -353,6 +494,20 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     if (managerRef.current) {
       managerRef.current.disconnect();
     }
+
+    // Close bunker signer if active
+    if (bunkerSignerRef.current) {
+      console.log("[RelayContext] Closing bunker signer");
+      bunkerSignerRef.current.close();
+      bunkerSignerRef.current = null;
+    }
+
+    // Close bunker pool if active
+    if (bunkerPoolRef.current) {
+      console.log("[RelayContext] Closing bunker pool");
+      bunkerPoolRef.current.close([]);
+      bunkerPoolRef.current = null;
+    }
   };
 
   const waitForConnection = async () => {
@@ -367,6 +522,22 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
     }
   };
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (bunkerSignerRef.current) {
+        console.log('[RelayContext] Unmounting - closing bunker signer');
+        bunkerSignerRef.current.close();
+        bunkerSignerRef.current = null;
+      }
+      if (bunkerPoolRef.current) {
+        console.log('[RelayContext] Unmounting - closing bunker pool');
+        bunkerPoolRef.current.close([]);
+        bunkerPoolRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <RelayContext.Provider
       value={{
@@ -374,6 +545,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
         groupManager,
         migrationService,
         connected,
+        waitingForBunkerApproval,
         connect,
         disconnect,
         waitForConnection,

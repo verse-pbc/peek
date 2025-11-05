@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { NIP29_KINDS } from '@/services/relay-manager';
 import { type GroupMetadata } from '@/services/group-manager';
-import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useNostrLogin } from '@/lib/nostr-identity';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { EventTemplate } from 'nostr-tools';
 import { resolveSecretKey } from '@/lib/secret-key-utils';

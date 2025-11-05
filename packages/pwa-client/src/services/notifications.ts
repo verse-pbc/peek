@@ -1,3 +1,4 @@
+import type { StoredIdentity } from '@/lib/nostr-identity';
 /**
  * Notification Subscription Service
  *
@@ -78,7 +79,7 @@ export function computeFilterHash(filter: CommunityFilter): string {
  */
 export async function subscribeToCommunity(
   communityId: string,
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
   try {
@@ -126,7 +127,7 @@ export async function subscribeToCommunity(
 
     // Sign event (NIP-07 or local key)
     let signedEvent: Event
-    if (identity.secretKey === 'NIP07_EXTENSION' && window.nostr?.signEvent) {
+    if (identity.type === 'extension' && window.nostr?.signEvent) {
       // Use NIP-07 extension for signing
       signedEvent = await window.nostr.signEvent(eventTemplate) as Event
     } else {
@@ -165,7 +166,7 @@ export async function subscribeToCommunity(
  */
 export async function unsubscribeFromCommunity(
   communityId: string,
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
   try {
@@ -209,7 +210,7 @@ export async function unsubscribeFromCommunity(
 
     // Sign event (NIP-07 or local key)
     let signedEvent: Event
-    if (identity.secretKey === 'NIP07_EXTENSION' && window.nostr?.signEvent) {
+    if (identity.type === 'extension' && window.nostr?.signEvent) {
       // Use NIP-07 extension for signing
       signedEvent = await window.nostr.signEvent(eventTemplate) as Event
     } else {
@@ -245,7 +246,7 @@ export async function unsubscribeFromCommunity(
  */
 export async function subscribeToAllCommunities(
   communityIds: string[],
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<number> {
   let successCount = 0
@@ -270,7 +271,7 @@ export async function subscribeToAllCommunities(
  * @returns Number of successful unsubscriptions
  */
 export async function unsubscribeFromAllCommunities(
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<number> {
   const subscribedCommunities = getSubscribedCommunities()
@@ -348,7 +349,7 @@ export async function checkSubscriptionsFromRelay(
  * @returns Number of refreshed subscriptions
  */
 export async function checkAndRefreshSubscriptions(
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<number> {
   const subscribedCommunities = getSubscribedCommunities()

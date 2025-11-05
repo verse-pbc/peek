@@ -11,7 +11,7 @@ import { Button } from './ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Input } from './ui/input'
 import { AlertCircle, Download, Eye, EyeOff } from 'lucide-react'
-import { useNostrLogin } from '@/lib/nostrify-shim'
+import { useNostrLogin } from '@/lib/nostr-identity'
 import { useToast } from '@/hooks/useToast'
 import { requestNotificationPermission } from '@/services/push'
 

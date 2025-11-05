@@ -1,3 +1,4 @@
+import type { StoredIdentity } from '@/lib/nostr-identity';
 /**
  * Push Notification Service
  *
@@ -67,7 +68,7 @@ export async function getFCMToken(): Promise<string | null> {
  */
 export async function registerDevice(
   fcmToken: string,
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
   try {
@@ -112,7 +113,7 @@ export async function registerDevice(
 
     // Sign event (NIP-07 or local key)
     let signedEvent: Event
-    if (identity.secretKey === 'NIP07_EXTENSION' && window.nostr?.signEvent) {
+    if (identity.type === 'extension' && window.nostr?.signEvent) {
       // Use NIP-07 extension for signing
       signedEvent = await window.nostr.signEvent(eventTemplate) as Event
     } else {
@@ -173,7 +174,7 @@ export async function hasTokenChanged(): Promise<boolean> {
  * @returns true if refreshed, false if no refresh needed or failed
  */
 export async function checkAndRefreshDeviceToken(
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
   // Get current FCM token from Firebase
@@ -225,7 +226,7 @@ export async function checkAndRefreshDeviceToken(
  * @returns true if successful
  */
 export async function deregisterDevice(
-  identity: { secretKey: string; publicKey: string } | null,
+  identity: StoredIdentity | null,
   publishEvent: (event: Event) => Promise<void>
 ): Promise<boolean> {
   try {
@@ -278,7 +279,7 @@ export async function deregisterDevice(
 
     // Sign event (NIP-07 or local key)
     let signedEvent: Event
-    if (identity.secretKey === 'NIP07_EXTENSION' && window.nostr?.signEvent) {
+    if (identity.type === 'extension' && window.nostr?.signEvent) {
       // Use NIP-07 extension for signing
       signedEvent = await window.nostr.signEvent(eventTemplate) as Event
     } else {

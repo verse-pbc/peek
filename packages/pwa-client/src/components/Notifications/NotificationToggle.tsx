@@ -20,8 +20,8 @@ import {
 } from '@/services/push'
 import { subscribeToAllCommunities, unsubscribeFromAllCommunities } from '@/services/notifications'
 import { isDeviceRegistered, clearDeviceRegistration, resetUserDisabledFlag } from '@/lib/pushStorage'
-import { hasNip44Support } from '@/lib/nostrify-shim'
-import { useNostrLogin } from '@/lib/nostrify-shim'
+import { hasNip44Support } from '@/lib/nostr-identity'
+import { useNostrLogin } from '@/lib/nostr-identity'
 import { useRelayManager } from '@/contexts/RelayContext'
 import { isIOS, isPWA, canUsePushNotifications } from '@/lib/platform'
 
@@ -81,7 +81,7 @@ export function NotificationToggle() {
     setLoading(true)
 
     // If using NIP-07, wait for extension to fully load (extensions inject asynchronously)
-    if (identity.secretKey === 'NIP07_EXTENSION') {
+    if (identity.type === 'extension') {
       let attempts = 0
       const maxAttempts = 30 // 30 * 100ms = 3 seconds
 

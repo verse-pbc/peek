@@ -8,7 +8,7 @@
  */
 
 import { useEffect } from 'react'
-import { useNostrLogin, hasNip44Support } from '@/lib/nostrify-shim'
+import { useNostrLogin, hasNip44Support } from '@/lib/nostr-identity'
 import { useRelayManager } from '@/contexts/RelayContext'
 import { checkAndRefreshDeviceToken, getFCMToken, registerDevice } from '@/services/push'
 import { checkAndRefreshSubscriptions, subscribeToAllCommunities } from '@/services/notifications'
@@ -25,7 +25,7 @@ export function usePushNotificationRefresh() {
 
     const refreshExpiredItems = async () => {
       // If using NIP-07, wait for extension to load (they inject asynchronously)
-      if (identity.secretKey === 'NIP07_EXTENSION') {
+      if (identity.type === 'extension') {
         // Wait up to 3 seconds for extension to become available
         let attempts = 0
         const maxAttempts = 30 // 30 * 100ms = 3 seconds

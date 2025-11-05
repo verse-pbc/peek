@@ -13,10 +13,10 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { AlertCircle, Loader2, Copy, CheckCircle } from 'lucide-react';
+import { AlertCircle, Loader2, Copy, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/hooks/useToast';
-import { useNostrLogin } from '@/lib/nostrify-shim';
+import { useNostrLogin } from '@/lib/nostr-identity';
 import { EventTemplate, finalizeEvent, nip19 } from 'nostr-tools';
 import { hexToBytes } from '@/lib/hex';
 import { SimplePool } from 'nostr-tools';
@@ -31,7 +31,7 @@ interface ProfileEditModalProps {
 }
 
 export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { identity } = useNostrLogin();
   const { data: profile } = useProfile(pubkey);
@@ -45,9 +45,17 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'profile' | 'keys'>('profile');
   const [hasMarkedNsecSaved, setHasMarkedNsecSaved] = useState(false);
+  const [isBackupExpanded, setIsBackupExpanded] = useState(false);
 
-  const hasBackedUpNsec = identity?.hasBackedUpNsec ?? false;
+  const hasBackedUpNsec = (identity?.type === 'local' && identity.hasBackedUpNsec) ?? false;
   const nsecStatus = hasBackedUpNsec || hasMarkedNsecSaved ? 'saved' : 'not-saved';
+
+  // Auto-expand backup section if not backed up yet
+  useEffect(() => {
+    if (identity?.type === 'local' && !hasBackedUpNsec && !hasMarkedNsecSaved) {
+      setIsBackupExpanded(true);
+    }
+  }, [identity, hasBackedUpNsec, hasMarkedNsecSaved]);
 
   // Truncated npub for display
   const truncatedNpub = useMemo(() => {
@@ -89,13 +97,16 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
 
       // Sign event
       let signedEvent;
-      if (identity.secretKey === 'NIP07_EXTENSION') {
+      if (identity.type === 'extension') {
         // Use NIP-07 extension
         signedEvent = await window.nostr!.signEvent(event);
-      } else {
-        // Use secret key
+      } else if (identity.type === 'local') {
+        // Use local secret key
         const secretKey = hexToBytes(identity.secretKey);
         signedEvent = finalizeEvent(event, secretKey);
+      } else {
+        // Bunker - use RelayManager's eventSigner
+        throw new Error('Profile editing with bunker not yet supported');
       }
 
       // Publish to profile relays
@@ -139,7 +150,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   };
 
   const handleCopyNsec = () => {
-    if (!identity?.secretKey || identity.secretKey === 'NIP07_EXTENSION') return;
+    if (!identity || identity.type !== 'local') return;
 
     const nsec = nip19.nsecEncode(hexToBytes(identity.secretKey));
     navigator.clipboard.writeText(nsec);
@@ -171,12 +182,13 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
           </TabsList>
 
           <TabsContent value="profile" className="space-y-4 py-4">
+            {/* Profile Info Banner */}
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
               <AlertDescription className="text-sm">
                 💡 <strong>{t('profile.edit_dialog.profile_tab.info_text')}</strong>{' '}
                 <a
-                  href="https://nostr.com/"
+                  href={`https://nostr.how/${i18n.language}/get-started`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-coral hover:underline inline-flex items-center gap-0.5"
@@ -236,78 +248,109 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
               )}
             </div>
 
-            {/* Push Notifications Toggle - in Profile tab */}
-            <div className="pt-4 border-t mt-4">
+            {/* Push Notifications */}
+            <div className="pt-4 border-t">
               <NotificationToggle />
             </div>
           </TabsContent>
 
           <TabsContent value="keys" className="space-y-4 py-4">
-            <div className="space-y-4">
-              <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.npub_label')}</Label>
-                  <p className="text-xs text-muted-foreground">{t('profile.edit_dialog.keys_tab.npub_desc')}</p>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-background p-2 rounded border font-mono">
-                      {truncatedNpub}
-                    </code>
-                    <Button variant="outline" size="sm" onClick={handleCopyNpub} className="flex-shrink-0">
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {identity?.secretKey && identity.secretKey !== 'NIP07_EXTENSION' && (
-                <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.nsec_label')}</Label>
-                      {nsecStatus === 'saved' ? (
-                        <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-500">
-                          <CheckCircle className="h-3 w-3" /> {t('profile.edit_dialog.keys_tab.nsec_saved')}
-                        </span>
-                      ) : (
-                        <span className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-500">
-                          <AlertCircle className="h-3 w-3" /> {t('profile.edit_dialog.keys_tab.nsec_not_saved')}
-                        </span>
-                      )}
-                    </div>
-                    <Alert variant="destructive" className="py-2">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription className="text-xs">
-                        {t('profile.edit_dialog.keys_tab.nsec_warning')}
-                      </AlertDescription>
-                    </Alert>
-                    <Button variant="outline" className="w-full" onClick={handleCopyNsec}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      {t('profile.edit_dialog.keys_tab.copy_nsec')}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {identity?.secretKey === 'NIP07_EXTENSION' && (
-                <Alert className="bg-mint/10 border-mint/30">
-                  <AlertCircle className="h-4 w-4 text-mint" />
-                  <AlertDescription className="text-sm">
-                    {t('profile.edit_dialog.keys_tab.extension_managed')}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className="pt-2">
-                <a
-                  href="https://nostr.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-coral hover:underline inline-flex items-center gap-1"
-                >
-                  {t('profile.edit_dialog.keys_tab.learn_more')}
-                </a>
+            {/* Account ID Section (npub) */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">{t('profile.edit_dialog.keys_tab.npub_label')}</Label>
+              <p className="text-xs text-muted-foreground">{t('profile.edit_dialog.keys_tab.npub_desc')}</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-background p-2 rounded border font-mono">
+                  {truncatedNpub}
+                </code>
+                <Button variant="outline" size="sm" onClick={handleCopyNpub} className="flex-shrink-0">
+                  <Copy className="h-3 w-3" />
+                </Button>
               </div>
             </div>
+          </div>
+
+          {/* Account Backup Section - Only for local identities */}
+          {identity?.type === 'local' && (
+            <div className="border rounded-lg">
+              <button
+                onClick={() => setIsBackupExpanded(!isBackupExpanded)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  {isBackupExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  <span className="font-medium text-sm">Account Backup</span>
+                  {nsecStatus === 'saved' ? (
+                    <span className="text-xs flex items-center gap-1 text-green-600 dark:text-green-500">
+                      <CheckCircle className="h-3 w-3" /> Saved
+                    </span>
+                  ) : (
+                    <span className="text-xs flex items-center gap-1 text-amber-600 dark:text-amber-500">
+                      <AlertCircle className="h-3 w-3" /> Not saved
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              {isBackupExpanded && (
+                <div className="px-4 pb-4 space-y-3 border-t pt-4">
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      ⚠️ <strong>Save your account now.</strong> If you lose your key, you lose access forever.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Copy your key and save it in a secure place like{' '}
+                      <a
+                        href="https://nsec.app"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-coral hover:underline font-medium"
+                      >
+                        nsec.app
+                      </a>
+                      {' '}(a key manager) or a password manager.
+                    </p>
+
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={handleCopyNsec}
+                    >
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy Secret Key
+                    </Button>
+
+                    <p className="text-xs text-muted-foreground">
+                      💡 Key managers like nsec.app let you use your identity across all Nostr apps securely.{' '}
+                      <a
+                        href={`https://nostr.how/${i18n.language}/get-started`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-coral hover:underline"
+                      >
+                        Learn more
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+            {/* Extension users - show info */}
+            {identity?.type === 'extension' && (
+              <Alert className="bg-mint/10 border-mint/30">
+                <AlertCircle className="h-4 w-4 text-mint" />
+                <AlertDescription className="text-sm">
+                  🔒 {t('profile.edit_dialog.keys_tab.extension_managed')}
+                </AlertDescription>
+              </Alert>
+            )}
           </TabsContent>
         </Tabs>
 
