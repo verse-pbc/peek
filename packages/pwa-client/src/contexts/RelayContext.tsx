@@ -219,12 +219,18 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
 
               try {
                 // Import NIP-46 dependencies
-                const { parseBunkerInput, BunkerSigner } = await import('nostr-tools/nip46');
+                const { BunkerSigner } = await import('nostr-tools/nip46');
                 const { SimplePool } = await import('nostr-tools/pool');
 
-                // Parse bunker URI to get connection info
-                const bunkerInfo = await parseBunkerInput(authIdentity.bunkerUri);
-                console.log("[RelayContext] Bunker relays:", bunkerInfo?.relays ?? []);
+                // Construct BunkerPointer from stored identity data (per NIP-46 spec)
+                console.log("[RelayContext] Reconstructing BunkerPointer for reconnection");
+                const bunkerInfo = {
+                  pubkey: authIdentity.bunkerPubkey, // Remote signer's pubkey
+                  relays: authIdentity.relays, // Relay URLs from initial connection
+                  secret: authIdentity.secret // Connection secret (optional)
+                };
+                console.log("[RelayContext] Bunker pubkey:", bunkerInfo.pubkey.slice(0, 16) + '...');
+                console.log("[RelayContext] Bunker relays:", bunkerInfo.relays);
 
                 // Create SimplePool for bunker
                 const bunkerPool = new SimplePool();
