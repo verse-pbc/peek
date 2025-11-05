@@ -49,7 +49,7 @@ const Home = () => {
   const { user } = useNostrContext();
   const { pubkey, login, identity } = useNostrLogin();
   const { toast } = useToast();
-  const { groupManager, relayManager, connected } = useRelayManager();
+  const { groupManager, relayManager, connected, waitingForBunkerApproval } = useRelayManager();
   const { t } = useTranslation();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [loading, setLoading] = useState(true);
@@ -366,8 +366,16 @@ const Home = () => {
 
           {loading ? (
             <Card className="bg-card border-0 shadow-lg">
-              <CardContent className="flex items-center justify-center py-12">
+              <CardContent className="flex flex-col items-center justify-center py-12 space-y-3">
                 <Loader2 className="h-8 w-8 animate-spin text-coral" />
+                {waitingForBunkerApproval && (
+                  <div className="text-center space-y-1">
+                    <p className="text-sm font-medium">Waiting for approval</p>
+                    <p className="text-xs text-muted-foreground">
+                      Please approve the request in the nsec.app popup
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : communities.length === 0 ? (

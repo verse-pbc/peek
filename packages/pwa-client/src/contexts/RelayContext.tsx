@@ -21,6 +21,7 @@ interface RelayContextType {
   groupManager: GroupManager | null;
   migrationService: IdentityMigrationService | null;
   connected: boolean;
+  waitingForBunkerApproval: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
   waitForConnection: () => Promise<void>;
@@ -46,6 +47,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
   const [migrationService, setMigrationService] =
     useState<IdentityMigrationService | null>(null);
   const [connected, setConnected] = useState(false);
+  const [waitingForBunkerApproval, setWaitingForBunkerApproval] = useState(false);
   const managerRef = useRef<RelayManager | null>(null);
   const groupManagerRef = useRef<GroupManager | null>(null);
   const migrationServiceRef = useRef<IdentityMigrationService | null>(null);
@@ -266,6 +268,14 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
                         }
                       } else {
                         console.log('[RelayContext] ✅ Auth popup opened successfully');
+
+                        // Show OS notification to guide user
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                          new Notification('Approval needed', {
+                            body: 'Please approve the request in the nsec.app popup',
+                            icon: '/pwa-192x192.png'
+                          });
+                        }
                       }
                     }
                   }
@@ -317,9 +327,12 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           }
 
           console.log("[RelayContext] Calling bunkerSigner.signEvent...");
+          setWaitingForBunkerApproval(true);
+
           try {
             const signedEvent = await bunkerSignerRef.current.signEvent(authEvent);
             console.log("[RelayContext] ✅ Bunker signed NIP-42 auth successfully");
+            setWaitingForBunkerApproval(false);
 
             // If relay timed out while waiting for approval, retry connection
             if (managerRef.current && !managerRef.current.isConnected()) {
@@ -336,6 +349,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
             return signedEvent as VerifiedEvent;
           } catch (authError) {
             console.error("[RelayContext] ❌ Bunker signing failed:", authError);
+            setWaitingForBunkerApproval(false);
             throw authError;
           }
         });
@@ -532,6 +546,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
         groupManager,
         migrationService,
         connected,
+        waitingForBunkerApproval,
         connect,
         disconnect,
         waitForConnection,
