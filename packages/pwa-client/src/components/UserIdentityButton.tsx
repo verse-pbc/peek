@@ -10,7 +10,8 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostr-identity';
 import { IdentityModal } from './IdentityModal';
-import { User, Sun, Moon, Monitor, Settings, RefreshCw } from 'lucide-react';
+import { KeycastAccountModal } from './KeycastAccountModal';
+import { User, Sun, Moon, Monitor, Settings, RefreshCw, Shield } from 'lucide-react';
 import { UserProfile } from './UserProfile';
 import { ProfileEditModal } from './ProfileEditModal';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -37,10 +38,12 @@ export const UserIdentityButton: React.FC = () => {
 
   const [isSwapping, setIsSwapping] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [showKeycastModal, setShowKeycastModal] = useState(false);
   const [identityModalMode, setIdentityModalMode] = useState<'upgrade' | 'switch'>('upgrade');
   const [hasJoinedCommunities, setHasJoinedCommunities] = useState(false);
 
   const isUsingExtension = identity?.type === 'extension';
+  const isLocalIdentity = identity?.type === 'local';
 
   useEffect(() => {
     const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
@@ -309,6 +312,15 @@ export const UserIdentityButton: React.FC = () => {
                 <Settings className="mr-2 h-4 w-4" />
                 {t('common.user_menu.profile_and_keys')}
               </DropdownMenuItem>
+
+              {/* Show "Secure with Keycast" only for local identities */}
+              {isLocalIdentity && (
+                <DropdownMenuItem onClick={() => setShowKeycastModal(true)}>
+                  <Shield className="mr-2 h-4 w-4" />
+                  {t('common.user_menu.secure_with_keycast')}
+                </DropdownMenuItem>
+              )}
+
               <DropdownMenuSeparator />
             </>
           )}
@@ -373,6 +385,13 @@ export const UserIdentityButton: React.FC = () => {
           pubkey={userPubkey}
         />
       )}
+
+      {/* Keycast Account Modal */}
+      <KeycastAccountModal
+        open={showKeycastModal}
+        onOpenChange={setShowKeycastModal}
+        mode="register"
+      />
     </>
   );
 };

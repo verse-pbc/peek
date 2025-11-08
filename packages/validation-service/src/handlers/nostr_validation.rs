@@ -474,15 +474,22 @@ impl NostrValidationHandler {
             }
         }
 
-        // Send to the actual sender, not the ephemeral key
+        // Send to the seal's sender (ephemeral key that client can decrypt)
+        // Note: We identify the user by rumor.pubkey but respond to unwrapped.sender
+        // This allows bunker identities to decrypt responses with their ephemeral key
+        let response_recipient = unwrapped.sender;
         info!(
             "🔐 Attempting to send response to recipient: {} ({})",
-            actual_sender.to_bech32()?,
-            actual_sender.to_hex()
+            response_recipient.to_bech32()?,
+            response_recipient.to_hex()
+        );
+        info!(
+            "   User identified as: {} (from rumor.pubkey)",
+            actual_sender.to_bech32()?
         );
 
         match self
-            .send_service_response(actual_sender, response_json, &rumor_id)
+            .send_service_response(response_recipient, response_json, &rumor_id)
             .await
         {
             Ok(_) => {

@@ -10,6 +10,7 @@ import React from 'react';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { bytesToHex, hexToBytes } from '../lib/hex';
 import { nip19, type EventTemplate, type VerifiedEvent } from 'nostr-tools';
+import i18n from '@/i18n/config';
 
 export const NostrContext = React.createContext<{ nostr?: unknown }>({});
 
@@ -493,12 +494,7 @@ export const useNostrLogin = () => {
               if (!popup || popup.closed || typeof popup.closed === 'undefined') {
                 console.warn('[loginWithBunker] ⚠️ Popup blocked by browser!');
 
-                const message = 'nsec.app requires approval to complete the connection.\n\n' +
-                               'Your browser blocked the popup. Please:\n' +
-                               '1. Allow popups for this site, or\n' +
-                               '2. Click OK to open the approval page';
-
-                if (confirm(message)) {
+                if (confirm(i18n.t('identity_modal.key_manager.popup_blocked_connection'))) {
                   window.location.href = authUrl;
                 }
               } else {

@@ -51,6 +51,7 @@
       "theme_light": "Claro",
       "theme_dark": "Oscuro",
       "theme_system": "Sistema",
+      "secure_with_keycast": "Asegurar con Keycast",
       "switch_account": "Cambiar Cuenta",
       "switching": "Cambiando..."
     }
@@ -436,6 +437,7 @@
     "cancel": "Cancelar",
     "tabs": {
       "extension": "Extensión",
+      "keycast": "Keycast",
       "key_manager": "Gestor de Claves",
       "paste_key": "Tu Clave"
     },
@@ -445,9 +447,10 @@
       "generate_desc": "Peek creará un código de conexión para ti",
       "generate_button": "Generar Código de Conexión",
       "advanced_bunker": "Avanzado: Tengo una URL de bunker →",
-      "waiting_approval": "Esperando aprobación...",
+      "waiting_approval": "Esperando aprobación en tu gestor de claves",
+      "waiting_subtitle": "Revisa tu aplicación de gestor de claves para una solicitud de conexión. ¿Necesitas ayuda? Empieza de nuevo para generar un código nuevo.",
       "connection_code": "Código de conexión",
-      "paste_instruction": "Pega en nsec.app → Conectar App, luego aprueba",
+      "paste_instruction": "Pega este código en tu gestor de claves (ej. nsec.app → Conectar App), luego aprueba la solicitud de conexión",
       "start_over": "Empezar de Nuevo",
       "back_to_generate": "← Volver a generar",
       "input_label": "Pega la URL de bunker de tu gestor de claves",
@@ -462,7 +465,14 @@
         "6": "Aprueba la conexión cuando se te solicite"
       },
       "popup_blocked": "Si la ventana emergente está bloqueada, permite ventanas emergentes para este sitio",
-      "connect_button": "Conectar"
+      "connect_button": "Conectar",
+      "copy_toast_title": "¡Copiado!",
+      "copy_toast_description": "Pega en tu gestor de claves",
+      "notification_approval_title": "Aprobación necesaria",
+      "notification_approval_body": "Por favor aprueba la solicitud de conexión en tu gestor de claves",
+      "popup_blocked_title": "Popup Bloqueado",
+      "popup_blocked_message": "Tu gestor de claves requiere aprobación para esta acción.\n\nTu navegador bloqueó el popup. Por favor:\n1. Permite popups para este sitio, o\n2. Haz clic en OK para abrir la página de aprobación manualmente",
+      "popup_blocked_connection": "Tu gestor de claves requiere aprobación para completar la conexión.\n\nTu navegador bloqueó el popup. Por favor:\n1. Permite popups para este sitio, o\n2. Haz clic en OK para abrir la página de aprobación"
     },
     "paste_key": {
       "title": "¿Ya tienes una clave de Nostr? Úsala aquí",
@@ -484,6 +494,56 @@
       "security_note": "Tu extensión del navegador manejará la firma de eventos de forma segura. Tu clave privada nunca sale de la extensión.",
       "not_detected": "No se detectó extensión de navegador Nostr. Por favor instala Alby, nos2x, u otra extensión compatible con NIP-07.",
       "connect_button": "Conectar Extensión"
+    },
+    "keycast": {
+      "title": "Asegura Tu Identidad con Keycast",
+      "description": "Respalda tu clave Nostr y accede a ella desde cualquier dispositivo usando correo y contraseña.",
+      "benefits": "Beneficios:",
+      "benefit_1": "✓ Accede a tu identidad desde todos los dispositivos",
+      "benefit_2": "✓ Nunca pierdas tu clave de nuevo",
+      "benefit_3": "✓ Respaldo cifrado seguro",
+      "benefit_4": "✓ Funciona con otras apps de Nostr",
+      "tabs": {
+        "register": "Crear Cuenta",
+        "login": "Iniciar Sesión"
+      },
+      "register": {
+        "title": "Crear Cuenta de Keycast",
+        "description": "Esto respaldará de forma segura tu identidad Nostr actual. Podrás acceder a ella desde cualquier dispositivo.",
+        "email_label": "Correo Electrónico",
+        "email_placeholder": "tu@correo.com",
+        "password_label": "Contraseña",
+        "password_placeholder": "Elige una contraseña segura",
+        "submit_button": "Crear Cuenta",
+        "submitting": "Creando Cuenta...",
+        "warning": "⚠️ Recuerda tu correo y contraseña. No hay recuperación si los pierdes.",
+        "existing_key_note": "Tu clave Nostr actual será importada a Keycast."
+      },
+      "login": {
+        "title": "Iniciar Sesión en Keycast",
+        "description": "Restaura tu identidad Nostr desde otro dispositivo.",
+        "email_label": "Correo Electrónico",
+        "email_placeholder": "tu@correo.com",
+        "password_label": "Contraseña",
+        "password_placeholder": "Tu contraseña",
+        "submit_button": "Iniciar Sesión",
+        "submitting": "Iniciando Sesión...",
+        "no_account": "¿No tienes cuenta?"
+      },
+      "errors": {
+        "network": "Error al conectar con Keycast. Por favor verifica tu conexión a internet.",
+        "invalid_credentials": "Correo o contraseña inválidos",
+        "already_registered": "Esta clave ya está registrada. Intenta iniciar sesión en su lugar.",
+        "registration_failed": "Registro fallido. Por favor intenta de nuevo.",
+        "login_failed": "Inicio de sesión fallido. Por favor intenta de nuevo.",
+        "bunker_failed": "Error al obtener URL del bunker. Por favor intenta de nuevo.",
+        "generic": "Algo salió mal. Por favor intenta de nuevo."
+      },
+      "success": {
+        "registered": "¡Cuenta creada! Tu identidad ahora está asegurada con Keycast.",
+        "logged_in": "¡Inicio de sesión exitoso! Tu identidad ha sido restaurada.",
+        "reloading": "Recargando aplicación..."
+      }
     },
     "migration": {
       "keep_communities": "Mantener mis comunidades y roles de administrador",

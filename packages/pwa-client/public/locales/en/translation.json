@@ -51,6 +51,7 @@
       "theme_light": "Light",
       "theme_dark": "Dark",
       "theme_system": "System",
+      "secure_with_keycast": "Secure with Keycast",
       "switch_account": "Switch Account",
       "switching": "Switching..."
     }
@@ -436,6 +437,7 @@
     "cancel": "Cancel",
     "tabs": {
       "extension": "Browser Extension",
+      "keycast": "Keycast",
       "key_manager": "Use a Key Manager",
       "paste_key": "Paste Your Key"
     },
@@ -445,9 +447,10 @@
       "generate_desc": "Peek will create a connection code for you",
       "generate_button": "Generate Connection Code",
       "advanced_bunker": "Advanced: I have a bunker URL →",
-      "waiting_approval": "Waiting for approval...",
+      "waiting_approval": "Waiting for approval in your key manager",
+      "waiting_subtitle": "Check your key manager app for a connection request. Need help? Start over to generate a new code.",
       "connection_code": "Connection code",
-      "paste_instruction": "Paste into nsec.app → Connect App, then approve",
+      "paste_instruction": "Paste this code into your key manager (e.g., nsec.app → Connect App), then approve the connection request",
       "start_over": "Start Over",
       "back_to_generate": "← Back to generate",
       "input_label": "Paste bunker URL from your key manager",
@@ -462,7 +465,14 @@
         "6": "Approve the connection when prompted"
       },
       "popup_blocked": "If popup is blocked, allow popups for this site",
-      "connect_button": "Connect"
+      "connect_button": "Connect",
+      "copy_toast_title": "Copied!",
+      "copy_toast_description": "Paste into your key manager",
+      "notification_approval_title": "Approval needed",
+      "notification_approval_body": "Please approve the connection request in your key manager",
+      "popup_blocked_title": "Popup Blocked",
+      "popup_blocked_message": "Your key manager requires approval for this action.\n\nYour browser blocked the popup. Please:\n1. Allow popups for this site, or\n2. Click OK to open the approval page manually",
+      "popup_blocked_connection": "Your key manager requires approval to complete the connection.\n\nYour browser blocked the popup. Please:\n1. Allow popups for this site, or\n2. Click OK to open the approval page"
     },
     "paste_key": {
       "title": "Already have a Nostr key? Use it here",
@@ -484,6 +494,56 @@
       "security_note": "Your browser extension will handle signing events securely. Your private key never leaves the extension.",
       "not_detected": "No Nostr browser extension detected. Please install Alby, nos2x, or another NIP-07 compatible extension.",
       "connect_button": "Connect Extension"
+    },
+    "keycast": {
+      "title": "Secure Your Identity with Keycast",
+      "description": "Backup your Nostr key and access it from any device using email and password.",
+      "benefits": "Benefits:",
+      "benefit_1": "✓ Access your identity across all devices",
+      "benefit_2": "✓ Never lose your key again",
+      "benefit_3": "✓ Secure encrypted backup",
+      "benefit_4": "✓ Works with other Nostr apps",
+      "tabs": {
+        "register": "Create Account",
+        "login": "Login"
+      },
+      "register": {
+        "title": "Create Keycast Account",
+        "description": "This will securely backup your current Nostr identity. You'll be able to access it from any device.",
+        "email_label": "Email",
+        "email_placeholder": "your@email.com",
+        "password_label": "Password",
+        "password_placeholder": "Choose a strong password",
+        "submit_button": "Create Account",
+        "submitting": "Creating Account...",
+        "warning": "⚠️ Remember your email and password. There's no recovery if you lose them.",
+        "existing_key_note": "Your existing Nostr key will be imported into Keycast."
+      },
+      "login": {
+        "title": "Login to Keycast",
+        "description": "Restore your Nostr identity from another device.",
+        "email_label": "Email",
+        "email_placeholder": "your@email.com",
+        "password_label": "Password",
+        "password_placeholder": "Your password",
+        "submit_button": "Login",
+        "submitting": "Logging in...",
+        "no_account": "Don't have an account?"
+      },
+      "errors": {
+        "network": "Failed to connect to Keycast. Please check your internet connection.",
+        "invalid_credentials": "Invalid email or password",
+        "already_registered": "This key is already registered. Try logging in instead.",
+        "registration_failed": "Registration failed. Please try again.",
+        "login_failed": "Login failed. Please try again.",
+        "bunker_failed": "Failed to retrieve bunker URL. Please try again.",
+        "generic": "Something went wrong. Please try again."
+      },
+      "success": {
+        "registered": "Account created! Your identity is now secured with Keycast.",
+        "logged_in": "Login successful! Your identity has been restored.",
+        "reloading": "Reloading application..."
+      }
     },
     "migration": {
       "keep_communities": "Keep my communities and admin roles",
