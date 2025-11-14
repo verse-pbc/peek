@@ -494,6 +494,11 @@ export class RelayManager {
       // Get relay instance from pool
       this.relay = await this.pool.ensureRelay(this.relayUrl);
 
+      // Increase publish timeout for mobile networks (default is 4.4s, too short)
+      if (this.relay) {
+        this.relay.publishTimeout = 15000; // 15 seconds for slow connections
+      }
+
       // Wait for connection
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {

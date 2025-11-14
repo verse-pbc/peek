@@ -573,7 +573,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
                 onLocationCaptured={handleLocationCaptured}
                 onPermissionDenied={handleLocationDenied}
                 maxAccuracy={20}
-                autoStart={true}
+                autoStart={false}
               />
             </>
           )}

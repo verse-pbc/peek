@@ -207,6 +207,8 @@
     "verification_title": "Verificación de Ubicación",
     "verification_desc": "Necesitamos verificar que estás en la ubicación física para unirte a esta comunidad",
     "permission": {
+      "waiting_title": "Esperando Permiso",
+      "waiting_desc": "Por favor responde al aviso de permiso de ubicación en tu dispositivo",
       "denied_title": "Permiso de Ubicación Denegado",
       "denied_desc": "Necesitas habilitar los permisos de ubicación en la configuración de tu navegador para unirte a esta comunidad. Por favor verifica la barra de direcciones o configuración de tu navegador.",
       "required": "Se requiere permiso de ubicación para unirse a comunidades basadas en ubicación"

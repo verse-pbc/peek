@@ -36,6 +36,8 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
 }) => {
   const { t } = useTranslation();
   const [hasStarted, setHasStarted] = useState(false);
+  const [permissionRequestTime, setPermissionRequestTime] = useState<number | null>(null);
+  const [isWaitingForPermission, setIsWaitingForPermission] = useState(false);
   
   const {
     location,
@@ -54,7 +56,10 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
 
   const handleRequestLocation = useCallback(async () => {
     setHasStarted(true);
+    setPermissionRequestTime(Date.now());
+    setIsWaitingForPermission(true);
     await captureLocation();
+    setIsWaitingForPermission(false);
   }, [captureLocation]);
 
   const handleRetry = async () => {
@@ -81,12 +86,28 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
     }
   }, [location, onLocationCaptured]); // Only trigger when timestamp changes (new capture)
 
-  // Handle permission denial
+  // Handle permission denial with grace period to avoid false positives on iOS
   useEffect(() => {
     if (permissionStatus === 'denied' && onPermissionDenied) {
-      onPermissionDenied();
+      // Add grace period: only treat as denied if 3+ seconds have passed since request
+      // This prevents iOS from showing error while native dialog is still open
+      const gracePeriod = 3000; // 3 seconds
+      const timeSinceRequest = permissionRequestTime ? Date.now() - permissionRequestTime : Infinity;
+
+      if (timeSinceRequest > gracePeriod) {
+        onPermissionDenied();
+      } else {
+        // Still in grace period - likely the native dialog is open
+        // Wait and check again
+        const remaining = gracePeriod - timeSinceRequest;
+        setTimeout(() => {
+          if (permissionStatus === 'denied' && onPermissionDenied) {
+            onPermissionDenied();
+          }
+        }, remaining);
+      }
     }
-  }, [permissionStatus, onPermissionDenied]);
+  }, [permissionStatus, onPermissionDenied, permissionRequestTime]);
 
   // Determine accuracy status
   const getAccuracyStatus = (accuracy: number) => {
@@ -146,8 +167,19 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
           </Alert>
         )}
 
+        {/* Waiting for Permission State (iOS grace period) */}
+        {isWaitingForPermission && !location && !error && (
+          <Alert className="border-blue-200 bg-blue-50">
+            <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            <AlertTitle className="text-blue-800">{t('location.permission.waiting_title')}</AlertTitle>
+            <AlertDescription className="text-blue-700">
+              {t('location.permission.waiting_desc')}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Error Alert */}
-        {error && permissionStatus !== 'denied' && (
+        {error && permissionStatus !== 'denied' && !isWaitingForPermission && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>{t('location.error_title')}</AlertTitle>
@@ -156,7 +188,7 @@ export const LocationPermission: React.FC<LocationPermissionProps> = ({
         )}
 
         {/* Loading State */}
-        {isCapturing && !location && (
+        {isCapturing && !location && !isWaitingForPermission && (
           <div className="flex flex-col items-center justify-center py-8 space-y-4">
             <div className="relative">
               <MapPin className="h-12 w-12 text-gray-400" />

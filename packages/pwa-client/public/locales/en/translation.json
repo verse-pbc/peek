@@ -207,6 +207,8 @@
     "verification_title": "Location Verification",
     "verification_desc": "We need to verify you're at the physical location to join this community",
     "permission": {
+      "waiting_title": "Waiting for Permission",
+      "waiting_desc": "Please respond to the location permission prompt on your device",
       "denied_title": "Location Permission Denied",
       "denied_desc": "You need to enable location permissions in your browser settings to join this community. Please check your browser's address bar or settings.",
       "required": "Location permission is required to join location-based communities"

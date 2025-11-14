@@ -206,6 +206,47 @@ export class NostrLocationService {
     this.publicKey = publicKey;
   }
 
+  /**
+   * Publish gift wrap with retry logic for mobile networks
+   * Retries up to 2 times if publish times out
+   */
+  private async publishGiftWrapWithRetry(giftWrap: Event): Promise<void> {
+    const maxRetries = 2;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          console.log(`Retrying gift wrap publish (attempt ${attempt + 1}/${maxRetries + 1})`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+        }
+
+        await this.relayManager.publishGiftWrap(giftWrap);
+        return; // Success!
+
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Only retry on timeout errors
+        if (lastError.message.includes('publish timed out') && attempt < maxRetries) {
+          console.warn(`Gift wrap publish timed out, retrying... (${attempt + 1}/${maxRetries})`);
+          continue;
+        }
+
+        // Non-timeout error or exhausted retries
+        break;
+      }
+    }
+
+    // All retries failed
+    if (lastError) {
+      // Improve error message for users
+      if (lastError.message.includes('publish timed out')) {
+        throw new Error('Connection is slow or unstable. Please check your network and try again.');
+      }
+      throw lastError;
+    }
+  }
 
   /**
    * Create an unsigned rumor event
@@ -508,9 +549,9 @@ export class NostrLocationService {
         giftWrapId: giftWrap.id
       });
 
-      // Publish gift wrap via RelayManager
+      // Publish gift wrap with retry logic for mobile networks
       console.log('Publishing gift wrap event:', giftWrap);
-      await this.relayManager.publishGiftWrap(giftWrap);
+      await this.publishGiftWrapWithRetry(giftWrap);
 
       // Wait for response (subscription was already started)
       const response = await responsePromise;
@@ -558,9 +599,9 @@ export class NostrLocationService {
         giftWrapId: giftWrap.id
       });
 
-      // Publish gift wrap via RelayManager
+      // Publish gift wrap with retry logic for mobile networks
       console.log('Publishing gift wrap event:', giftWrap);
-      await this.relayManager.publishGiftWrap(giftWrap);
+      await this.publishGiftWrapWithRetry(giftWrap);
 
       // Wait for response
       const response = await responsePromise as CommunityPreviewResponse;
