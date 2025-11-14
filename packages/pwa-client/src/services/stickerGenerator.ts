@@ -22,7 +22,7 @@ export async function generateStickerSVG(communityId?: string): Promise<{
   const uuid = communityId || crypto.randomUUID();
   const url = `https://peek.verse.app/c/${uuid}`;
 
-  // Generate QR code as SVG
+  // Generate QR code as SVG (library returns complete <svg> element)
   const qrSvg = await QRCode.toString(url, {
     type: 'svg',
     errorCorrectionLevel: 'M',
@@ -33,13 +33,6 @@ export async function generateStickerSVG(communityId?: string): Promise<{
       light: '#FFFFFF',
     },
   });
-
-  // Extract inner content (remove outer <svg> wrapper)
-  // qrcode library wraps content in <svg>, we need just the inner paths/shapes
-  const qrInner = qrSvg
-    .replace(/<svg[^>]*>/, '')
-    .replace(/<\/svg>/, '')
-    .trim();
 
   // Create styled sticker SVG matching backend design
   const styledSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="480" viewBox="0 0 400 480">
@@ -62,11 +55,9 @@ export async function generateStickerSVG(communityId?: string): Promise<{
   <!-- White container for QR code with shadow -->
   <rect x="70" y="60" width="260" height="260" rx="12" fill="#FFFFFF" filter="url(#shadow)"/>
 
-  <!-- QR code -->
+  <!-- QR code (embedded complete SVG with correct viewBox from library) -->
   <g transform="translate(70, 60)">
-    <svg viewBox="0 0 260 260" width="260" height="260">
-      ${qrInner}
-    </svg>
+    ${qrSvg}
   </g>
 
   <!-- "PEEK" text label -->
