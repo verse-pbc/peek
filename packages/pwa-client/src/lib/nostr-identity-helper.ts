@@ -84,8 +84,8 @@ export function setupNostrIdentity(
   if (userIdentity?.type === 'bunker' && userPubkey) {
     const ephemeral = generateEphemeralKey();
     return {
-      secretKey: ephemeral.secretKey, // Ephemeral for encryption
-      publicKey: userPubkey, // Bunker pubkey
+      secretKey: ephemeral.secretKey, // Ephemeral for encryption/decryption
+      publicKey: ephemeral.publicKey, // Ephemeral pubkey (so service responds to this, not bunker)
       encryptionHelper: undefined, // Use local ephemeral encryption
       usingAnonymous: false
     };

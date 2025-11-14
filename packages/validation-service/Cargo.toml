@@ -50,13 +50,6 @@ rand = "0.8"
 # HTTP client for Overpass API
 reqwest = { version = "0.12", features = ["json"] }
 
-# QR code generation and rendering
-qrcode = { version = "0.14", features = ["svg"] }
-resvg = { version = "0.44", features = ["text"] }
-tiny-skia = "0.11"
-fontdb = "0.22"
-regex = "1.12.2"
-
 [dev-dependencies]
 # Testing
 axum-test = "15.0"

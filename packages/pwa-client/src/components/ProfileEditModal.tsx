@@ -13,7 +13,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { AlertCircle, Loader2, Copy, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertCircle, Loader2, Copy, CheckCircle, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { useProfile } from '@/contexts/ProfileContext';
 import { useToast } from '@/hooks/useToast';
 import { useNostrLogin } from '@/lib/nostr-identity';
@@ -22,15 +22,18 @@ import { hexToBytes } from '@/lib/hex';
 import { SimplePool } from 'nostr-tools';
 import { useQueryClient } from '@tanstack/react-query';
 import { NotificationToggle } from './Notifications/NotificationToggle';
+import { KeycastAccountModal } from './KeycastAccountModal';
 import { useTranslation } from 'react-i18next';
 
 interface ProfileEditModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pubkey: string;
+  initialTab?: 'profile' | 'keys';
+  onSwitchAccountClick?: () => void;
 }
 
-export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModalProps) {
+export function ProfileEditModal({ open, onOpenChange, pubkey, initialTab = 'profile', onSwitchAccountClick }: ProfileEditModalProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { identity } = useNostrLogin();
@@ -43,9 +46,10 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   const [picture, setPicture] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'profile' | 'keys'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'keys'>(initialTab);
   const [hasMarkedNsecSaved, setHasMarkedNsecSaved] = useState(false);
   const [isBackupExpanded, setIsBackupExpanded] = useState(false);
+  const [showKeycastModal, setShowKeycastModal] = useState(false);
 
   const hasBackedUpNsec = (identity?.type === 'local' && identity.hasBackedUpNsec) ?? false;
   const nsecStatus = hasBackedUpNsec || hasMarkedNsecSaved ? 'saved' : 'not-saved';
@@ -166,6 +170,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -178,7 +183,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'profile' | 'keys')} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="profile">{t('profile.edit_dialog.tabs.profile')}</TabsTrigger>
-            <TabsTrigger value="keys">{t('profile.edit_dialog.tabs.keys')}</TabsTrigger>
+            <TabsTrigger value="keys">{t('profile.edit_dialog.tabs.advanced')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="space-y-4 py-4">
@@ -252,9 +257,49 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
             <div className="pt-4 border-t">
               <NotificationToggle />
             </div>
+
+            {/* Account Status - only for local identities */}
+            {identity?.type === 'local' && (
+              <div className="pt-4 border-t">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="space-y-2">
+                    <p className="font-medium">{t('profile.account_not_saved')}</p>
+                    <p className="text-sm">{t('profile.account_not_saved_description')}</p>
+                    <Button
+                      onClick={() => setShowKeycastModal(true)}
+                      variant="default"
+                      className="w-full mt-2"
+                    >
+                      {t('profile.save_account_button')}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+
+            {/* Account Saved - for bunker/extension identities */}
+            {(identity?.type === 'bunker' || identity?.type === 'extension') && (
+              <div className="pt-4 border-t">
+                <Alert className="bg-green-500/10 border-green-500/30">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <AlertDescription className="space-y-1">
+                    <p className="font-medium text-green-500">{t('profile.account_saved')}</p>
+                    <p className="text-sm">{t('profile.account_saved_description')}</p>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="keys" className="space-y-4 py-4">
+            {/* Introduction for unsaved accounts */}
+            {identity?.type === 'local' && (
+              <p className="text-sm text-muted-foreground">
+                {t('profile.edit_dialog.advanced_tab.intro')}
+              </p>
+            )}
+
             {/* Account ID Section (npub) */}
             <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
             <div className="space-y-2">
@@ -295,48 +340,30 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
 
               {isBackupExpanded && (
                 <div className="px-4 pb-4 space-y-3 border-t pt-4">
-                  <Alert variant="destructive" className="py-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      ⚠️ <strong>Save your account now.</strong> If you lose your key, you lose access forever.
-                    </AlertDescription>
-                  </Alert>
+                  <p className="text-sm text-muted-foreground">
+                    {t('profile.edit_dialog.advanced_tab.backup_description')}
+                  </p>
 
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Copy your key and save it in a secure place like{' '}
-                      <a
-                        href="https://nsec.app"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-coral hover:underline font-medium"
-                      >
-                        nsec.app
-                      </a>
-                      {' '}(a key manager) or a password manager.
-                    </p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleCopyNsec}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    {t('profile.edit_dialog.keys_tab.copy_nsec')}
+                  </Button>
 
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={handleCopyNsec}
+                  <p className="text-xs text-muted-foreground">
+                    {t('profile.edit_dialog.advanced_tab.backup_learn_more')}{' '}
+                    <a
+                      href={`https://nostr.how/${i18n.language}/get-started`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-coral hover:underline"
                     >
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy Secret Key
-                    </Button>
-
-                    <p className="text-xs text-muted-foreground">
-                      💡 Key managers like nsec.app let you use your identity across all Nostr apps securely.{' '}
-                      <a
-                        href={`https://nostr.how/${i18n.language}/get-started`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-coral hover:underline"
-                      >
-                        Learn more
-                      </a>
-                    </p>
-                  </div>
+                      {t('profile.edit_dialog.profile_tab.learn_more_link')} →
+                    </a>
+                  </p>
                 </div>
               )}
             </div>
@@ -351,6 +378,29 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* Switch Account Section */}
+            <div className="space-y-3 p-4 border rounded-lg bg-muted/50 mt-6">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('profile.edit_dialog.advanced_tab.switch_account_title')}</Label>
+                <p className="text-sm text-muted-foreground">
+                  {t('profile.edit_dialog.advanced_tab.switch_account_description')}
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  onOpenChange(false);
+                  if (onSwitchAccountClick) {
+                    onSwitchAccountClick();
+                  }
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {t('profile.edit_dialog.advanced_tab.switch_account_button')}
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -366,6 +416,19 @@ export function ProfileEditModal({ open, onOpenChange, pubkey }: ProfileEditModa
           </DialogFooter>
         )}
       </DialogContent>
+
+      {/* Keycast Account Modal */}
+      {showKeycastModal && (
+        <KeycastAccountModal
+          open={showKeycastModal}
+          onOpenChange={setShowKeycastModal}
+          onSuccess={() => {
+            // Close profile modal too
+            onOpenChange(false);
+          }}
+        />
+      )}
     </Dialog>
+    </>
   );
 }

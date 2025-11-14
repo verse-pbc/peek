@@ -10,6 +10,7 @@ import React from 'react';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { bytesToHex, hexToBytes } from '../lib/hex';
 import { nip19, type EventTemplate, type VerifiedEvent } from 'nostr-tools';
+import i18n from '@/i18n/config';
 
 export const NostrContext = React.createContext<{ nostr?: unknown }>({});
 
@@ -493,12 +494,7 @@ export const useNostrLogin = () => {
               if (!popup || popup.closed || typeof popup.closed === 'undefined') {
                 console.warn('[loginWithBunker] ⚠️ Popup blocked by browser!');
 
-                const message = 'nsec.app requires approval to complete the connection.\n\n' +
-                               'Your browser blocked the popup. Please:\n' +
-                               '1. Allow popups for this site, or\n' +
-                               '2. Click OK to open the approval page';
-
-                if (confirm(message)) {
+                if (confirm(i18n.t('identity_modal.key_manager.popup_blocked_connection'))) {
                   window.location.href = authUrl;
                 }
               } else {
@@ -512,16 +508,39 @@ export const useNostrLogin = () => {
         // REQUIRED: Call connect() for first-time authorization
         console.log('[loginWithBunker] Calling connect() for authorization...');
         if (signer.connect) {
-          await signer.connect();
-          console.log('[loginWithBunker] ✅ BunkerSigner authorized');
+          try {
+            // Add 30-second timeout to connect() call
+            await Promise.race([
+              signer.connect(),
+              new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Connection timeout after 30s')), 30000)
+              )
+            ]);
+            console.log('[loginWithBunker] ✅ BunkerSigner authorized');
+          } catch (error) {
+            console.error('[loginWithBunker] ❌ connect() failed:', error);
+            // Try to proceed anyway - sometimes connect() fails but getPublicKey() works
+            console.log('[loginWithBunker] Attempting to proceed without explicit authorization...');
+          }
         } else {
           console.log('[loginWithBunker] No connect() method - using fromBunker flow');
         }
 
         // Get the remote signer's public key
         console.log('[loginWithBunker] Requesting public key from remote signer...');
-        remotePubkey = await signer.getPublicKey();
-        console.log('[loginWithBunker] ✅ Got remote pubkey:', remotePubkey.slice(0, 8) + '...');
+        try {
+          // Add 30-second timeout to getPublicKey() call
+          remotePubkey = await Promise.race([
+            signer.getPublicKey(),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error('getPublicKey timeout after 30s')), 30000)
+            )
+          ]);
+          console.log('[loginWithBunker] ✅ Got remote pubkey:', remotePubkey.slice(0, 8) + '...');
+        } catch (error) {
+          console.error('[loginWithBunker] ❌ Failed to get public key:', error);
+          throw new Error('Failed to communicate with remote signer. Please check that the Keycast signer is running and the relay is reachable.');
+        }
 
         // Save relay info for reconnection
         bunkerRelays = bunkerInfo.relays;

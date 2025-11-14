@@ -1,0 +1,39 @@
+/**
+ * PKCE (Proof Key for Code Exchange) utilities for OAuth 2.0
+ * RFC 7636: https://tools.ietf.org/html/rfc7636
+ */
+
+/**
+ * Base64URL encode a buffer (no padding, URL-safe)
+ */
+function base64URLEncode(buffer: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+/**
+ * Generate PKCE code verifier and challenge
+ *
+ * @returns Promise resolving to { verifier, challenge }
+ */
+export async function generatePKCE(): Promise<{
+  verifier: string;
+  challenge: string;
+}> {
+  // Generate random verifier (32 bytes = 43 base64url chars)
+  const verifierBytes = new Uint8Array(32);
+  crypto.getRandomValues(verifierBytes);
+  const verifier = base64URLEncode(verifierBytes.buffer);
+
+  // Generate SHA-256 challenge
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest(
+    'SHA-256',
+    encoder.encode(verifier)
+  );
+  const challenge = base64URLEncode(hashBuffer);
+
+  return { verifier, challenge };
+}

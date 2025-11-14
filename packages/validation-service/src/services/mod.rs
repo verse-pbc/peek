@@ -4,4 +4,3 @@ pub mod mention_parser;
 pub mod migration_monitor;
 pub mod overpass;
 pub mod relay;
-pub mod sticker_generator;

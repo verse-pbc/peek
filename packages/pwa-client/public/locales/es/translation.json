@@ -46,14 +46,27 @@
     "show_password": "Mostrar contraseña",
     "hide_password": "Ocultar contraseña",
     "user_menu": {
+      "profile": "Perfil",
       "profile_and_keys": "Perfil y Claves",
+      "save_account": "Guardar Tu Cuenta",
       "theme": "Tema",
       "theme_light": "Claro",
       "theme_dark": "Oscuro",
       "theme_system": "Sistema",
+      "secure_with_keycast": "Asegurar con Keycast",
+      "advanced": "Avanzado",
+      "view_keys": "Ver Tus Claves",
       "switch_account": "Cambiar Cuenta",
       "switching": "Cambiando..."
     }
+  },
+  "pwa_login": {
+    "title": "¡Bienvenido a Peek!",
+    "description": "Continúa con tu cuenta existente o empieza de nuevo",
+    "login_keycast": "Iniciar Sesión con Tu Cuenta",
+    "login_keycast_desc": "Accede a tu cuenta guardada con correo y contraseña",
+    "advanced_option": "Avanzado: Importar URL bunker o extensión del navegador",
+    "skip": "Omitir por ahora"
   },
   "pwa_import": {
     "title": "Conecta Tu Cuenta",
@@ -436,6 +449,7 @@
     "cancel": "Cancelar",
     "tabs": {
       "extension": "Extensión",
+      "keycast": "Keycast",
       "key_manager": "Gestor de Claves",
       "paste_key": "Tu Clave"
     },
@@ -445,9 +459,10 @@
       "generate_desc": "Peek creará un código de conexión para ti",
       "generate_button": "Generar Código de Conexión",
       "advanced_bunker": "Avanzado: Tengo una URL de bunker →",
-      "waiting_approval": "Esperando aprobación...",
+      "waiting_approval": "Esperando aprobación en tu gestor de claves",
+      "waiting_subtitle": "Revisa tu aplicación de gestor de claves para una solicitud de conexión. ¿Necesitas ayuda? Empieza de nuevo para generar un código nuevo.",
       "connection_code": "Código de conexión",
-      "paste_instruction": "Pega en nsec.app → Conectar App, luego aprueba",
+      "paste_instruction": "Pega este código en tu gestor de claves (ej. nsec.app → Conectar App), luego aprueba la solicitud de conexión",
       "start_over": "Empezar de Nuevo",
       "back_to_generate": "← Volver a generar",
       "input_label": "Pega la URL de bunker de tu gestor de claves",
@@ -462,7 +477,14 @@
         "6": "Aprueba la conexión cuando se te solicite"
       },
       "popup_blocked": "Si la ventana emergente está bloqueada, permite ventanas emergentes para este sitio",
-      "connect_button": "Conectar"
+      "connect_button": "Conectar",
+      "copy_toast_title": "¡Copiado!",
+      "copy_toast_description": "Pega en tu gestor de claves",
+      "notification_approval_title": "Aprobación necesaria",
+      "notification_approval_body": "Por favor aprueba la solicitud de conexión en tu gestor de claves",
+      "popup_blocked_title": "Popup Bloqueado",
+      "popup_blocked_message": "Tu gestor de claves requiere aprobación para esta acción.\n\nTu navegador bloqueó el popup. Por favor:\n1. Permite popups para este sitio, o\n2. Haz clic en OK para abrir la página de aprobación manualmente",
+      "popup_blocked_connection": "Tu gestor de claves requiere aprobación para completar la conexión.\n\nTu navegador bloqueó el popup. Por favor:\n1. Permite popups para este sitio, o\n2. Haz clic en OK para abrir la página de aprobación"
     },
     "paste_key": {
       "title": "¿Ya tienes una clave de Nostr? Úsala aquí",
@@ -485,6 +507,41 @@
       "not_detected": "No se detectó extensión de navegador Nostr. Por favor instala Alby, nos2x, u otra extensión compatible con NIP-07.",
       "connect_button": "Conectar Extensión"
     },
+    "keycast": {
+      "title": "Guardar Tu Cuenta",
+      "title_switch": "Iniciar Sesión en Tu Cuenta",
+      "description": "Accede a tu cuenta desde cualquier dispositivo con correo y contraseña.",
+      "description_switch": "Accede a tu cuenta existente de Keycast",
+      "description_with_communities": "Guarda tu cuenta y conserva todas tus comunidades",
+      "description_without_communities": "Guarda tu cuenta para acceder desde cualquier dispositivo",
+      "benefits": "Beneficios:",
+      "benefit_1": "✓ Accede desde cualquier dispositivo",
+      "benefit_2": "✓ Nunca pierdas tu cuenta",
+      "benefit_3": "✓ Respaldo cifrado seguro",
+      "benefit_4": "✓ Funciona con otras apps",
+      "byok_notice": "Tu cuenta actual será respaldada de forma segura.",
+      "oauth_description": "Crea una cuenta para acceso fácil entre dispositivos.",
+      "connect_button": "Guardar Tu Cuenta",
+      "connect_button_switch": "Iniciar Sesión en Keycast",
+      "states": {
+        "waiting_for_auth": "Esperando que completes la configuración en la ventana emergente...",
+        "exchanging_code": "Completando configuración..."
+      },
+      "errors": {
+        "connection_failed": "Error al guardar cuenta. Por favor intenta de nuevo.",
+        "popup_blocked": "Ventana emergente bloqueada. Por favor permite ventanas emergentes para este sitio e intenta de nuevo."
+      },
+      "success": {
+        "connected": "¡Cuenta guardada! Ahora puedes acceder desde cualquier dispositivo.",
+        "reloading": "Recargando aplicación..."
+      }
+    },
+    "advanced": {
+      "title": "Avanzado",
+      "description": "Configuración técnica para usuarios avanzados",
+      "view_keys_description": "Ver tus claves públicas y privadas para respaldo manual o uso en otras apps de Nostr.",
+      "switch_account_description": "Cambiar a una cuenta diferente o importar una existente."
+    },
     "migration": {
       "keep_communities": "Mantener mis comunidades y roles de administrador",
       "keep_description": "Tus mensajes anteriores pertenecerán a tu nueva identidad",
@@ -499,12 +556,18 @@
     "title": "Perfil",
     "public_key": "Clave Pública",
     "npub_copied": "Npub copiado al portapapeles",
+    "account_not_saved": "Tu cuenta no está guardada",
+    "account_not_saved_description": "Tu cuenta es temporal y se perderá si borras los datos del navegador o cambias de dispositivo.",
+    "save_account_button": "Guardar Tu Cuenta",
+    "account_saved": "Cuenta guardada",
+    "account_saved_description": "Tu cuenta está respaldada y accesible desde cualquier dispositivo.",
     "edit_dialog": {
-      "title": "Perfil y Claves",
-      "description": "Administra tu perfil Nostr y claves de identidad.",
+      "title": "Perfil",
+      "description": "Edita tu perfil y administra la configuración de tu cuenta.",
       "tabs": {
         "profile": "Perfil",
-        "keys": "Tus Claves"
+        "keys": "Tus Claves",
+        "advanced": "Avanzado"
       },
       "profile_tab": {
         "info": "💡 ¡Funciona en todas las aplicaciones de Nostr! Tu perfil es parte del protocolo Nostr. Aprende más →",
@@ -521,7 +584,7 @@
         "learn_more_link": "Aprende más"
       },
       "keys_tab": {
-        "npub_label": "ID Público (npub)",
+        "npub_label": "ID Público",
         "npub_desc": "Seguro para compartir - como tu dirección de correo electrónico",
         "nsec_label": "Clave Secreta (nsec)",
         "nsec_saved": "Guardado",
@@ -531,6 +594,14 @@
         "copy_nsec": "Copiar Clave Secreta",
         "extension_managed": "🔒 Tu clave secreta es administrada por tu extensión del navegador y nunca se expone.",
         "learn_more": "¿Nuevo en Nostr? Aprende más →"
+      },
+      "advanced_tab": {
+        "intro": "Generamos automáticamente tu clave de cuenta en tu navegador. Guárdala con Keycast (recomendado), o cópiala para uso avanzado.",
+        "backup_description": "Para uso avanzado: copia tu clave para respaldo manual o uso en otras apps de Nostr.",
+        "backup_learn_more": "¿Nuevo en Nostr?",
+        "switch_account_title": "Cambiar Cuenta",
+        "switch_account_description": "Cambiar a otra cuenta que ya posees",
+        "switch_account_button": "Cambiar Cuenta"
       },
       "toast": {
         "profile_updated": "¡Perfil actualizado!",

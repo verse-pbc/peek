@@ -4,7 +4,9 @@ import { Layout } from "./components/Layout";
 import { usePushNotificationRefresh } from "./hooks/usePushNotificationRefresh";
 import { debugFirebaseConfig } from "./config/firebase";
 import { initializeForegroundNotifications } from "./services/firebase";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { PWALoginPrompt } from "./components/PWALoginPrompt";
+import { isFirstPWALaunch } from "./lib/pwa-detection";
 
 import Index from "./pages/Index";
 import Community from "./pages/Community";
@@ -22,11 +24,23 @@ declare global {
   }
 }
 
-if (typeof window !== 'undefined') {
+if (import.meta.env.DEV && typeof window !== 'undefined') {
   window.debugFirebaseConfig = debugFirebaseConfig;
 }
 
 export function AppRouter() {
+  const [showPWALoginPrompt, setShowPWALoginPrompt] = useState(false);
+
+  // Check for first PWA launch and show login prompt
+  useEffect(() => {
+    if (isFirstPWALaunch()) {
+      // Small delay to let the app fully load first
+      setTimeout(() => {
+        setShowPWALoginPrompt(true);
+      }, 1000);
+    }
+  }, []);
+
   // Register service worker early (for identity cache, even when push not supported)
   useEffect(() => {
     if ('serviceWorker' in navigator) {
@@ -124,6 +138,12 @@ export function AppRouter() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Layout>
+
+      {/* PWA Login Prompt - show on first launch after installation */}
+      <PWALoginPrompt
+        open={showPWALoginPrompt}
+        onOpenChange={setShowPWALoginPrompt}
+      />
     </BrowserRouter>
   );
 }

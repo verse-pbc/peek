@@ -4,14 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Download, Printer, MapPin, Zap, ArrowLeft, AlertTriangle } from 'lucide-react';
-
-const VALIDATION_SERVICE_URL = import.meta.env.VITE_VALIDATION_SERVICE_URL || (
-  import.meta.env.MODE === 'production' ? 'https://api.peek.verse.app' : 'http://localhost:3001'
-);
+import { generateStickerSVG, downloadStickerPNG, getStickerDataURL } from '@/services/stickerGenerator';
 
 export default function CreateSticker() {
   const navigate = useNavigate();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [svgData, setSvgData] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,14 +18,14 @@ export default function CreateSticker() {
     setError(null);
 
     try {
-      const response = await fetch(`${VALIDATION_SERVICE_URL}/api/sticker`);
+      // Generate sticker in browser
+      const { svg } = await generateStickerSVG();
 
-      if (!response.ok) {
-        throw new Error('Failed to generate sticker');
-      }
+      // Store SVG data for download
+      setSvgData(svg);
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      // Create data URL for preview
+      const url = getStickerDataURL(svg);
       setImageUrl(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -36,15 +34,15 @@ export default function CreateSticker() {
     }
   };
 
-  const downloadSticker = () => {
-    if (!imageUrl) return;
+  const downloadSticker = async () => {
+    if (!svgData) return;
 
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = `peek-sticker-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // Download as high-resolution PNG (5x scale = 2000x2400px for print)
+      await downloadStickerPNG(svgData, 5);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download sticker');
+    }
   };
 
   const printSticker = () => {
@@ -71,7 +69,7 @@ export default function CreateSticker() {
   };
 
   return (
-    <div className="min-h-screen bg-cover bg-center" style={{ backgroundImage: 'url(/sticker-wall.jpg)' }}>
+    <div className="min-h-screen bg-gradient-to-br from-coral/5 to-mint/5">
       {/* Header */}
       <header className="bg-card/90 backdrop-blur shadow-md border-b-2 border-coral/20 sticky top-0 z-50">
         <div className="container mx-auto px-3 sm:px-4 py-3">

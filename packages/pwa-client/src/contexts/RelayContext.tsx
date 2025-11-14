@@ -15,6 +15,7 @@ import {
 } from "nostr-tools";
 import { hexToBytes } from "@/lib/hex";
 import { useNostrLogin } from "@/lib/nostr-identity";
+import { useTranslation } from 'react-i18next';
 
 interface RelayContextType {
   relayManager: RelayManager | null;
@@ -44,6 +45,7 @@ interface RelayProviderProps {
 }
 
 export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
+  const { t } = useTranslation();
   const [relayManager, setRelayManager] = useState<RelayManager | null>(null);
   const [groupManager, setGroupManager] = useState<GroupManager | null>(null);
   const [migrationService, setMigrationService] =
@@ -257,8 +259,11 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
                   {
                     pool: bunkerPool,
                     onauth: (authUrl: string) => {
-                      console.log('[RelayContext] 🔐 Additional authorization required from nsec.app');
+                      console.log('[RelayContext] 🔐 Additional authorization required');
                       console.log('[RelayContext] Opening auth popup');
+
+                      // Set waiting state ONLY when popup is actually needed
+                      setWaitingForBunkerApproval(true);
 
                       // Try to open popup
                       const popup = window.open(authUrl, 'nsec-auth', 'width=600,height=700,popup=yes');
@@ -269,12 +274,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
                         console.log('[RelayContext] User must manually approve at:', authUrl);
 
                         // Show user-friendly message
-                        const message = 'nsec.app requires approval for this action.\n\n' +
-                                       'Your browser blocked the popup. Please:\n' +
-                                       '1. Allow popups for this site, or\n' +
-                                       '2. Click OK to open the approval page manually';
-
-                        if (confirm(message)) {
+                        if (confirm(t('identity_modal.key_manager.popup_blocked_message'))) {
                           window.location.href = authUrl;
                         }
                       } else {
@@ -282,8 +282,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
 
                         // Show OS notification to guide user
                         if ('Notification' in window && Notification.permission === 'granted') {
-                          new Notification('Approval needed', {
-                            body: 'Please approve the request in the nsec.app popup',
+                          new Notification(t('identity_modal.key_manager.notification_approval_title'), {
+                            body: t('identity_modal.key_manager.notification_approval_body'),
                             icon: '/pwa-192x192.png'
                           });
                         }
@@ -338,11 +338,12 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           }
 
           console.log("[RelayContext] Calling bunkerSigner.signEvent...");
-          setWaitingForBunkerApproval(true);
 
           try {
             const signedEvent = await bunkerSignerRef.current.signEvent(authEvent);
             console.log("[RelayContext] ✅ Bunker signed NIP-42 auth successfully");
+
+            // Clear waiting state (in case it was set by onauth callback)
             setWaitingForBunkerApproval(false);
 
             // If relay timed out while waiting for approval, retry connection

@@ -13,11 +13,13 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Checkbox } from './ui/checkbox';
-import { AlertCircle, Zap, Copy, AlertTriangle, Cloud, Shield } from 'lucide-react';
+import { AlertCircle, Zap, Copy, AlertTriangle, Cloud, Shield, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTranslation } from 'react-i18next';
 import { generateNostrConnectURI } from '@/lib/nostr-identity';
+import { connectWithKeycast, storeKeycastCredentials, KeycastError } from '@/services/keycast';
+import { useNostrLogin } from '@/lib/nostr-identity';
 
 interface IdentityModalProps {
   open: boolean;
@@ -30,6 +32,7 @@ interface IdentityModalProps {
   hasJoinedCommunities?: boolean;
   isUsingExtension?: boolean;
   isLocalIdentity?: boolean; // Auto-generated local identity (can be upgraded)
+  initialTab?: 'extension' | 'keycast' | 'bunker';
 }
 
 export const IdentityModal: React.FC<IdentityModalProps> = ({
@@ -43,15 +46,23 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   hasJoinedCommunities = false,
   isUsingExtension = false,
   isLocalIdentity = false,
+  initialTab,
 }) => {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { identity: currentIdentity, loginWithBunker } = useNostrLogin();
   const [bunkerUri, setBunkerUri] = useState('');
   const [bunkerError, setBunkerError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'extension' | 'bunker'>('bunker');
+  // Default to bunker tab for switch mode (logging in), keycast for upgrade mode (saving account)
+  const defaultTab = initialTab || (mode === 'switch' ? 'bunker' : 'keycast');
+  const [activeTab, setActiveTab] = useState<'extension' | 'keycast' | 'bunker'>(defaultTab);
   const [keepCommunities, setKeepCommunities] = useState(true);
   const [hasConfirmedBackup, setHasConfirmedBackup] = useState(false);
+
+  // Keycast OAuth state
+  const [keycastLoading, setKeycastLoading] = useState(false);
+  const [keycastError, setKeycastError] = useState('');
 
   // Bunker-specific state
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -77,6 +88,54 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
     if (onExtension) {
       onExtension();
       onOpenChange(false);
+    }
+  };
+
+  const handleKeycastDirect = async () => {
+    setKeycastLoading(true);
+    setKeycastError('');
+
+    try {
+      // Get nsec only for upgrade mode
+      const nsec = mode === 'upgrade' && currentIdentity?.type === 'local'
+        ? currentIdentity.secretKey
+        : undefined;
+
+      // Call OAuth flow directly
+      const bunkerUrl = await connectWithKeycast(nsec, mode);
+
+      // Store bunker URL
+      storeKeycastCredentials(bunkerUrl);
+
+      // Login with bunker
+      if (loginWithBunker) {
+        await loginWithBunker(bunkerUrl);
+      }
+
+      // Success
+      toast({
+        title: mode === 'switch'
+          ? t('identity_modal.keycast.success.connected')
+          : t('identity_modal.keycast.success.connected'),
+        description: t('identity_modal.keycast.success.reloading'),
+      });
+
+      onOpenChange(false);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
+    } catch (err) {
+      console.error('[IdentityModal] Keycast OAuth failed:', err);
+
+      if (err instanceof KeycastError) {
+        setKeycastError(err.message);
+      } else {
+        setKeycastError(t('identity_modal.keycast.errors.connection_failed'));
+      }
+    } finally {
+      setKeycastLoading(false);
     }
   };
 
@@ -128,7 +187,10 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
   const handleCopyNostrConnect = () => {
     if (!nostrConnectUri) return;
     navigator.clipboard.writeText(nostrConnectUri);
-    toast({ title: "Copied!", description: "Paste into nsec.app" });
+    toast({
+      title: t('identity_modal.key_manager.copy_toast_title'),
+      description: t('identity_modal.key_manager.copy_toast_description')
+    });
   };
 
   // Set default tab based on platform and available options
@@ -178,7 +240,15 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
               // After generating
               <div className="space-y-3">
                 {isWaitingForConnection && (
-                  <p className="text-sm">⏳ {t('identity_modal.key_manager.waiting_approval')}</p>
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <p className="font-medium">{t('identity_modal.key_manager.waiting_approval')}</p>
+                      <p className="text-xs mt-1 text-muted-foreground">
+                        {t('identity_modal.key_manager.waiting_subtitle')}
+                      </p>
+                    </AlertDescription>
+                  </Alert>
                 )}
 
                 <div>
@@ -368,11 +438,15 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
 
         {/* Show tabs only when multiple options available */}
         {showExtensionTab ? (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'extension' | 'bunker')}>
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'extension' | 'keycast' | 'bunker')}>
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="extension">
                 <Shield className="w-4 h-4 mr-2" />
                 {t('identity_modal.tabs.extension')}
+              </TabsTrigger>
+              <TabsTrigger value="keycast">
+                <Shield className="w-4 h-4 mr-2" />
+                {t('identity_modal.tabs.keycast')}
               </TabsTrigger>
               <TabsTrigger value="bunker">
                 <Cloud className="w-4 h-4 mr-2" />
@@ -418,17 +492,113 @@ export const IdentityModal: React.FC<IdentityModalProps> = ({
             </DialogFooter>
           </TabsContent>
 
+            <TabsContent value="keycast" className="space-y-4">
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {mode === 'switch'
+                    ? t('identity_modal.keycast.description_switch')
+                    : t('identity_modal.keycast.description')
+                  }
+                </p>
+
+                {/* Keycast OAuth button - calls directly without intermediate modal */}
+                <Button
+                  type="button"
+                  onClick={handleKeycastDirect}
+                  className="w-full"
+                  disabled={keycastLoading}
+                >
+                  {keycastLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Shield className="mr-2 h-4 w-4" />
+                  {mode === 'switch'
+                    ? t('identity_modal.keycast.connect_button_switch')
+                    : t('identity_modal.keycast.connect_button')
+                  }
+                </Button>
+
+                {/* Error message */}
+                {keycastError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">{keycastError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Benefits preview */}
+                <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                  <p className="text-xs font-medium">{t('identity_modal.keycast.benefits')}</p>
+                  <p className="text-xs text-muted-foreground">{t('identity_modal.keycast.benefit_1')}</p>
+                  <p className="text-xs text-muted-foreground">{t('identity_modal.keycast.benefit_2')}</p>
+                  <p className="text-xs text-muted-foreground">{t('identity_modal.keycast.benefit_3')}</p>
+                </div>
+              </div>
+            </TabsContent>
+
             <TabsContent value="bunker" className="space-y-4">
               <BunkerContent />
             </TabsContent>
           </Tabs>
         ) : (
-          // Flatten UI when only 1 option (mobile or no extension)
-          <div className="space-y-4">
-            <BunkerContent />
-          </div>
+          // Mobile: Show Keycast and Bunker options
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'keycast' | 'bunker')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="keycast">
+                <Shield className="w-4 h-4 mr-2" />
+                {t('identity_modal.tabs.keycast')}
+              </TabsTrigger>
+              <TabsTrigger value="bunker">
+                <Cloud className="w-4 h-4 mr-2" />
+                {t('identity_modal.tabs.key_manager')}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="keycast" className="space-y-4">
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {mode === 'switch'
+                    ? t('identity_modal.keycast.description_switch')
+                    : t('identity_modal.keycast.description')
+                  }
+                </p>
+
+                <Button
+                  type="button"
+                  onClick={handleKeycastDirect}
+                  className="w-full"
+                  disabled={keycastLoading}
+                >
+                  {keycastLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Shield className="mr-2 h-4 w-4" />
+                  {mode === 'switch'
+                    ? t('identity_modal.keycast.connect_button_switch')
+                    : t('identity_modal.keycast.connect_button')
+                  }
+                </Button>
+
+                {/* Error message */}
+                {keycastError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">{keycastError}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="bg-muted/50 rounded-lg p-3 space-y-1">
+                  <p className="text-xs font-medium">{t('identity_modal.keycast.benefits')}</p>
+                  <p className="text-xs text-muted-foreground">{t('identity_modal.keycast.benefit_1')}</p>
+                  <p className="text-xs text-muted-foreground">{t('identity_modal.keycast.benefit_2')}</p>
+                  <p className="text-xs text-muted-foreground">{t('identity_modal.keycast.benefit_3')}</p>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="bunker" className="space-y-4">
+              <BunkerContent />
+            </TabsContent>
+          </Tabs>
         )}
       </DialogContent>
+
     </Dialog>
   );
 };
