@@ -46,14 +46,27 @@
     "show_password": "Show password",
     "hide_password": "Hide password",
     "user_menu": {
+      "profile": "Profile",
       "profile_and_keys": "Profile & Keys",
+      "save_account": "Save Your Account",
       "theme": "Theme",
       "theme_light": "Light",
       "theme_dark": "Dark",
       "theme_system": "System",
+      "secure_with_keycast": "Secure with Keycast",
+      "advanced": "Advanced",
+      "view_keys": "View Your Keys",
       "switch_account": "Switch Account",
       "switching": "Switching..."
     }
+  },
+  "pwa_login": {
+    "title": "Welcome to Peek!",
+    "description": "Continue with your existing account or start fresh",
+    "login_keycast": "Login with Your Account",
+    "login_keycast_desc": "Access your saved account with email and password",
+    "advanced_option": "Advanced: Import bunker URL or browser extension",
+    "skip": "Skip for now"
   },
   "pwa_import": {
     "title": "Connect Your Account",
@@ -436,6 +449,7 @@
     "cancel": "Cancel",
     "tabs": {
       "extension": "Browser Extension",
+      "keycast": "Keycast",
       "key_manager": "Use a Key Manager",
       "paste_key": "Paste Your Key"
     },
@@ -445,9 +459,10 @@
       "generate_desc": "Peek will create a connection code for you",
       "generate_button": "Generate Connection Code",
       "advanced_bunker": "Advanced: I have a bunker URL →",
-      "waiting_approval": "Waiting for approval...",
+      "waiting_approval": "Waiting for approval in your key manager",
+      "waiting_subtitle": "Check your key manager app for a connection request. Need help? Start over to generate a new code.",
       "connection_code": "Connection code",
-      "paste_instruction": "Paste into nsec.app → Connect App, then approve",
+      "paste_instruction": "Paste this code into your key manager (e.g., nsec.app → Connect App), then approve the connection request",
       "start_over": "Start Over",
       "back_to_generate": "← Back to generate",
       "input_label": "Paste bunker URL from your key manager",
@@ -462,7 +477,14 @@
         "6": "Approve the connection when prompted"
       },
       "popup_blocked": "If popup is blocked, allow popups for this site",
-      "connect_button": "Connect"
+      "connect_button": "Connect",
+      "copy_toast_title": "Copied!",
+      "copy_toast_description": "Paste into your key manager",
+      "notification_approval_title": "Approval needed",
+      "notification_approval_body": "Please approve the connection request in your key manager",
+      "popup_blocked_title": "Popup Blocked",
+      "popup_blocked_message": "Your key manager requires approval for this action.\n\nYour browser blocked the popup. Please:\n1. Allow popups for this site, or\n2. Click OK to open the approval page manually",
+      "popup_blocked_connection": "Your key manager requires approval to complete the connection.\n\nYour browser blocked the popup. Please:\n1. Allow popups for this site, or\n2. Click OK to open the approval page"
     },
     "paste_key": {
       "title": "Already have a Nostr key? Use it here",
@@ -485,6 +507,41 @@
       "not_detected": "No Nostr browser extension detected. Please install Alby, nos2x, or another NIP-07 compatible extension.",
       "connect_button": "Connect Extension"
     },
+    "keycast": {
+      "title": "Save Your Account",
+      "title_switch": "Login to Your Account",
+      "description": "Access your account from any device with email and password.",
+      "description_switch": "Access your existing Keycast account",
+      "description_with_communities": "Save your account and keep all your communities",
+      "description_without_communities": "Save your account to access from any device",
+      "benefits": "Benefits:",
+      "benefit_1": "✓ Access from any device",
+      "benefit_2": "✓ Never lose your account",
+      "benefit_3": "✓ Secure encrypted backup",
+      "benefit_4": "✓ Works with other apps",
+      "byok_notice": "Your current account will be securely backed up.",
+      "oauth_description": "Create an account for easy cross-device access.",
+      "connect_button": "Save Your Account",
+      "connect_button_switch": "Login to Keycast",
+      "states": {
+        "waiting_for_auth": "Waiting for you to complete setup in the popup window...",
+        "exchanging_code": "Completing setup..."
+      },
+      "errors": {
+        "connection_failed": "Failed to save account. Please try again.",
+        "popup_blocked": "Popup blocked. Please allow popups for this site and try again."
+      },
+      "success": {
+        "connected": "Account saved! You can now access it from any device.",
+        "reloading": "Reloading application..."
+      }
+    },
+    "advanced": {
+      "title": "Advanced",
+      "description": "Technical settings for power users",
+      "view_keys_description": "View your public and private keys for manual backup or use in other Nostr apps.",
+      "switch_account_description": "Switch to a different account or import an existing one."
+    },
     "migration": {
       "keep_communities": "Keep my communities and admin roles",
       "keep_description": "Your previous messages will belong to your new identity",
@@ -499,12 +556,18 @@
     "title": "Profile",
     "public_key": "Public Key",
     "npub_copied": "Npub copied to clipboard",
+    "account_not_saved": "Your account is not saved",
+    "account_not_saved_description": "Your account is temporary and will be lost if you clear your browser data or switch devices.",
+    "save_account_button": "Save Your Account",
+    "account_saved": "Account saved",
+    "account_saved_description": "Your account is backed up and accessible from any device.",
     "edit_dialog": {
-      "title": "Profile & Keys",
-      "description": "Manage your Nostr profile and identity keys.",
+      "title": "Profile",
+      "description": "Edit your profile and manage account settings.",
       "tabs": {
         "profile": "Profile",
-        "keys": "Your Keys"
+        "keys": "Your Keys",
+        "advanced": "Advanced"
       },
       "profile_tab": {
         "info": "💡 Works across all Nostr apps! Your profile is part of the Nostr protocol. Learn more →",
@@ -521,7 +584,7 @@
         "learn_more_link": "Learn more"
       },
       "keys_tab": {
-        "npub_label": "Public ID (npub)",
+        "npub_label": "Public ID",
         "npub_desc": "Safe to share - like your email address",
         "nsec_label": "Secret Key (nsec)",
         "nsec_saved": "Saved",
@@ -531,6 +594,14 @@
         "copy_nsec": "Copy Secret Key",
         "extension_managed": "🔒 Your secret key is managed by your browser extension and never exposed.",
         "learn_more": "New to Nostr? Learn more →"
+      },
+      "advanced_tab": {
+        "intro": "We auto-generated your account key in your browser. Save with Keycast (recommended), or copy it for advanced use.",
+        "backup_description": "For advanced use: copy your key for manual backup or use in other Nostr apps.",
+        "backup_learn_more": "New to Nostr?",
+        "switch_account_title": "Switch Account",
+        "switch_account_description": "Switch to another account you already own",
+        "switch_account_button": "Switch Account"
       },
       "toast": {
         "profile_updated": "Profile updated!",

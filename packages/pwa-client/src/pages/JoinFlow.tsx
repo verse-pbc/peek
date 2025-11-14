@@ -218,7 +218,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       });
       setCurrentStep(JoinStep.ERROR);
     }
-  }, [communityId, identity?.type === 'local' ? identity.secretKey : undefined, pubkey, relayManager]);
+  }, [communityId, pubkey, relayManager, identity?.type]);
 
   // Initial load - fetch preview data with a test location
   useEffect(() => {
@@ -425,7 +425,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       setError(parsedError);
       setCurrentStep(JoinStep.ERROR);
     }
-  }, [communityId, identity?.type === 'local' ? identity.secretKey : undefined, pubkey, relayManager, toast]);
+  }, [communityId, pubkey, relayManager, toast, identity?.type]);
 
   const handleLocationCaptured = useCallback(async (location: {
     latitude: number;

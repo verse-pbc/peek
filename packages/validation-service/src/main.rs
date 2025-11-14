@@ -16,7 +16,7 @@ mod test_gift_wrap;
 #[cfg(test)]
 mod test_h_tag_filter;
 
-use handlers::{health, sticker::generate_sticker, NostrValidationHandler};
+use handlers::{health, NostrValidationHandler};
 use services::{community::CommunityService, relay::RelayService};
 
 #[tokio::main]
@@ -75,7 +75,6 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/health", get(health))
-        .route("/api/sticker", get(generate_sticker))
         .layer(cors);
 
     let addr: std::net::SocketAddr = format!("0.0.0.0:{}", config.port).parse().unwrap();

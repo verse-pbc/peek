@@ -31,6 +31,13 @@ document.addEventListener('touchend', (e) => {
   lastTouchEnd = now;
 }, false);
 
+// Clean up deprecated ROPC credentials from localStorage
+// This can be removed after all users have migrated (added 2025-11-13)
+if (localStorage.getItem('keycast_email') || localStorage.getItem('keycast_jwt')) {
+  localStorage.removeItem('keycast_email');
+  localStorage.removeItem('keycast_jwt');
+}
+
 // Prevent pinch zoom with wheel event (trackpad/mouse)
 document.addEventListener('wheel', (e) => {
   if (e.ctrlKey || e.metaKey) {

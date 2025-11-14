@@ -8,7 +8,7 @@ import htmlParser from "@html-eslint/parser";
 import customRules from "./eslint-rules/index.js";
 
 export default tseslint.config(
-  { ignores: ["dist", "dev-dist", "playwright-report", "test-results"] },
+  { ignores: ["dist", "dev-dist", "playwright-report", "test-results", "public/oauth-callback.html"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

@@ -10,7 +10,8 @@ import {
 } from './ui/dropdown-menu';
 import { useNostrLogin } from '@/lib/nostr-identity';
 import { IdentityModal } from './IdentityModal';
-import { User, Sun, Moon, Monitor, Settings, RefreshCw } from 'lucide-react';
+import { KeycastAccountModal } from './KeycastAccountModal';
+import { User, Sun, Moon, Monitor, Save } from 'lucide-react';
 import { UserProfile } from './UserProfile';
 import { ProfileEditModal } from './ProfileEditModal';
 import { useRelayManager } from '@/contexts/RelayContext';
@@ -35,12 +36,14 @@ export const UserIdentityButton: React.FC = () => {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
 
-  const [isSwapping, setIsSwapping] = useState(false);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
+  const [profileInitialTab, setProfileInitialTab] = useState<'profile' | 'keys'>('profile');
+  const [showKeycastModal, setShowKeycastModal] = useState(false);
   const [identityModalMode, setIdentityModalMode] = useState<'upgrade' | 'switch'>('upgrade');
   const [hasJoinedCommunities, setHasJoinedCommunities] = useState(false);
 
   const isUsingExtension = identity?.type === 'extension';
+  const isLocalIdentity = identity?.type === 'local';
 
   useEffect(() => {
     const joinedGroups = JSON.parse(localStorage.getItem('joinedGroups') || '[]');
@@ -50,7 +53,6 @@ export const UserIdentityButton: React.FC = () => {
   const handleIdentitySwap = async (newIdentity: { type: string; publicKey: string; secretKey?: string }) => {
     if (!identity || !relayManager) return;
 
-    setIsSwapping(true);
 
     // Declare cleanup functions at function scope so they're accessible in catch
     let unsubscribe: (() => void) | undefined;
@@ -209,8 +211,6 @@ export const UserIdentityButton: React.FC = () => {
         description: error instanceof Error ? error.message : "Failed to migrate identity",
         variant: "destructive"
       });
-    } finally {
-      setIsSwapping(false);
     }
   };
 
@@ -305,15 +305,28 @@ export const UserIdentityButton: React.FC = () => {
         <DropdownMenuContent align="end" className="w-56">
           {userPubkey && (
             <>
-              <DropdownMenuItem onClick={() => setShowProfileEdit(true)}>
-                <Settings className="mr-2 h-4 w-4" />
-                {t('common.user_menu.profile_and_keys')}
+              {/* Profile */}
+              <DropdownMenuItem onClick={() => {
+                setProfileInitialTab('profile');
+                setShowProfileEdit(true);
+              }}>
+                <User className="mr-2 h-4 w-4" />
+                {t('common.user_menu.profile')}
               </DropdownMenuItem>
+
+              {/* Save Account - only for unsaved local identities */}
+              {isLocalIdentity && (
+                <DropdownMenuItem onClick={() => setShowKeycastModal(true)}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {t('common.user_menu.save_account')}
+                </DropdownMenuItem>
+              )}
+
               <DropdownMenuSeparator />
             </>
           )}
 
-          {/* Theme Toggle Options */}
+          {/* Theme */}
           <DropdownMenuLabel className="text-xs">{t('common.user_menu.theme')}</DropdownMenuLabel>
           <DropdownMenuItem onClick={() => setTheme("light")}>
             <Sun className="mr-2 h-4 w-4" />
@@ -331,18 +344,6 @@ export const UserIdentityButton: React.FC = () => {
             {theme === 'system' && <span className="ml-auto">✓</span>}
           </DropdownMenuItem>
 
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem
-            onClick={() => {
-              setShowIdentityModal(true);
-              setIdentityModalMode(identity?.type === 'local' ? 'upgrade' : 'switch');
-            }}
-            disabled={isSwapping}
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            {isSwapping ? t('common.user_menu.switching') : t('common.user_menu.switch_account')}
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -371,8 +372,20 @@ export const UserIdentityButton: React.FC = () => {
           open={showProfileEdit}
           onOpenChange={setShowProfileEdit}
           pubkey={userPubkey}
+          initialTab={profileInitialTab}
+          onSwitchAccountClick={() => {
+            setShowIdentityModal(true);
+            setIdentityModalMode('switch'); // Always switch mode when explicitly switching accounts
+          }}
         />
       )}
+
+      {/* Keycast Account Modal */}
+      <KeycastAccountModal
+        open={showKeycastModal}
+        onOpenChange={setShowKeycastModal}
+        mode="upgrade"
+      />
     </>
   );
 };

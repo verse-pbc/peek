@@ -1,5 +1,4 @@
 pub mod nostr_validation;
-pub mod sticker;
 
 use axum::{response::IntoResponse, Json};
 

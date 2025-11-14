@@ -370,9 +370,9 @@ const Home = () => {
                 <Loader2 className="h-8 w-8 animate-spin text-coral" />
                 {waitingForBunkerApproval ? (
                   <div className="text-center space-y-1">
-                    <p className="text-sm font-medium">Waiting for approval</p>
+                    <p className="text-sm font-medium">{t('identity_modal.key_manager.waiting_approval')}</p>
                     <p className="text-xs text-muted-foreground">
-                      Please approve the request in the nsec.app popup
+                      {t('identity_modal.key_manager.notification_approval_body')}
                     </p>
                   </div>
                 ) : retryInfo.attempt >= retryInfo.maxAttempts ? (
