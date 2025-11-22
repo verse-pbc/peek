@@ -1,22 +1,58 @@
 /**
- * PWA installation and lifecycle detection utilities
+ * PWA and Platform Detection Utilities
+ *
+ * Detects if app is running as a Progressive Web App (PWA) and platform-specific
+ * capabilities. Used to select appropriate OAuth flow (popup vs polling).
  */
 
+// Extend Navigator interface for iOS standalone property
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
+}
+
 /**
- * Check if the app is currently running as an installed PWA
+ * Detect if app is running as a Progressive Web App
+ *
+ * @returns true if running as PWA (installed to home screen), false otherwise
  */
 export function isPWA(): boolean {
-  // Check if running in standalone mode (installed PWA)
+  // iOS Safari PWA detection
+  // When added to home screen, navigator.standalone is true
+  if ((navigator as NavigatorWithStandalone).standalone === true) {
+    return true;
+  }
+
+  // Chrome/Android PWA detection
+  // When installed as PWA, display-mode is standalone
   if (window.matchMedia('(display-mode: standalone)').matches) {
     return true;
   }
 
-  // iOS Safari (navigator.standalone is iOS-specific)
-  if ('standalone' in window.navigator && (window.navigator as { standalone?: boolean }).standalone) {
-    return true;
-  }
-
   return false;
+}
+
+/**
+ * Detect if running on iOS (iPhone, iPad, iPod)
+ *
+ * Used to determine if x-safari-https:// URL scheme is available
+ * and if iOS-specific workarounds are needed.
+ *
+ * @returns true if running on iOS device, false otherwise
+ */
+export function isIOS(): boolean {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent);
+}
+
+/**
+ * Determine if OAuth polling flow should be used
+ *
+ * Polling is needed for iOS PWAs where popup window communication
+ * is sandboxed and redirects open in Safari instead of the app.
+ *
+ * @returns true if polling flow should be used, false for popup flow
+ */
+export function shouldUsePollingFlow(): boolean {
+  return isPWA() && isIOS();
 }
 
 /**

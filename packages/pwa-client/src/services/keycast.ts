@@ -8,6 +8,9 @@
 
 import { generatePKCE } from '../lib/pkce';
 import { openCenteredPopup } from '../lib/popup';
+import { shouldUsePollingFlow } from '../lib/pwa-detection';
+import { nip19, getPublicKey } from 'nostr-tools';
+import { hexToBytes } from '../lib/hex';
 
 const KEYCAST_URL = import.meta.env.VITE_KEYCAST_URL || 'https://oauth.divine.video';
 const CLIENT_ID = import.meta.env.VITE_KEYCAST_CLIENT_ID || 'peek-app';
@@ -36,15 +39,44 @@ export class KeycastError extends Error {
 }
 
 /**
- * Connect with Keycast using OAuth popup flow.
+ * Extract public key from nsec (hex or bech32 format)
+ *
+ * @param nsecHex - Secret key in hex or bech32 nsec1... format
+ * @returns Public key in hex format
+ */
+function extractPubkeyFromNsec(nsecHex: string): string {
+  try {
+    let secretKeyBytes: Uint8Array;
+
+    // Check if it's bech32 nsec1... format
+    if (nsecHex.startsWith('nsec1')) {
+      const decoded = nip19.decode(nsecHex);
+      secretKeyBytes = decoded.data as Uint8Array;
+    } else {
+      // Assume hex format
+      secretKeyBytes = hexToBytes(nsecHex);
+    }
+
+    // Get public key from secret key
+    const publicKey = getPublicKey(secretKeyBytes);
+    return publicKey;
+  } catch (error) {
+    throw new KeycastError(
+      'Invalid nsec format. Must be hex or nsec1...',
+      undefined,
+      error
+    );
+  }
+}
+
+/**
+ * Connect with Keycast using OAuth flow.
+ * Automatically selects popup (web/desktop) or polling (iOS PWA) flow.
  * Optionally imports an existing Nostr key (BYOK) when in upgrade mode.
  *
  * @param nsec - Optional: hex or bech32 nsec to import (only used in upgrade mode)
  * @param mode - 'upgrade' to create new account with nsec import, 'switch' to login to existing account
  * @returns Promise resolving to bunker URL
- *
- * CRITICAL: Must be called synchronously in a user event handler (e.g., button click)
- * to avoid iOS PWA popup blocking. The popup is opened immediately before async work.
  *
  * NOTE: Relays are configured at Keycast deployment level, not per-user.
  * The returned bunker URL will contain the relays configured by the Keycast operator.
@@ -55,9 +87,30 @@ export async function connectWithKeycast(
 ): Promise<string> {
   const redirectUri = `${window.location.origin}/oauth-callback.html`;
 
+  // Auto-select flow based on environment
+  const usePWAFlow = shouldUsePollingFlow();
+
+  if (usePWAFlow) {
+    return connectWithKeycastPolling(nsec, mode, redirectUri);
+  } else {
+    return connectWithKeycastPopup(nsec, mode, redirectUri);
+  }
+}
+
+/**
+ * Connect with Keycast using popup + postMessage flow (web/desktop)
+ *
+ * CRITICAL: Must be called synchronously in a user event handler (e.g., button click)
+ * to avoid popup blocking.
+ */
+async function connectWithKeycastPopup(
+  nsec: string | undefined,
+  mode: 'upgrade' | 'switch',
+  redirectUri: string
+): Promise<string> {
   try {
-    // Generate PKCE challenge
-    const { verifier, challenge } = await generatePKCE();
+    // Generate PKCE with embedded nsec
+    const { verifier, challenge } = await generatePKCE(nsec);
 
     // Store verifier for later exchange
     sessionStorage.setItem('pkce_verifier', verifier);
@@ -70,9 +123,10 @@ export async function connectWithKeycast(
     authUrl.searchParams.set('code_challenge', challenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
 
-    // Only enable import_key for upgrade mode (registering with existing nsec)
+    // BYOK: Send pubkey so server knows to expect nsec in verifier
     if (mode === 'upgrade' && nsec) {
-      authUrl.searchParams.set('import_key', 'true');
+      const pubkey = extractPubkeyFromNsec(nsec);
+      authUrl.searchParams.set('byok_pubkey', pubkey);
     }
 
     // Open popup (500x700 centered)
@@ -82,35 +136,14 @@ export async function connectWithKeycast(
       throw new KeycastError('Popup blocked. Please allow popups for this site.');
     }
 
-    // Setup message listeners
-    const keycastOrigin = new URL(KEYCAST_URL).origin;
-
-    // Listen for bunker URL from callback
-    const bunkerUrl = await new Promise<string>((resolve, reject) => {
-      // Listener 1: keycast_ready (from Keycast domain)
-      const readyHandler = (event: MessageEvent) => {
-        if (event.origin !== keycastOrigin) return;
-
-        // Only send nsec for upgrade mode (importing key into new account)
-        if (event.data.type === 'keycast_ready' && mode === 'upgrade' && nsec) {
-          popup.postMessage(
-            {
-              type: 'import_nsec',
-              nsec
-            },
-            keycastOrigin
-          );
-        }
-      };
-
-      // Listener 2: oauth_callback (from callback page)
-      const callbackHandler = async (event: MessageEvent) => {
+    // Wait for callback via postMessage
+    const code = await new Promise<string>((resolve, reject) => {
+      const handler = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return;
         if (event.data.type !== 'oauth_callback') return;
 
-        // Cleanup listeners
-        window.removeEventListener('message', readyHandler);
-        window.removeEventListener('message', callbackHandler);
+        // Cleanup listener
+        window.removeEventListener('message', handler);
 
         // Handle error
         if (event.data.error) {
@@ -122,33 +155,23 @@ export async function connectWithKeycast(
           return;
         }
 
-        // Handle success - exchange code
+        // Handle success
         if (event.data.code) {
-          try {
-            const bunker = await exchangeCodeForBunker(
-              event.data.code,
-              verifier,
-              redirectUri
-            );
-            resolve(bunker);
-          } catch (error) {
-            reject(error);
-          }
+          resolve(event.data.code);
         }
       };
 
-      window.addEventListener('message', readyHandler);
-      window.addEventListener('message', callbackHandler);
+      window.addEventListener('message', handler);
 
       // Timeout after 5 minutes
       setTimeout(() => {
-        window.removeEventListener('message', readyHandler);
-        window.removeEventListener('message', callbackHandler);
+        window.removeEventListener('message', handler);
         reject(new KeycastError('Authentication timeout'));
       }, 300000);
     });
 
-    return bunkerUrl;
+    // Exchange code for bunker URL
+    return exchangeCodeForBunker(code, verifier, redirectUri);
 
   } catch (error) {
     // Clean up
@@ -164,6 +187,127 @@ export async function connectWithKeycast(
       error
     );
   }
+}
+
+/**
+ * Connect with Keycast using polling flow (iOS PWA)
+ *
+ * Opens Safari for authentication, then polls for authorization code.
+ * User must manually switch back to PWA after authentication.
+ */
+async function connectWithKeycastPolling(
+  nsec: string | undefined,
+  mode: 'upgrade' | 'switch',
+  redirectUri: string
+): Promise<string> {
+  try {
+    // Generate state token for polling
+    const state = crypto.randomUUID();
+
+    // Generate PKCE with embedded nsec
+    const { verifier, challenge } = await generatePKCE(nsec);
+
+    // Store verifier with state key for later retrieval
+    sessionStorage.setItem(`pkce_verifier_${state}`, verifier);
+    sessionStorage.setItem('oauth_state', state);
+
+    // Build authorization URL with state parameter
+    const authUrl = new URL(`${KEYCAST_URL}/api/oauth/authorize`);
+    authUrl.searchParams.set('client_id', CLIENT_ID);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('scope', 'sign_event encrypt decrypt');
+    authUrl.searchParams.set('code_challenge', challenge);
+    authUrl.searchParams.set('code_challenge_method', 'S256');
+    authUrl.searchParams.set('state', state);  // Tells server to use polling
+
+    // BYOK: Send pubkey
+    if (mode === 'upgrade' && nsec) {
+      const pubkey = extractPubkeyFromNsec(nsec);
+      authUrl.searchParams.set('byok_pubkey', pubkey);
+    }
+
+    // Redirect to Safari with x-safari-https:// scheme
+    const safariUrl = `x-safari-https://${authUrl.toString().replace('https://', '')}`;
+    window.location.href = safariUrl;
+
+    // Start polling (will resume when user returns)
+    return pollForCode(state, redirectUri);
+
+  } catch (error) {
+    // Clean up
+    const state = sessionStorage.getItem('oauth_state');
+    if (state) {
+      sessionStorage.removeItem(`pkce_verifier_${state}`);
+      sessionStorage.removeItem('oauth_state');
+    }
+
+    if (error instanceof KeycastError) {
+      throw error;
+    }
+
+    throw new KeycastError(
+      'Failed to connect to Keycast. Please check your internet connection.',
+      undefined,
+      error
+    );
+  }
+}
+
+/**
+ * Poll for authorization code (iOS PWA flow)
+ *
+ * Polls /api/oauth/poll?state=... every 2 seconds until code is ready.
+ */
+async function pollForCode(state: string, redirectUri: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`${KEYCAST_URL}/api/oauth/poll?state=${state}`, {
+          cache: 'no-store'
+        });
+
+        if (response.status === 200) {
+          // Code ready!
+          clearInterval(pollInterval);
+          const { code } = await response.json();
+
+          // Retrieve stored verifier
+          const verifier = sessionStorage.getItem(`pkce_verifier_${state}`);
+          if (!verifier) {
+            reject(new KeycastError('Lost PKCE verifier during polling'));
+            return;
+          }
+
+          // Clean up
+          sessionStorage.removeItem(`pkce_verifier_${state}`);
+          sessionStorage.removeItem('oauth_state');
+
+          // Exchange code for bunker URL
+          const bunkerUrl = await exchangeCodeForBunker(code, verifier, redirectUri);
+          resolve(bunkerUrl);
+
+        } else if (response.status === 202) {
+          // Still pending - keep polling
+          console.log('[Keycast] Polling... waiting for authorization');
+        } else {
+          // Error or expired
+          clearInterval(pollInterval);
+          sessionStorage.removeItem(`pkce_verifier_${state}`);
+          sessionStorage.removeItem('oauth_state');
+          reject(new KeycastError('Authorization failed or expired'));
+        }
+      } catch (error) {
+        clearInterval(pollInterval);
+        reject(error);
+      }
+    }, 2000);  // Poll every 2 seconds
+
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      reject(new KeycastError('Polling timeout - authorization took too long'));
+    }, 300000);
+  });
 }
 
 /**

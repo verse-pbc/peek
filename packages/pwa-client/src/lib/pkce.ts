@@ -16,18 +16,27 @@ function base64URLEncode(buffer: ArrayBuffer): string {
 /**
  * Generate PKCE code verifier and challenge
  *
+ * Optionally embeds nsec in verifier for BYOK (Bring Your Own Key) flow.
+ * Verifier format: {random_base64}.{nsec} when nsec is provided
+ *
+ * @param nsec - Optional: hex or bech32 nsec to embed in verifier (BYOK mode)
  * @returns Promise resolving to { verifier, challenge }
  */
-export async function generatePKCE(): Promise<{
+export async function generatePKCE(nsec?: string): Promise<{
   verifier: string;
   challenge: string;
 }> {
   // Generate random verifier (32 bytes = 43 base64url chars)
   const verifierBytes = new Uint8Array(32);
   crypto.getRandomValues(verifierBytes);
-  const verifier = base64URLEncode(verifierBytes.buffer);
+  const randomPart = base64URLEncode(verifierBytes.buffer);
+
+  // Embed nsec in verifier if provided (BYOK flow)
+  // Format: {random}.{nsec}
+  const verifier = nsec ? `${randomPart}.${nsec}` : randomPart;
 
   // Generate SHA-256 challenge
+  // CRITICAL: Hash the ENTIRE verifier (including nsec if present)
   const encoder = new TextEncoder();
   const hashBuffer = await crypto.subtle.digest(
     'SHA-256',

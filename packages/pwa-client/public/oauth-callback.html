@@ -30,12 +30,25 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
+    const state = params.get('state');
     const error = params.get('error');
     const errorDescription = params.get('error_description');
 
     const messageEl = document.getElementById('message');
 
-    if (window.opener) {
+    // If state is present, this is polling flow (iOS PWA)
+    // Don't use postMessage - user will manually return to app and polling will retrieve the code
+    if (state) {
+      if (code) {
+        messageEl.className = 'message success';
+        messageEl.textContent = '✓ Authorization complete! You can close this window and return to Peek.';
+      } else {
+        messageEl.className = 'message error';
+        messageEl.textContent = `✗ Authorization ${error || 'failed'}`;
+      }
+      // Don't close automatically - user must manually switch back to PWA
+    } else if (window.opener) {
+      // Popup flow (web/desktop) - use postMessage
       const message = {
         type: 'oauth_callback',
         ...(code && { code }),
