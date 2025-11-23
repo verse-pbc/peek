@@ -186,7 +186,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey, initialTab = 'pro
             <TabsTrigger value="keys">{t('profile.edit_dialog.tabs.advanced')}</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="profile" className="space-y-4 py-4">
+          <TabsContent value="profile" className="space-y-4 py-4 max-h-[60vh] overflow-y-auto overflow-x-hidden styled-scrollbar">
             {/* Profile Info Banner */}
             <Alert className="bg-mint/10 border-mint/30">
               <AlertCircle className="h-4 w-4 text-mint" />
@@ -292,7 +292,7 @@ export function ProfileEditModal({ open, onOpenChange, pubkey, initialTab = 'pro
             )}
           </TabsContent>
 
-          <TabsContent value="keys" className="space-y-4 py-4">
+          <TabsContent value="keys" className="space-y-4 py-4 max-h-[60vh] overflow-y-auto overflow-x-hidden styled-scrollbar">
             {/* Introduction for unsaved accounts */}
             {identity?.type === 'local' && (
               <p className="text-sm text-muted-foreground">
