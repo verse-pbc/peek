@@ -170,13 +170,17 @@ export const useNostrLogin = () => {
       try {
         const parsed = JSON.parse(stored);
 
-        // Migrate old format to discriminated union if needed
+        // 1. Migrate old format to discriminated union if needed
         if (!parsed.type) {
           console.log('[Identity] Migrating old identity format to discriminated union');
           let migrated: StoredIdentity;
 
-          if (parsed.secretKey === 'NIP07_EXTENSION') {
-            // Old extension identity
+          // Treat 'NIP07_EXTENSION' OR missing secret key as extension identity
+          // Local identity MUST have a secret key
+          const isExtension = parsed.secretKey === 'NIP07_EXTENSION' || !parsed.secretKey;
+
+          if (isExtension) {
+            // Old extension identity (or one missing keys)
             migrated = {
               type: 'extension',
               publicKey: parsed.publicKey,
@@ -184,7 +188,7 @@ export const useNostrLogin = () => {
               createdAt: parsed.createdAt || Date.now()
             };
           } else {
-            // Old local identity
+            // Old local identity (has secret key)
             migrated = {
               type: 'local',
               secretKey: parsed.secretKey,
@@ -197,8 +201,21 @@ export const useNostrLogin = () => {
 
           localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
           setIdentity(migrated);
-        } else {
-          // Already in new format
+        } 
+        // 2. Repair bad migration state: Local identity MUST have secretKey
+        else if (parsed.type === 'local' && !parsed.secretKey) {
+          console.warn('[Identity] Detected broken local identity (no secret key). converting to extension.');
+          const repaired: ExtensionIdentity = {
+            type: 'extension',
+            publicKey: parsed.publicKey,
+            npub: parsed.npub,
+            createdAt: parsed.createdAt || Date.now()
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(repaired));
+          setIdentity(repaired);
+        }
+        else {
+          // Already in new format and valid
           setIdentity(parsed as StoredIdentity);
         }
       } catch (err) {
