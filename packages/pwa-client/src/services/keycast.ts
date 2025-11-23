@@ -2,12 +2,14 @@
  * Keycast Remote Signer Service
  *
  * Provides integration with Keycast (keycast.dcadenas.dev) for secure Nostr identity
- * management via NIP-46 bunker URLs. Users authenticate via OAuth popup flow and can
- * optionally import their existing keys (BYOK - Bring Your Own Key).
+ * management via NIP-46 bunker URLs.
+ *
+ * Uses a Hybrid Flow:
+ * 1. Redirect Flow for standard web (Desktop/Mobile Browser) - Most reliable.
+ * 2. Polling Flow for iOS PWA - Required because Safari cannot redirect back to PWA instance.
  */
 
 import { generatePKCE } from '../lib/pkce';
-import { openCenteredPopup } from '../lib/popup';
 import { shouldUsePollingFlow } from '../lib/pwa-detection';
 import { nip19, getPublicKey } from 'nostr-tools';
 import { hexToBytes } from '../lib/hex';
@@ -71,77 +73,52 @@ function extractPubkeyFromNsec(nsecHex: string): string {
 
 /**
  * Connect with Keycast using OAuth flow.
- * Automatically selects popup (web/desktop) or polling (iOS PWA) flow.
- * Optionally imports an existing Nostr key (BYOK) when in upgrade mode.
+ * Automatically selects Redirect flow (Web) or Polling flow (iOS PWA).
  *
  * @param nsec - Optional: hex or bech32 nsec to import (only used in upgrade mode)
  * @param mode - 'upgrade' to create new account with nsec import, 'switch' to login to existing account
- * @returns Promise resolving to bunker URL
- *
- * NOTE: Relays are configured at Keycast deployment level, not per-user.
- * The returned bunker URL will contain the relays configured by the Keycast operator.
+ * @returns Promise resolving to bunker URL (only for polling flow). For redirect flow, this promise never resolves as the page unloads.
  */
 export async function connectWithKeycast(
   nsec?: string,
   mode: 'upgrade' | 'switch' = 'upgrade'
 ): Promise<string> {
-  const redirectUri = `${window.location.origin}/oauth-callback.html`;
-
   // Auto-select flow based on environment
   const usePWAFlow = shouldUsePollingFlow();
 
   if (usePWAFlow) {
+    // iOS PWA: Use Polling Flow (opens Safari, polls for completion)
+    // Redirect URI is just a dummy here as we rely on polling
+    const redirectUri = `${window.location.origin}/oauth-callback.html`; 
     return connectWithKeycastPolling(nsec, mode, redirectUri);
   } else {
-    return connectWithKeycastPopup(nsec, mode, redirectUri);
+    // Standard Web: Use Redirect Flow (full page redirect)
+    // Redirect back to app root to handle callback
+    const redirectUri = `${window.location.origin}/`;
+    await connectWithKeycastRedirect(nsec, mode, redirectUri);
+    return new Promise(() => {}); // Never resolves as page unloads
   }
 }
 
 /**
- * Connect with Keycast using popup + postMessage flow (web/desktop)
- *
- * CRITICAL: Must be called synchronously in a user event handler (e.g., button click)
- * to avoid popup blocking.
+ * Connect with Keycast using Redirect Flow (Web/Desktop)
+ * 
+ * Redirects the full page to Keycast. The app will reload on return
+ * and `completeOAuthFlow` should be called.
  */
-async function connectWithKeycastPopup(
+async function connectWithKeycastRedirect(
   nsec: string | undefined,
   mode: 'upgrade' | 'switch',
   redirectUri: string
-): Promise<string> {
-  // 1. Open popup synchronously to avoid blocking
-  // We must open it BEFORE any async work (like generatePKCE)
-  const popup = openCenteredPopup('about:blank', 'keycast-oauth', 500, 700);
-
-  if (!popup) {
-    throw new KeycastError('Popup blocked. Please allow popups for this site.');
-  }
-
-  // Show loading state
-  popup.document.write(`
-    <html>
-      <head>
-        <title>Connecting to Keycast...</title>
-        <style>
-          body { font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f9fafb; color: #111827; }
-          .loader { border: 3px solid #e5e7eb; border-top: 3px solid #000; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin-right: 12px; }
-          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        </style>
-      </head>
-      <body>
-        <div class="loader"></div>
-        <span>Connecting to Keycast...</span>
-      </body>
-    </html>
-  `);
-
+): Promise<void> {
   try {
-    // 2. Generate PKCE (Async)
+    // 1. Generate PKCE
     const { verifier, challenge } = await generatePKCE(nsec);
 
-    // Store verifier for later exchange
+    // Store verifier for later exchange (persists across page loads)
     sessionStorage.setItem('pkce_verifier', verifier);
 
-    // Build authorization URL
+    // 2. Build authorization URL
     const authUrl = new URL(`${KEYCAST_URL}/api/oauth/authorize`);
     authUrl.searchParams.set('client_id', CLIENT_ID);
     authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -155,70 +132,14 @@ async function connectWithKeycastPopup(
       authUrl.searchParams.set('byok_pubkey', pubkey);
     }
 
-    // 3. Navigate popup to Auth URL
-    popup.location.href = authUrl.toString();
-
-    // Wait for callback via postMessage
-    const code = await new Promise<string>((resolve, reject) => {
-      const pollingState = { interval: undefined as ReturnType<typeof setInterval> | undefined };
-
-      const cleanup = () => {
-        window.removeEventListener('message', handler);
-        if (pollingState.interval) clearInterval(pollingState.interval);
-      };
-
-      const handler = (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
-        if (event.data.type !== 'oauth_callback') return;
-
-        cleanup();
-
-        // Handle error
-        if (event.data.error) {
-          reject(
-            new KeycastError(
-              event.data.error_description || event.data.error
-            )
-          );
-          return;
-        }
-
-        // Handle success
-        if (event.data.code) {
-          resolve(event.data.code);
-        }
-      };
-
-      window.addEventListener('message', handler);
-
-      // Check if popup was closed manually by user
-      pollingState.interval = setInterval(() => {
-        if (popup.closed) {
-          cleanup();
-          reject(new KeycastError('Login cancelled by user'));
-        }
-      }, 1000);
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        cleanup();
-        reject(new KeycastError('Authentication timeout'));
-      }, 300000);
-    });
-
-    // Exchange code for bunker URL
-    return exchangeCodeForBunker(code, verifier, redirectUri);
+    // 3. Redirect User
+    window.location.href = authUrl.toString();
 
   } catch (error) {
-    // Clean up
     sessionStorage.removeItem('pkce_verifier');
-
-    if (error instanceof KeycastError) {
-      throw error;
-    }
-
+    if (error instanceof KeycastError) throw error;
     throw new KeycastError(
-      'Failed to connect to Keycast. Please check your internet connection.',
+      'Failed to initiate connection to Keycast.',
       undefined,
       error
     );
@@ -344,6 +265,24 @@ async function pollForCode(state: string, redirectUri: string): Promise<string> 
       reject(new KeycastError('Polling timeout - authorization took too long'));
     }, 300000);
   });
+}
+
+/**
+ * Complete the OAuth flow by exchanging the code for a bunker URL.
+ * Called by the /callback route (or main app on load).
+ *
+ * @param code - Authorization code from URL query params
+ * @returns Promise resolving to bunker URL
+ */
+export async function completeOAuthFlow(code: string): Promise<string> {
+  const redirectUri = `${window.location.origin}/`;
+  const verifier = sessionStorage.getItem('pkce_verifier');
+
+  if (!verifier) {
+    throw new KeycastError('Missing PKCE verifier. Please try logging in again.');
+  }
+
+  return exchangeCodeForBunker(code, verifier, redirectUri);
 }
 
 /**

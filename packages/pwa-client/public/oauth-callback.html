@@ -25,58 +25,24 @@
   </style>
 </head>
 <body>
-  <div class="message" id="message">Processing authorization...</div>
+  <div class="message" id="message">Processing...</div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
     const error = params.get('error');
-    const errorDescription = params.get('error_description');
-
     const messageEl = document.getElementById('message');
 
-    // If state is present, this is polling flow (iOS PWA)
-    // Don't use postMessage - user will manually return to app and polling will retrieve the code
-    if (state) {
-      if (code) {
-        messageEl.className = 'message success';
-        messageEl.textContent = '✓ Authorization complete! You can close this window and return to Peek.';
-      } else {
-        messageEl.className = 'message error';
-        messageEl.textContent = `✗ Authorization ${error || 'failed'}`;
-      }
-      // Don't close automatically - user must manually switch back to PWA
-    } else if (window.opener) {
-      // Popup flow (web/desktop) - use postMessage
-      const message = {
-        type: 'oauth_callback',
-        ...(code && { code }),
-        ...(error && { error }),
-        ...(errorDescription && { error_description: errorDescription })
-      };
-
-      try {
-        // Send to parent (origin validated by parent)
-        window.opener.postMessage(message, window.location.origin);
-
-        if (code) {
-          messageEl.className = 'message success';
-          messageEl.textContent = '✓ Authorization successful! Closing...';
-        } else {
-          messageEl.className = 'message error';
-          messageEl.textContent = `✗ Authorization ${error || 'failed'}`;
-        }
-
-        setTimeout(() => window.close(), 1000);
-      } catch (e) {
-        messageEl.className = 'message error';
-        messageEl.textContent = 'Failed to communicate with app';
-        console.error('postMessage failed:', e);
-      }
+    // This page is ONLY used for the iOS PWA Polling Flow.
+    // The user is in Safari and needs to manually switch back to the PWA.
+    
+    if (code) {
+      messageEl.className = 'message success';
+      messageEl.textContent = '✓ Authorization successful! You can close this window and return to Peek.';
     } else {
       messageEl.className = 'message error';
-      messageEl.textContent = 'This page must be opened from Peek';
+      messageEl.textContent = `✗ Authorization ${error || 'failed'}`;
     }
   </script>
 </body>
