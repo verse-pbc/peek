@@ -20,6 +20,7 @@ import { useToast } from '@/hooks/useToast';
 import { useRelayManager } from '@/contexts/RelayContext';
 import { setupNostrIdentity } from '../lib/nostr-identity-helper';
 import { parseValidationError, parseExceptionError } from '../lib/join-flow-errors';
+import { useLocationCapture } from '../lib/useLocationCapture';
 import {
   isCommunityMember,
   upsertJoinedGroup
@@ -78,6 +79,18 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
   const { pubkey, login, identity } = useNostrLogin();
   const { toast } = useToast();
   const { relayManager, groupManager, connected, waitForConnection } = useRelayManager();
+
+  // Location capture hook - for direct location requests
+  const {
+    location: directLocation,
+    captureLocation: captureDirectLocation,
+    error: locationError,
+    isCapturing: isCapturingLocation
+  } = useLocationCapture({
+    enableHighAccuracy: true,
+    timeout: 30000,
+    maximumAge: 0
+  });
 
   // Flow state
   const [currentStep, setCurrentStep] = useState<JoinStep>(JoinStep.LOADING);
@@ -228,13 +241,14 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
     }
   }, [communityId, currentStep, relayManager, connected, fetchPreview]);
 
-  // Handle transition to location step after login
+  // Handle transition to location capture after login
   useEffect(() => {
     if (waitingForLogin && pubkey && currentStep === JoinStep.PREVIEW) {
       setWaitingForLogin(false);
-      setCurrentStep(JoinStep.LOCATION);
+      // Request location directly after login
+      captureDirectLocation();
     }
-  }, [waitingForLogin, pubkey, currentStep]);
+  }, [waitingForLogin, pubkey, currentStep, captureDirectLocation]);
 
   const handleJoinClick = async () => {
     if (!pubkey) {
@@ -242,10 +256,13 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       setWaitingForLogin(true);
       await login();
       // After login, we need to wait for the next render to get the updated pubkey
-      // The useEffect below will handle transitioning to location step
+      // The useEffect below will handle requesting location
       return;
     }
-    setCurrentStep(JoinStep.LOCATION);
+
+    // Request location directly - this will trigger the browser's native permission dialog
+    // The preview screen will stay visible while the dialog is shown
+    await captureDirectLocation();
   };
 
   const validateLocation = useCallback(async (location: {
@@ -471,6 +488,22 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
     setCurrentStep(JoinStep.ERROR);
   }, [t]);
 
+  // Handle direct location capture success
+  useEffect(() => {
+    if (directLocation && currentStep === JoinStep.PREVIEW) {
+      // Location captured successfully - proceed to validation
+      handleLocationCaptured(directLocation);
+    }
+  }, [directLocation, currentStep, handleLocationCaptured]);
+
+  // Handle direct location capture error
+  useEffect(() => {
+    if (locationError && currentStep === JoinStep.PREVIEW && isCapturingLocation === false) {
+      // Location capture failed
+      handleLocationDenied();
+    }
+  }, [locationError, currentStep, isCapturingLocation, handleLocationDenied]);
+
   const handleRetry = () => {
     setError(null);
     if (error?.code === 'PREVIEW_FAILED') {
@@ -488,7 +521,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
       {/* Logo overlapping the wrapper */}
       <div className="container mx-auto max-w-4xl relative">
         <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <img src="/qr-chat.svg" alt="Peek Logo" className="sm:w-64 sm:h-64" style={{ width: '9rem', height: '9rem' }} />
+          <img src="/qr-chat.svg?v=2" alt="Peek Logo" className="sm:w-64 sm:h-64" style={{ width: '9rem', height: '9rem' }} />
         </div>
       </div>
       <div id="content-wrapper" className="container mx-auto px-4 py-8 max-w-4xl border-[3px] border-solid border-black" style={{ borderRadius: 0, backgroundColor: '#FFF3E4', paddingTop: '3rem', paddingBottom: '3rem' }}>
@@ -533,6 +566,7 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
           communityId={communityId || ''}
           previewData={previewData}
           onJoin={handleJoinClick}
+          isJoining={isCapturingLocation}
           isFirstScanner={previewData.is_first_scan}
         />
       )}
@@ -561,22 +595,12 @@ export const JoinFlow: React.FC<JoinFlowProps> = ({ onJoinSuccess }) => {
 
           {/* Normal location permission - show when not using forced location AND not in developer mode */}
           {!forcedLocation && !developerMode && (
-            <>
-              <Alert variant="info">
-                <MapPin className="h-4 w-4" />
-                <AlertTitle>{t('join_flow.location_step.presence_required')}</AlertTitle>
-                <AlertDescription>
-                  {t('join_flow.location_step.presence_description')}
-                </AlertDescription>
-              </Alert>
-
-              <LocationPermission
-                onLocationCaptured={handleLocationCaptured}
-                onPermissionDenied={handleLocationDenied}
-                maxAccuracy={20}
-                autoStart={false}
-              />
-            </>
+            <LocationPermission
+              onLocationCaptured={handleLocationCaptured}
+              onPermissionDenied={handleLocationDenied}
+              maxAccuracy={20}
+              autoStart={true}
+            />
           )}
 
 
