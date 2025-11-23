@@ -35,6 +35,14 @@ export async function generatePKCE(nsec?: string): Promise<{
   // Format: {random}.{nsec}
   const verifier = nsec ? `${randomPart}.${nsec}` : randomPart;
 
+  console.log('[PKCE] Generated verifier - nsec provided:', !!nsec);
+  console.log('[PKCE] Verifier length:', verifier.length);
+  console.log('[PKCE] Verifier has dot:', verifier.includes('.'));
+  if (nsec) {
+    console.log('[PKCE] Nsec length:', nsec.length);
+    console.log('[PKCE] Nsec first 8 chars:', nsec.substring(0, 8));
+  }
+
   // Generate SHA-256 challenge
   // CRITICAL: Hash the ENTIRE verifier (including nsec if present)
   const encoder = new TextEncoder();
