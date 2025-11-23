@@ -208,10 +208,10 @@ export function CommunityFeed({
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
-      {/* Messages ScrollArea */}
+      {/* Messages ScrollArea - with bottom padding for fixed input */}
       <div
         ref={scrollRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-4 min-h-0 styled-scrollbar"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 min-h-0 styled-scrollbar pb-[120px]"
       >
         {loading ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -292,8 +292,8 @@ export function CommunityFeed({
         )}
       </div>
 
-      {/* Input Container at Bottom */}
-      <div className="border-t p-4 bg-background flex-shrink-0">
+      {/* Input Container - Fixed to visible bottom */}
+      <div className="fixed bottom-0 left-0 right-0 border-t p-4 bg-background z-40" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <div className="max-w-4xl mx-auto">
           <form
             onSubmit={(e) => {
