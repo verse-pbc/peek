@@ -132,6 +132,16 @@ async function connectWithKeycastRedirect(
       authUrl.searchParams.set('byok_pubkey', pubkey);
     }
 
+    // Default to registration form for upgrade mode
+    if (mode === 'upgrade') {
+      authUrl.searchParams.set('default_register', 'true');
+    }
+
+    // Force login prompt for switch mode (ignore existing session)
+    if (mode === 'switch') {
+      authUrl.searchParams.set('prompt', 'login');
+    }
+
     // 3. Redirect User
     window.location.href = authUrl.toString();
 
@@ -181,6 +191,16 @@ async function connectWithKeycastPolling(
     if (mode === 'upgrade' && nsec) {
       const pubkey = extractPubkeyFromNsec(nsec);
       authUrl.searchParams.set('byok_pubkey', pubkey);
+    }
+
+    // Default to registration form for upgrade mode
+    if (mode === 'upgrade') {
+      authUrl.searchParams.set('default_register', 'true');
+    }
+
+    // Force login prompt for switch mode (ignore existing session)
+    if (mode === 'switch') {
+      authUrl.searchParams.set('prompt', 'login');
     }
 
     // Redirect to Safari with x-safari-https:// scheme
