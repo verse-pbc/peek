@@ -91,7 +91,7 @@ export default function CreateSticker() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl bg-white border-[3px] border-solid border-black" style={{ borderRadius: 0 }}>
+      <main className="container mx-auto px-4 py-8 max-w-4xl bg-background border-[3px] border-solid border-foreground" style={{ borderRadius: 0 }}>
         {/* Alpha Warning */}
         <Alert className="mb-8 border-yellow-500/50 bg-yellow-500/10 dark:bg-yellow-500/20 dark:border-yellow-500/30">
           <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
