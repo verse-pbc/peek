@@ -80,12 +80,12 @@ export function setupNostrIdentity(
     };
   }
 
-  // Case 3b: User has bunker identity (use ephemeral for encryption, bunker for signing)
+  // Case 3b: User has bunker identity (use ephemeral for encryption, bunker pubkey for identity)
   if (userIdentity?.type === 'bunker' && userPubkey) {
     const ephemeral = generateEphemeralKey();
     return {
-      secretKey: ephemeral.secretKey, // Ephemeral for encryption/decryption
-      publicKey: ephemeral.publicKey, // Ephemeral pubkey (so service responds to this, not bunker)
+      secretKey: ephemeral.secretKey, // Ephemeral for gift wrap encryption/decryption
+      publicKey: userPubkey, // Real bunker pubkey (so user joins/posts with correct identity)
       encryptionHelper: undefined, // Use local ephemeral encryption
       usingAnonymous: false
     };
