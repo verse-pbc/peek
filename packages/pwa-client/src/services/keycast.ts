@@ -130,6 +130,10 @@ async function connectWithKeycastRedirect(
     if (mode === 'upgrade' && nsec) {
       const pubkey = extractPubkeyFromNsec(nsec);
       authUrl.searchParams.set('byok_pubkey', pubkey);
+      console.log('[Keycast] BYOK - sending pubkey:', pubkey.substring(0, 16) + '...');
+      console.log('[Keycast] BYOK - verifier has nsec:', verifier.includes('.'));
+    } else if (mode === 'upgrade') {
+      console.warn('[Keycast] BYOK - NO nsec provided for upgrade mode!');
     }
 
     // Default to registration form for upgrade mode
@@ -141,6 +145,8 @@ async function connectWithKeycastRedirect(
     if (mode === 'switch') {
       authUrl.searchParams.set('prompt', 'login');
     }
+
+    console.log('[Keycast] Redirecting to:', authUrl.toString().substring(0, 150) + '...');
 
     // 3. Redirect User
     window.location.href = authUrl.toString();
@@ -191,6 +197,10 @@ async function connectWithKeycastPolling(
     if (mode === 'upgrade' && nsec) {
       const pubkey = extractPubkeyFromNsec(nsec);
       authUrl.searchParams.set('byok_pubkey', pubkey);
+      console.log('[Keycast] BYOK - sending pubkey:', pubkey.substring(0, 16) + '...');
+      console.log('[Keycast] BYOK - verifier has nsec:', verifier.includes('.'));
+    } else if (mode === 'upgrade') {
+      console.warn('[Keycast] BYOK - NO nsec provided for upgrade mode!');
     }
 
     // Default to registration form for upgrade mode
@@ -202,6 +212,8 @@ async function connectWithKeycastPolling(
     if (mode === 'switch') {
       authUrl.searchParams.set('prompt', 'login');
     }
+
+    console.log('[Keycast] Polling flow - redirecting to:', authUrl.toString().substring(0, 150) + '...');
 
     // Redirect to Safari with x-safari-https:// scheme
     const safariUrl = `x-safari-https://${authUrl.toString().replace('https://', '')}`;
@@ -300,6 +312,13 @@ export async function completeOAuthFlow(code: string): Promise<string> {
 
   if (!verifier) {
     throw new KeycastError('Missing PKCE verifier. Please try logging in again.');
+  }
+
+  console.log('[Keycast] Token exchange - verifier length:', verifier.length);
+  console.log('[Keycast] Token exchange - verifier has nsec:', verifier.includes('.'));
+  if (verifier.includes('.')) {
+    const parts = verifier.split('.');
+    console.log('[Keycast] Token exchange - nsec part length:', parts[1]?.length);
   }
 
   return exchangeCodeForBunker(code, verifier, redirectUri);
