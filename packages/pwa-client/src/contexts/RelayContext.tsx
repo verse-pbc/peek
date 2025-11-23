@@ -386,7 +386,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
               errorType: authError?.constructor?.name,
               message: authError?.message,
               bunkerPubkey: publicKeyHex.substring(0, 16) + '...',
-              relays: authIdentity.relays
+              relays: bunkerRelays
             });
             setWaitingForBunkerApproval(false);
             throw authError;
