@@ -108,8 +108,34 @@ async function connectWithKeycastPopup(
   mode: 'upgrade' | 'switch',
   redirectUri: string
 ): Promise<string> {
+  // 1. Open popup synchronously to avoid blocking
+  // We must open it BEFORE any async work (like generatePKCE)
+  const popup = openCenteredPopup('about:blank', 'keycast-oauth', 500, 700);
+
+  if (!popup) {
+    throw new KeycastError('Popup blocked. Please allow popups for this site.');
+  }
+
+  // Show loading state
+  popup.document.write(`
+    <html>
+      <head>
+        <title>Connecting to Keycast...</title>
+        <style>
+          body { font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f9fafb; color: #111827; }
+          .loader { border: 3px solid #e5e7eb; border-top: 3px solid #000; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin-right: 12px; }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+      </head>
+      <body>
+        <div class="loader"></div>
+        <span>Connecting to Keycast...</span>
+      </body>
+    </html>
+  `);
+
   try {
-    // Generate PKCE with embedded nsec
+    // 2. Generate PKCE (Async)
     const { verifier, challenge } = await generatePKCE(nsec);
 
     // Store verifier for later exchange
@@ -129,12 +155,8 @@ async function connectWithKeycastPopup(
       authUrl.searchParams.set('byok_pubkey', pubkey);
     }
 
-    // Open popup (500x700 centered)
-    const popup = openCenteredPopup(authUrl.toString(), 'keycast-oauth', 500, 700);
-
-    if (!popup) {
-      throw new KeycastError('Popup blocked. Please allow popups for this site.');
-    }
+    // 3. Navigate popup to Auth URL
+    popup.location.href = authUrl.toString();
 
     // Wait for callback via postMessage
     const code = await new Promise<string>((resolve, reject) => {
