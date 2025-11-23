@@ -42,8 +42,8 @@ Keycast provides secure remote signing for Nostr apps using NIP-46 (Nostr Connec
 ```
 ┌──────────────┐                          ┌──────────────────┐
 │   Peek App   │  OAuth Popup Flow        │  Keycast Server  │
-│              │◄────────────────────────►│  oauth.divine.   │
-│  - Open      │  PKCE + Auth Code        │      video       │
+│              │◄────────────────────────►│ keycast.dcadenas │
+│  - Open      │  PKCE + Auth Code        │       .dev       │
 │    Popup     │  ────────────────────►   │                  │
 │  - BYOK via  │  ◄────────────────────   │  - Stores keys   │
 │    postMsg   │  (bunker URL)            │  - OAuth server  │
@@ -65,7 +65,7 @@ Keycast provides secure remote signing for Nostr apps using NIP-46 (Nostr Connec
 
 ## API Endpoints
 
-Base URL: `https://oauth.divine.video`
+Base URL: `https://keycast.dcadenas.dev`
 
 ### 1. Registration (ROPC)
 
@@ -179,7 +179,7 @@ async function createKeycastAccount(email: string, password: string) {
 
   try {
     // Step 1: Register with existing nsec
-    const registerRes = await fetch('https://oauth.divine.video/api/auth/register', {
+    const registerRes = await fetch('https://keycast.dcadenas.dev/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -209,7 +209,7 @@ async function createKeycastAccount(email: string, password: string) {
     }
 
     // Step 2: Get bunker URL
-    const bunkerRes = await fetch('https://oauth.divine.video/api/user/bunker', {
+    const bunkerRes = await fetch('https://keycast.dcadenas.dev/api/user/bunker', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -235,7 +235,7 @@ async function createKeycastAccount(email: string, password: string) {
 async function loginToKeycast(email: string, password: string) {
   try {
     // Step 1: Login to get JWT
-    const loginRes = await fetch('https://oauth.divine.video/api/auth/login', {
+    const loginRes = await fetch('https://keycast.dcadenas.dev/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -249,7 +249,7 @@ async function loginToKeycast(email: string, password: string) {
     const { token, pubkey } = await loginRes.json();
 
     // Step 2: Get bunker URL
-    const bunkerRes = await fetch('https://oauth.divine.video/api/user/bunker', {
+    const bunkerRes = await fetch('https://keycast.dcadenas.dev/api/user/bunker', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
 
@@ -538,7 +538,7 @@ console.log('Bunker URL:', bunker_url);
 
 Set in peek's production environment:
 ```bash
-VITE_KEYCAST_URL=https://oauth.divine.video
+VITE_KEYCAST_URL=https://keycast.dcadenas.dev
 ```
 
 ### Domain Whitelisting
@@ -776,7 +776,7 @@ All signing happens server-side. Private key never leaves Keycast's encrypted da
 ### Multi-Tenancy
 
 Keycast supports multiple deployments via domain-based tenancy:
-- `oauth.divine.video` = Divine Video tenant
+- `keycast.dcadenas.dev` = Divine Video tenant
 - `localhost` = Auto-provisioned dev tenant
 - Each tenant has isolated users/keys/policies
 
