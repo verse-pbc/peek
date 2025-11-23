@@ -203,7 +203,8 @@ export class RelayManager {
         // TODO: Implement pagination for large result sets
       };
 
-      const events = await this.pool.querySync([this.relayUrl], filter);
+      // Use authenticated relay query (kind 39002 requires AUTH for private groups)
+      const events = await this.queryEventsDirectly(filter);
       return events; // Return full events with member lists
     } catch (error) {
       console.error("[RelayManager] Error querying user groups:", error);
