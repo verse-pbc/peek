@@ -1,7 +1,7 @@
 /**
  * Keycast Remote Signer Service
  *
- * Provides integration with Keycast (keycast.dcadenas.dev) for secure Nostr identity
+ * Provides integration with Keycast (oauth.divine.video) for secure Nostr identity
  * management via NIP-46 bunker URLs.
  *
  * Uses a Hybrid Flow:
@@ -14,7 +14,7 @@ import { shouldUsePollingFlow } from '../lib/pwa-detection';
 import { nip19, getPublicKey } from 'nostr-tools';
 import { hexToBytes } from '../lib/hex';
 
-const KEYCAST_URL = import.meta.env.VITE_KEYCAST_URL || 'https://keycast.dcadenas.dev';
+const KEYCAST_URL = import.meta.env.VITE_KEYCAST_URL || 'https://oauth.divine.video';
 const CLIENT_ID = import.meta.env.VITE_KEYCAST_CLIENT_ID || 'peek-app';
 
 export interface KeycastTokenResponse {
