@@ -182,6 +182,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       let secretKeyBytes: Uint8Array | undefined;
       let publicKeyHex: string | undefined;
       let usingExtension = false;
+      let bunkerRelays: string[] | undefined;
+      let bunkerSecret: string | undefined;
 
       const STORAGE_KEY = "peek_nostr_identity";
 
@@ -233,8 +235,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
               publicKeyHex = authIdentity.publicKey;
 
               // Capture bunker details for later use in auth handler
-              const bunkerRelays = authIdentity.relays;
-              const bunkerSecret = authIdentity.secret;
+              bunkerRelays = authIdentity.relays;
+              bunkerSecret = authIdentity.secret;
 
               try {
                 // Import NIP-46 dependencies
