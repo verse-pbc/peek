@@ -160,12 +160,18 @@ async function connectWithKeycastPopup(
 
     // Wait for callback via postMessage
     const code = await new Promise<string>((resolve, reject) => {
+      const pollingState = { interval: undefined as ReturnType<typeof setInterval> | undefined };
+
+      const cleanup = () => {
+        window.removeEventListener('message', handler);
+        if (pollingState.interval) clearInterval(pollingState.interval);
+      };
+
       const handler = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return;
         if (event.data.type !== 'oauth_callback') return;
 
-        // Cleanup listener
-        window.removeEventListener('message', handler);
+        cleanup();
 
         // Handle error
         if (event.data.error) {
@@ -185,9 +191,17 @@ async function connectWithKeycastPopup(
 
       window.addEventListener('message', handler);
 
+      // Check if popup was closed manually by user
+      pollingState.interval = setInterval(() => {
+        if (popup.closed) {
+          cleanup();
+          reject(new KeycastError('Login cancelled by user'));
+        }
+      }, 1000);
+
       // Timeout after 5 minutes
       setTimeout(() => {
-        window.removeEventListener('message', handler);
+        cleanup();
         reject(new KeycastError('Authentication timeout'));
       }, 300000);
     });
