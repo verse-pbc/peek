@@ -1,7 +1,7 @@
 replicaCount: 1
 image:
   repository: ghcr.io/verse-pbc/peek-validation-service
-  tag: "0.1.20251123-0354-60352eb"
+  tag: "0.1.20251123-0357-13e158f"
   pullPolicy: Always
 service:
   type: ClusterIP
