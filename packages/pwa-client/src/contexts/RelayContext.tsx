@@ -182,6 +182,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
       let secretKeyBytes: Uint8Array | undefined;
       let publicKeyHex: string | undefined;
       let usingExtension = false;
+      let bunkerRelays: string[] | undefined;
+      let bunkerSecret: string | undefined;
 
       const STORAGE_KEY = "peek_nostr_identity";
 
@@ -231,6 +233,10 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
               // Bunker identity - create BunkerSigner for signing
               console.log("[RelayContext] Bunker identity detected, creating BunkerSigner...");
               publicKeyHex = authIdentity.publicKey;
+
+              // Capture bunker details for later use in auth handler
+              bunkerRelays = authIdentity.relays;
+              bunkerSecret = authIdentity.secret;
 
               try {
                 // Import NIP-46 dependencies
@@ -338,9 +344,24 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
           }
 
           console.log("[RelayContext] Calling bunkerSigner.signEvent...");
+          console.log("[RelayContext] Auth event to sign:", JSON.stringify(authEvent).substring(0, 200));
+          console.log("[RelayContext] Bunker relays being used:", bunkerRelays);
+          console.log("[RelayContext] Bunker secret present:", !!bunkerSecret);
 
           try {
-            const signedEvent = await bunkerSignerRef.current.signEvent(authEvent);
+            // Set a timeout to detect hanging
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => {
+                console.error("[RelayContext] ⏱️ Bunker signing TIMEOUT after 10s - Keycast not responding");
+                reject(new Error('Bunker signing timeout after 10s - Keycast authorization may need approval or server is down'));
+              }, 10000);
+            });
+
+            const signedEvent = await Promise.race([
+              bunkerSignerRef.current.signEvent(authEvent),
+              timeoutPromise
+            ]) as VerifiedEvent;
+
             console.log("[RelayContext] ✅ Bunker signed NIP-42 auth successfully");
 
             // Clear waiting state (in case it was set by onauth callback)
@@ -361,6 +382,12 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
             return signedEvent as VerifiedEvent;
           } catch (authError) {
             console.error("[RelayContext] ❌ Bunker signing failed:", authError);
+            console.error("[RelayContext] Auth error details:", {
+              errorType: authError?.constructor?.name,
+              message: authError?.message,
+              bunkerPubkey: publicKeyHex.substring(0, 16) + '...',
+              relays: bunkerRelays
+            });
             setWaitingForBunkerApproval(false);
             throw authError;
           }
@@ -375,11 +402,27 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
 
           console.log("[RelayContext] Calling bunkerSigner.signEvent...");
           try {
-            const signedEvent = await bunkerSignerRef.current.signEvent(event);
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => {
+                console.error("[RelayContext] ⏱️ Event signing TIMEOUT after 10s - Keycast not responding");
+                reject(new Error('Bunker event signing timeout after 10s'));
+              }, 10000);
+            });
+
+            const signedEvent = await Promise.race([
+              bunkerSignerRef.current.signEvent(event),
+              timeoutPromise
+            ]) as VerifiedEvent;
+
             console.log("[RelayContext] ✅ Bunker signed event successfully");
             return signedEvent as VerifiedEvent;
           } catch (signError) {
             console.error("[RelayContext] ❌ Bunker signing failed:", signError);
+            console.error("[RelayContext] Event signing error details:", {
+              errorType: signError?.constructor?.name,
+              message: signError?.message,
+              eventKind: event.kind
+            });
             throw signError;
           }
         });
