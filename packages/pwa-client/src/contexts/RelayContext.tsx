@@ -360,7 +360,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
             const signedEvent = await Promise.race([
               bunkerSignerRef.current.signEvent(authEvent),
               timeoutPromise
-            ]) as any;
+            ]) as VerifiedEvent;
 
             console.log("[RelayContext] ✅ Bunker signed NIP-42 auth successfully");
 
@@ -412,7 +412,7 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
             const signedEvent = await Promise.race([
               bunkerSignerRef.current.signEvent(event),
               timeoutPromise
-            ]) as any;
+            ]) as VerifiedEvent;
 
             console.log("[RelayContext] ✅ Bunker signed event successfully");
             return signedEvent as VerifiedEvent;
