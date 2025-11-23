@@ -232,6 +232,10 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
               console.log("[RelayContext] Bunker identity detected, creating BunkerSigner...");
               publicKeyHex = authIdentity.publicKey;
 
+              // Capture bunker details for later use in auth handler
+              const bunkerRelays = authIdentity.relays;
+              const bunkerSecret = authIdentity.secret;
+
               try {
                 // Import NIP-46 dependencies
                 const { BunkerSigner } = await import('nostr-tools/nip46');
@@ -339,8 +343,8 @@ export const RelayProvider: React.FC<RelayProviderProps> = ({ children }) => {
 
           console.log("[RelayContext] Calling bunkerSigner.signEvent...");
           console.log("[RelayContext] Auth event to sign:", JSON.stringify(authEvent).substring(0, 200));
-          console.log("[RelayContext] Bunker relays being used:", authIdentity.relays);
-          console.log("[RelayContext] Bunker secret present:", !!authIdentity.secret);
+          console.log("[RelayContext] Bunker relays being used:", bunkerRelays);
+          console.log("[RelayContext] Bunker secret present:", !!bunkerSecret);
 
           try {
             // Set a timeout to detect hanging
